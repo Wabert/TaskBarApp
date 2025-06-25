@@ -12,7 +12,7 @@ from utils import UIUtils
 class CustomDialog(tk.Toplevel):
     """Base class for custom dialogs with consistent styling"""
     
-    def __init__(self, parent, title, width=400, height=300, resizable=False):
+    def __init__(self, parent, title, width=400, height=300, resizable=False, x=None, y=None):
         super().__init__(parent)
         self.parent = parent
         self.result = None
@@ -35,8 +35,12 @@ class CustomDialog(tk.Toplevel):
         self.attributes('-topmost', True)
         self.lift()
         
-        # Center on screen
-        UIUtils.center_window(self, width, height)
+        if x is not None and y is not None:
+            # Use custom position
+            self.geometry(f"{width}x{height}+{x}+{y}")
+        else:
+            # Center on screen (existing behavior)
+            UIUtils.center_window(self, width, height)
         
         # Main content frame
         self.content_frame = tk.Frame(self, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=2)

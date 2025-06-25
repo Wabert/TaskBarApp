@@ -1,8 +1,8 @@
-# windows_menu.py (updated with left/right edge resizing)
+# windows_menu.py (modified)
 """
 Windows menu UI for SuiteView Taskbar
 Shows list of open windows with hide/pin functionality
-Now with left/right edge resizing capability
+Now excludes pinned windows from the list
 """
 
 import tkinter as tk
@@ -72,8 +72,6 @@ class WindowsMenu(tk.Toplevel):
             x = screen_width - default_width - 5  # 20px from right edge
             # Position above taskbar (assuming taskbar height of 40)
             y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
-            
-
             
             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
         
@@ -289,11 +287,12 @@ class WindowsMenu(tk.Toplevel):
             widget.destroy()
         self.window_items.clear()
         
-        # Get current windows
-        windows = self.window_manager.get_relevant_windows()
+        # Get current windows and filter out pinned ones
+        all_windows = self.window_manager.get_relevant_windows()
+        windows = [w for w in all_windows if not w.is_pinned]  # Exclude pinned windows
         
         if not windows:
-            label = tk.Label(self.scrollable_frame, text="No windows found", 
+            label = tk.Label(self.scrollable_frame, text="No unpinned windows found", 
                            bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
                            font=Fonts.MENU_ITEM)
             label.pack(pady=20)
@@ -310,6 +309,14 @@ class WindowsMenu(tk.Toplevel):
                              relief=tk.RAISED, bd=1)
         item_frame.pack(fill=tk.X, padx=5, pady=2)
         
+        # Pin button on the LEFT side
+        pin_btn = tk.Button(item_frame, text="Pin", 
+                           bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
+                           relief=tk.RAISED, bd=1, cursor='hand2',
+                           font=Fonts.MENU_ITEM, width=6,
+                           command=lambda: self.toggle_pin(window))
+        pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
+        
         # Window name label (clickable to toggle visibility)
         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
@@ -318,19 +325,10 @@ class WindowsMenu(tk.Toplevel):
                              bg=label_bg, fg=label_fg,
                              font=Fonts.MENU_ITEM, anchor='w',
                              cursor='hand2', padx=5, pady=3)
-        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Still LEFT but after pin button
         
         # Bind click to toggle visibility
         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
-        
-        # Pin/Unpin button
-        pin_text = "Unpin" if window.is_pinned else "Pin"
-        pin_btn = tk.Button(item_frame, text=pin_text, 
-                           bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
-                           relief=tk.RAISED, bd=1, cursor='hand2',
-                           font=Fonts.MENU_ITEM, width=6,
-                           command=lambda: self.toggle_pin(window))
-        pin_btn.pack(side=tk.RIGHT, padx=5, pady=2)
         
         # Store references for updating
         self.window_items[window.hwnd] = {
@@ -365,8 +363,9 @@ class WindowsMenu(tk.Toplevel):
         else:
             print("ERROR: on_pin_callback is None!")
         
-        # Update UI
-        self.update_window_item(window)
+        # Remove this window from the list since it's now pinned
+        if window.is_pinned:
+            self.refresh_window_list()
         
         # List all pinned windows
         pinned = self.window_manager.get_pinned_windows()
@@ -386,10 +385,6 @@ class WindowsMenu(tk.Toplevel):
         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
         item['label'].configure(bg=label_bg, fg=label_fg)
-        
-        # Update pin button text
-        pin_text = "Unpin" if window.is_pinned else "Pin"
-        item['pin_btn'].configure(text=pin_text)
     
     def get_current_geometry(self):
         """Get current window geometry string"""

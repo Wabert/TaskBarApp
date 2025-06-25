@@ -1,7 +1,8 @@
-# pinned_windows.py
+# pinned_windows.py (modified)
 """
 Pinned windows section for SuiteView Taskbar
 Manages the pinned window buttons in the taskbar
+Modified to blend seamlessly with taskbar
 """
 
 import tkinter as tk
@@ -63,11 +64,6 @@ class PinnedWindowButton(tk.Frame):
     
     def toggle_window(self):
         """Toggle window visibility"""
-        # if self.window.is_hidden:
-        #     self.window.bring_to_front()
-        # else:
-        #     self.window_manager.toggle_window_visibility(self.window)
-        
         self.window.bring_to_front()
         self.update_appearance()
     
@@ -94,11 +90,11 @@ class PinnedWindowButton(tk.Frame):
         return 'break'
 
 class PinnedWindowsSection(tk.Frame):
-    """Section in taskbar for pinned windows"""
+    """Section in taskbar for pinned windows - now blends with taskbar"""
     
     def __init__(self, parent, window_manager: WindowManager, on_pin_changed_callback=None):
-        super().__init__(parent, bg=Colors.PINNED_SECTION_BG, 
-                        relief=tk.SUNKEN, bd=2)
+        # Use same background as taskbar, no border
+        super().__init__(parent, bg=Colors.DARK_GREEN, relief=tk.FLAT, bd=0)
         self.window_manager = window_manager
         self.pinned_buttons = {}
         self.on_pin_changed_callback = on_pin_changed_callback
@@ -112,23 +108,15 @@ class PinnedWindowsSection(tk.Frame):
         self.configure(width=Settings.PINNED_SECTION_WIDTH, height=35)
         self.pack_propagate(False)  # Maintain fixed size
         
-        # Add a visible border to debug
-        self.configure(highlightbackground=Colors.MEDIUM_GREEN, highlightthickness=1)
+        # Remove any visible border
+        self.configure(highlightbackground=Colors.DARK_GREEN, highlightthickness=0)
         
-        # Create container for buttons with padding
-        self.button_container = tk.Frame(self, bg=Colors.PINNED_SECTION_BG)
+        # Create container for buttons with no special background
+        self.button_container = tk.Frame(self, bg=Colors.DARK_GREEN)
         self.button_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
         
-        # Create label for empty state
-        self.empty_label = tk.Label(self.button_container, text="[Pinned Windows]", 
-                                   bg=Colors.PINNED_SECTION_BG,
-                                   fg=Colors.LIGHT_GREEN,
-                                   font=(Fonts.TASKBAR_BUTTON[0], 
-                                        Fonts.TASKBAR_BUTTON[1] - 2, 'italic'))
+        # No empty state label - just leave it blank
         
-        # Start with empty state
-        self.show_empty_state()
-
         print(f"PinnedWindowsSection created successfully: {self}")
         print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
     
@@ -147,13 +135,7 @@ class PinnedWindowsSection(tk.Frame):
         pinned_windows = self.window_manager.get_pinned_windows()
         print(f"Found {len(pinned_windows)} pinned windows")
         
-        if not pinned_windows:
-            print("No pinned windows - showing empty state")
-            self.show_empty_state()
-        else:
-            print("Has pinned windows - hiding empty state")
-            self.hide_empty_state()
-            
+        if pinned_windows:
             # Create buttons for pinned windows
             for i, window in enumerate(pinned_windows):
                 print(f"{i}. Creating button for: {window.display_name} (hwnd: {window.hwnd})")
@@ -179,14 +161,6 @@ class PinnedWindowsSection(tk.Frame):
         print(f"Button container visible: {self.button_container.winfo_viewable()}")
         print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
         print("=== END REFRESH ===\n")
-    
-    def show_empty_state(self):
-        """Show empty state label"""
-        self.empty_label.pack(expand=True)
-        
-    def hide_empty_state(self):
-        """Hide empty state label"""
-        self.empty_label.pack_forget()
     
     def update_window_states(self):
         """Update appearance of all pinned window buttons"""

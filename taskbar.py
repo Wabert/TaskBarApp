@@ -358,6 +358,7 @@ class SuiteViewTaskbar:
                                     self.on_windows_pinned,
                                     self.windows_menu_geometry)
     
+
     def on_windows_pinned(self):
         """Callback when windows are pinned/unpinned"""
         print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
@@ -369,7 +370,7 @@ class SuiteViewTaskbar:
         else:
             print(f"ERROR: pinned_section is None!")
         
-        # Also refresh the Windows Manager if it's open
+        # Always refresh the Windows Manager if it's open to update the list
         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
             try:
                 if self.windows_menu.winfo_exists():

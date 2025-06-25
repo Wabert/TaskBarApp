@@ -5,7 +5,7 @@
 ================================================================================
 
 Export Information:
-    Generated on: 2025-06-25 13:23:26
+    Generated on: 2025-06-25 13:59:30
     Project Directory: C:\Users\rober\Documents\Code\TaskBarApp
     Export Tool: SuiteView Code Exporter v1.0
 
@@ -2665,215 +2665,189 @@ Type: Main application entry point
 FILE: pinned_windows.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: pinned_windows.py
-Size: 8.2 KB
-Lines: 203 total, 164 non-empty
-Characters: 8,234
+Size: 7.3 KB
+Lines: 177 total, 143 non-empty
+Characters: 7,291
 Type: .PY file
 ────────────────────────────────────────────────────────────────────────────────
 
-   1: # pinned_windows.py
+   1: # pinned_windows.py (modified)
    2: """
    3: Pinned windows section for SuiteView Taskbar
    4: Manages the pinned window buttons in the taskbar
-   5: """
-   6: 
-   7: import tkinter as tk
-   8: from config import Colors, Fonts, Settings
-   9: from window_manager import ManagedWindow, WindowManager
-  10: from ui_components import ConfirmationDialog
-  11: 
-  12: class PinnedWindowButton(tk.Frame):
-  13:     """Individual pinned window button"""
-  14:     
-  15:     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
-  16:                  on_unpin_callback):
-  17:         super().__init__(parent, bg=Colors.DARK_GREEN)
-  18:         self.window = window
-  19:         self.window_manager = window_manager
-  20:         self.on_unpin_callback = on_unpin_callback
-  21:         
-  22:         # Create button
-  23:         self.create_button()
-  24:         
-  25:         # Bind right-click for unpin
-  26:         self.button.bind("<Button-3>", self.show_unpin_menu)
-  27:     
-  28:     def create_button(self):
-  29:         """Create the toggle button"""
-  30:         print(f"\n=== CREATING PINNED BUTTON ===")
-  31:         print(f"Window: {self.window.display_name}")
-  32:         print(f"Parent: {self.master}")
-  33:         
-  34:         # Determine colors based on visibility
-  35:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-  36:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
-  37:         
-  38:         # Use app name with word wrapping instead of truncating
-  39:         display_text = self.window.app_name
-  40:         
-  41:         # Create smaller font for button text
-  42:         button_font = (Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1] - 2)
-  43:         
-  44:         self.button = tk.Button(self, text=display_text,
-  45:                                bg=bg_color, fg=fg_color,
-  46:                                relief=tk.RAISED, bd=2,
-  47:                                font=button_font,
-  48:                                width=6, height=2,  # More square: 6 chars wide, 2 lines high
-  49:                                cursor='hand2',
-  50:                                activebackground=Colors.HOVER_GREEN,
-  51:                                command=self.toggle_window,
-  52:                                wraplength=45,  # Enable word wrapping at ~45 pixels
-  53:                                justify=tk.CENTER)  # Center the wrapped text
-  54:         self.button.pack(padx=2, pady=2)
-  55:         
-  56:         # Force visibility
-  57:         self.button.update()
-  58:         
-  59:         print(f"Button created: {self.button}")
-  60:         print(f"Button visible: {self.button.winfo_viewable()}")
-  61:         print(f"Button geometry: {self.button.winfo_geometry()}")
-  62:         print(f"=== END CREATING PINNED BUTTON ===\n")
-  63:     
-  64:     def toggle_window(self):
-  65:         """Toggle window visibility"""
-  66:         # if self.window.is_hidden:
-  67:         #     self.window.bring_to_front()
-  68:         # else:
-  69:         #     self.window_manager.toggle_window_visibility(self.window)
-  70:         
-  71:         self.window.bring_to_front()
-  72:         self.update_appearance()
-  73:     
-  74:     def update_appearance(self):
-  75:         """Update button appearance based on window state"""
-  76:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-  77:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
-  78:         self.button.configure(bg=bg_color, fg=fg_color)
-  79:     
-  80:     def show_unpin_menu(self, event):
-  81:         """Show right-click menu for unpinning"""
-  82:         result = ConfirmationDialog.ask(
-  83:             self.winfo_toplevel(),
-  84:             "Unpin Window",
-  85:             f"Unpin '{self.window.app_name}' from taskbar?",
-  86:             icon="📌"
-  87:         )
-  88:         
-  89:         if result:
-  90:             self.window_manager.unpin_window(self.window)
-  91:             self.on_unpin_callback()
-  92:             
-  93:         # Prevent event from propagating to parent widgets (taskbar)
-  94:         return 'break'
-  95: 
-  96: class PinnedWindowsSection(tk.Frame):
-  97:     """Section in taskbar for pinned windows"""
-  98:     
-  99:     def __init__(self, parent, window_manager: WindowManager, on_pin_changed_callback=None):
- 100:         super().__init__(parent, bg=Colors.PINNED_SECTION_BG, 
- 101:                         relief=tk.SUNKEN, bd=2)
- 102:         self.window_manager = window_manager
- 103:         self.pinned_buttons = {}
- 104:         self.on_pin_changed_callback = on_pin_changed_callback
- 105:         
- 106:         # Debug output
- 107:         print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
- 108:         print(f"Parent: {parent}")
- 109:         print(f"Window manager: {window_manager}")
- 110: 
- 111:         # Set minimum and fixed size
- 112:         self.configure(width=Settings.PINNED_SECTION_WIDTH, height=35)
- 113:         self.pack_propagate(False)  # Maintain fixed size
- 114:         
- 115:         # Add a visible border to debug
- 116:         self.configure(highlightbackground=Colors.MEDIUM_GREEN, highlightthickness=1)
+   5: Modified to blend seamlessly with taskbar
+   6: """
+   7: 
+   8: import tkinter as tk
+   9: from config import Colors, Fonts, Settings
+  10: from window_manager import ManagedWindow, WindowManager
+  11: from ui_components import ConfirmationDialog
+  12: 
+  13: class PinnedWindowButton(tk.Frame):
+  14:     """Individual pinned window button"""
+  15:     
+  16:     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
+  17:                  on_unpin_callback):
+  18:         super().__init__(parent, bg=Colors.DARK_GREEN)
+  19:         self.window = window
+  20:         self.window_manager = window_manager
+  21:         self.on_unpin_callback = on_unpin_callback
+  22:         
+  23:         # Create button
+  24:         self.create_button()
+  25:         
+  26:         # Bind right-click for unpin
+  27:         self.button.bind("<Button-3>", self.show_unpin_menu)
+  28:     
+  29:     def create_button(self):
+  30:         """Create the toggle button"""
+  31:         print(f"\n=== CREATING PINNED BUTTON ===")
+  32:         print(f"Window: {self.window.display_name}")
+  33:         print(f"Parent: {self.master}")
+  34:         
+  35:         # Determine colors based on visibility
+  36:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
+  37:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
+  38:         
+  39:         # Use app name with word wrapping instead of truncating
+  40:         display_text = self.window.app_name
+  41:         
+  42:         # Create smaller font for button text
+  43:         button_font = (Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1] - 2)
+  44:         
+  45:         self.button = tk.Button(self, text=display_text,
+  46:                                bg=bg_color, fg=fg_color,
+  47:                                relief=tk.RAISED, bd=2,
+  48:                                font=button_font,
+  49:                                width=6, height=2,  # More square: 6 chars wide, 2 lines high
+  50:                                cursor='hand2',
+  51:                                activebackground=Colors.HOVER_GREEN,
+  52:                                command=self.toggle_window,
+  53:                                wraplength=45,  # Enable word wrapping at ~45 pixels
+  54:                                justify=tk.CENTER)  # Center the wrapped text
+  55:         self.button.pack(padx=2, pady=2)
+  56:         
+  57:         # Force visibility
+  58:         self.button.update()
+  59:         
+  60:         print(f"Button created: {self.button}")
+  61:         print(f"Button visible: {self.button.winfo_viewable()}")
+  62:         print(f"Button geometry: {self.button.winfo_geometry()}")
+  63:         print(f"=== END CREATING PINNED BUTTON ===\n")
+  64:     
+  65:     def toggle_window(self):
+  66:         """Toggle window visibility"""
+  67:         self.window.bring_to_front()
+  68:         self.update_appearance()
+  69:     
+  70:     def update_appearance(self):
+  71:         """Update button appearance based on window state"""
+  72:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
+  73:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
+  74:         self.button.configure(bg=bg_color, fg=fg_color)
+  75:     
+  76:     def show_unpin_menu(self, event):
+  77:         """Show right-click menu for unpinning"""
+  78:         result = ConfirmationDialog.ask(
+  79:             self.winfo_toplevel(),
+  80:             "Unpin Window",
+  81:             f"Unpin '{self.window.app_name}' from taskbar?",
+  82:             icon="📌"
+  83:         )
+  84:         
+  85:         if result:
+  86:             self.window_manager.unpin_window(self.window)
+  87:             self.on_unpin_callback()
+  88:             
+  89:         # Prevent event from propagating to parent widgets (taskbar)
+  90:         return 'break'
+  91: 
+  92: class PinnedWindowsSection(tk.Frame):
+  93:     """Section in taskbar for pinned windows - now blends with taskbar"""
+  94:     
+  95:     def __init__(self, parent, window_manager: WindowManager, on_pin_changed_callback=None):
+  96:         # Use same background as taskbar, no border
+  97:         super().__init__(parent, bg=Colors.DARK_GREEN, relief=tk.FLAT, bd=0)
+  98:         self.window_manager = window_manager
+  99:         self.pinned_buttons = {}
+ 100:         self.on_pin_changed_callback = on_pin_changed_callback
+ 101:         
+ 102:         # Debug output
+ 103:         print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
+ 104:         print(f"Parent: {parent}")
+ 105:         print(f"Window manager: {window_manager}")
+ 106: 
+ 107:         # Set minimum and fixed size
+ 108:         self.configure(width=Settings.PINNED_SECTION_WIDTH, height=35)
+ 109:         self.pack_propagate(False)  # Maintain fixed size
+ 110:         
+ 111:         # Remove any visible border
+ 112:         self.configure(highlightbackground=Colors.DARK_GREEN, highlightthickness=0)
+ 113:         
+ 114:         # Create container for buttons with no special background
+ 115:         self.button_container = tk.Frame(self, bg=Colors.DARK_GREEN)
+ 116:         self.button_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
  117:         
- 118:         # Create container for buttons with padding
- 119:         self.button_container = tk.Frame(self, bg=Colors.PINNED_SECTION_BG)
- 120:         self.button_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
- 121:         
- 122:         # Create label for empty state
- 123:         self.empty_label = tk.Label(self.button_container, text="[Pinned Windows]", 
- 124:                                    bg=Colors.PINNED_SECTION_BG,
- 125:                                    fg=Colors.LIGHT_GREEN,
- 126:                                    font=(Fonts.TASKBAR_BUTTON[0], 
- 127:                                         Fonts.TASKBAR_BUTTON[1] - 2, 'italic'))
- 128:         
- 129:         # Start with empty state
- 130:         self.show_empty_state()
- 131: 
- 132:         print(f"PinnedWindowsSection created successfully: {self}")
- 133:         print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
- 134:     
- 135:     def refresh(self):
- 136:         """Refresh the pinned windows display"""
- 137:         print(f"\n=== PINNED SECTION REFRESH ===")
- 138:         print(f"Current button count: {len(self.pinned_buttons)}")
- 139:         
- 140:         # Clear existing buttons
- 141:         for hwnd in list(self.pinned_buttons.keys()):
- 142:             print(f"Destroying old button for hwnd: {hwnd}")
- 143:             self.pinned_buttons[hwnd].destroy()
- 144:             del self.pinned_buttons[hwnd]
- 145:         
- 146:         # Get pinned windows
- 147:         pinned_windows = self.window_manager.get_pinned_windows()
- 148:         print(f"Found {len(pinned_windows)} pinned windows")
- 149:         
- 150:         if not pinned_windows:
- 151:             print("No pinned windows - showing empty state")
- 152:             self.show_empty_state()
- 153:         else:
- 154:             print("Has pinned windows - hiding empty state")
- 155:             self.hide_empty_state()
- 156:             
- 157:             # Create buttons for pinned windows
- 158:             for i, window in enumerate(pinned_windows):
- 159:                 print(f"{i}. Creating button for: {window.display_name} (hwnd: {window.hwnd})")
- 160:                 if window.is_valid():
- 161:                     button = PinnedWindowButton(
- 162:                         self.button_container, 
- 163:                         window, 
- 164:                         self.window_manager,
- 165:                         self.on_pin_changed
- 166:                     )
- 167:                     button.pack(side=tk.LEFT, padx=2)
- 168:                     self.pinned_buttons[window.hwnd] = button
- 169:                     print(f"   Button created and packed")
- 170:                     
- 171:                     # Force update to ensure visibility
- 172:                     button.update()
- 173:                     self.button_container.update()
- 174:                 else:
- 175:                     print(f"   Window is not valid!")
- 176:         
- 177:         # Force the section to update
- 178:         self.update_idletasks()
- 179:         print(f"Button container visible: {self.button_container.winfo_viewable()}")
- 180:         print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
- 181:         print("=== END REFRESH ===\n")
- 182:     
- 183:     def show_empty_state(self):
- 184:         """Show empty state label"""
- 185:         self.empty_label.pack(expand=True)
- 186:         
- 187:     def hide_empty_state(self):
- 188:         """Hide empty state label"""
- 189:         self.empty_label.pack_forget()
- 190:     
- 191:     def update_window_states(self):
- 192:         """Update appearance of all pinned window buttons"""
- 193:         for button in self.pinned_buttons.values():
- 194:             button.update_appearance()
- 195:     
- 196:     def on_pin_changed(self):
- 197:         """Called when a window is pinned/unpinned from the button"""
- 198:         # Refresh the pinned section
- 199:         self.refresh()
- 200:         
- 201:         # Also call the taskbar callback if it exists
- 202:         if self.on_pin_changed_callback:
- 203:             self.on_pin_changed_callback()
+ 118:         # No empty state label - just leave it blank
+ 119:         
+ 120:         print(f"PinnedWindowsSection created successfully: {self}")
+ 121:         print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
+ 122:     
+ 123:     def refresh(self):
+ 124:         """Refresh the pinned windows display"""
+ 125:         print(f"\n=== PINNED SECTION REFRESH ===")
+ 126:         print(f"Current button count: {len(self.pinned_buttons)}")
+ 127:         
+ 128:         # Clear existing buttons
+ 129:         for hwnd in list(self.pinned_buttons.keys()):
+ 130:             print(f"Destroying old button for hwnd: {hwnd}")
+ 131:             self.pinned_buttons[hwnd].destroy()
+ 132:             del self.pinned_buttons[hwnd]
+ 133:         
+ 134:         # Get pinned windows
+ 135:         pinned_windows = self.window_manager.get_pinned_windows()
+ 136:         print(f"Found {len(pinned_windows)} pinned windows")
+ 137:         
+ 138:         if pinned_windows:
+ 139:             # Create buttons for pinned windows
+ 140:             for i, window in enumerate(pinned_windows):
+ 141:                 print(f"{i}. Creating button for: {window.display_name} (hwnd: {window.hwnd})")
+ 142:                 if window.is_valid():
+ 143:                     button = PinnedWindowButton(
+ 144:                         self.button_container, 
+ 145:                         window, 
+ 146:                         self.window_manager,
+ 147:                         self.on_pin_changed
+ 148:                     )
+ 149:                     button.pack(side=tk.LEFT, padx=2)
+ 150:                     self.pinned_buttons[window.hwnd] = button
+ 151:                     print(f"   Button created and packed")
+ 152:                     
+ 153:                     # Force update to ensure visibility
+ 154:                     button.update()
+ 155:                     self.button_container.update()
+ 156:                 else:
+ 157:                     print(f"   Window is not valid!")
+ 158:         
+ 159:         # Force the section to update
+ 160:         self.update_idletasks()
+ 161:         print(f"Button container visible: {self.button_container.winfo_viewable()}")
+ 162:         print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
+ 163:         print("=== END REFRESH ===\n")
+ 164:     
+ 165:     def update_window_states(self):
+ 166:         """Update appearance of all pinned window buttons"""
+ 167:         for button in self.pinned_buttons.values():
+ 168:             button.update_appearance()
+ 169:     
+ 170:     def on_pin_changed(self):
+ 171:         """Called when a window is pinned/unpinned from the button"""
+ 172:         # Refresh the pinned section
+ 173:         self.refresh()
+ 174:         
+ 175:         # Also call the taskbar callback if it exists
+ 176:         if self.on_pin_changed_callback:
+ 177:             self.on_pin_changed_callback()
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: quick_links.py
@@ -4230,9 +4204,9 @@ Type: .PY file
 FILE: taskbar.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: taskbar.py
-Size: 16.0 KB
-Lines: 397 total, 317 non-empty
-Characters: 16,038
+Size: 16.1 KB
+Lines: 398 total, 317 non-empty
+Characters: 16,060
 Type: Core taskbar functionality and UI
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -4596,51 +4570,52 @@ Type: Core taskbar functionality and UI
  358:                                     self.on_windows_pinned,
  359:                                     self.windows_menu_geometry)
  360:     
- 361:     def on_windows_pinned(self):
- 362:         """Callback when windows are pinned/unpinned"""
- 363:         print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
- 364:         print(f"Pinned section: {self.pinned_section}")
- 365:         
- 366:         if self.pinned_section:
- 367:             print(f"Refreshing pinned section...")
- 368:             self.pinned_section.refresh()
- 369:         else:
- 370:             print(f"ERROR: pinned_section is None!")
- 371:         
- 372:         # Also refresh the Windows Manager if it's open
- 373:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 374:             try:
- 375:                 if self.windows_menu.winfo_exists():
- 376:                     print(f"Refreshing Windows Manager...")
- 377:                     self.windows_menu.refresh_window_list()
- 378:                 else:
- 379:                     print(f"Windows Manager exists but window is destroyed")
- 380:             except Exception as e:
- 381:                 print(f"Error refreshing Windows Manager: {e}")
- 382:                 self.windows_menu = None
- 383:         else:
- 384:             print(f"Windows Manager is not open")
- 385:             
- 386:         print(f"=== END ON_WINDOWS_PINNED ===\n")
- 387: 
- 388:     def verify_setup(self):
- 389:         """Verify all components are properly initialized"""
- 390:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
- 391:         print(f"Window manager: {self.window_manager}")
- 392:         print(f"Pinned section: {self.pinned_section}")
- 393:         print(f"Pinned section type: {type(self.pinned_section)}")
- 394:         if self.pinned_section:
- 395:             print(f"Pinned section parent: {self.pinned_section.master}")
- 396:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
- 397:         print(f"=== END VERIFICATION ===\n")
+ 361: 
+ 362:     def on_windows_pinned(self):
+ 363:         """Callback when windows are pinned/unpinned"""
+ 364:         print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
+ 365:         print(f"Pinned section: {self.pinned_section}")
+ 366:         
+ 367:         if self.pinned_section:
+ 368:             print(f"Refreshing pinned section...")
+ 369:             self.pinned_section.refresh()
+ 370:         else:
+ 371:             print(f"ERROR: pinned_section is None!")
+ 372:         
+ 373:         # Always refresh the Windows Manager if it's open to update the list
+ 374:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 375:             try:
+ 376:                 if self.windows_menu.winfo_exists():
+ 377:                     print(f"Refreshing Windows Manager...")
+ 378:                     self.windows_menu.refresh_window_list()
+ 379:                 else:
+ 380:                     print(f"Windows Manager exists but window is destroyed")
+ 381:             except Exception as e:
+ 382:                 print(f"Error refreshing Windows Manager: {e}")
+ 383:                 self.windows_menu = None
+ 384:         else:
+ 385:             print(f"Windows Manager is not open")
+ 386:             
+ 387:         print(f"=== END ON_WINDOWS_PINNED ===\n")
+ 388: 
+ 389:     def verify_setup(self):
+ 390:         """Verify all components are properly initialized"""
+ 391:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
+ 392:         print(f"Window manager: {self.window_manager}")
+ 393:         print(f"Pinned section: {self.pinned_section}")
+ 394:         print(f"Pinned section type: {type(self.pinned_section)}")
+ 395:         if self.pinned_section:
+ 396:             print(f"Pinned section parent: {self.pinned_section.master}")
+ 397:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
+ 398:         print(f"=== END VERIFICATION ===\n")
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: ui_components.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: ui_components.py
-Size: 28.5 KB
-Lines: 741 total, 611 non-empty
-Characters: 29,151
+Size: 28.7 KB
+Lines: 745 total, 615 non-empty
+Characters: 29,342
 Type: Reusable UI components and dialogs
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -4658,7 +4633,7 @@ Type: Reusable UI components and dialogs
   12: class CustomDialog(tk.Toplevel):
   13:     """Base class for custom dialogs with consistent styling"""
   14:     
-  15:     def __init__(self, parent, title, width=400, height=300, resizable=False):
+  15:     def __init__(self, parent, title, width=400, height=300, resizable=False, x=None, y=None):
   16:         super().__init__(parent)
   17:         self.parent = parent
   18:         self.result = None
@@ -4681,710 +4656,714 @@ Type: Reusable UI components and dialogs
   35:         self.attributes('-topmost', True)
   36:         self.lift()
   37:         
-  38:         # Center on screen
-  39:         UIUtils.center_window(self, width, height)
-  40:         
-  41:         # Main content frame
-  42:         self.content_frame = tk.Frame(self, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=2)
-  43:         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+  38:         if x is not None and y is not None:
+  39:             # Use custom position
+  40:             self.geometry(f"{width}x{height}+{x}+{y}")
+  41:         else:
+  42:             # Center on screen (existing behavior)
+  43:             UIUtils.center_window(self, width, height)
   44:         
-  45:         # Create custom title bar
-  46:         self.create_title_bar(title)
-  47:         
-  48:         # Container for dialog content
-  49:         self.dialog_content = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-  50:         self.dialog_content.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+  45:         # Main content frame
+  46:         self.content_frame = tk.Frame(self, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=2)
+  47:         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+  48:         
+  49:         # Create custom title bar
+  50:         self.create_title_bar(title)
   51:         
-  52:         # Button frame at bottom
-  53:         self.button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, height=50)
-  54:         self.button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
-  55:         self.button_frame.pack_propagate(False)
-  56:         
-  57:         # Make modal and ensure it stays on top
-  58:         self.grab_set()
-  59:         self.focus_force()
+  52:         # Container for dialog content
+  53:         self.dialog_content = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+  54:         self.dialog_content.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+  55:         
+  56:         # Button frame at bottom
+  57:         self.button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, height=50)
+  58:         self.button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+  59:         self.button_frame.pack_propagate(False)
   60:         
-  61:         # Schedule periodic topmost updates to ensure dialog stays visible
-  62:         self.after(100, self._maintain_topmost)
-  63:         
-  64:         # Pause parent's topmost maintenance if it exists
-  65:         if hasattr(parent, 'pause_topmost_maintenance'):
-  66:             parent.pause_topmost_maintenance()
+  61:         # Make modal and ensure it stays on top
+  62:         self.grab_set()
+  63:         self.focus_force()
+  64:         
+  65:         # Schedule periodic topmost updates to ensure dialog stays visible
+  66:         self.after(100, self._maintain_topmost)
   67:         
-  68:         # Resume parent's topmost when this dialog is destroyed
-  69:         self.protocol("WM_DELETE_WINDOW", self._on_closing)
-  70:     
-  71:     def create_title_bar(self, title):
-  72:         """Create custom title bar with drag functionality"""
-  73:         self.title_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=25)
-  74:         self.title_frame.pack(fill=tk.X)
-  75:         self.title_frame.pack_propagate(False)
-  76:         
-  77:         # Drag handle (left side)
-  78:         drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-  79:                              font=('Arial', 8), cursor='fleur')
-  80:         drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
-  81:         
-  82:         # Title label
-  83:         title_label = tk.Label(self.title_frame, text=f"📋 {title}", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-  84:                               font=Fonts.DIALOG_TITLE, cursor='fleur')
-  85:         title_label.pack(side=tk.LEFT, padx=5, pady=3)
-  86:         
-  87:         # Close button
-  88:         close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-  89:                            font=('Arial', 12, 'bold'), cursor='hand2')
-  90:         close_btn.pack(side=tk.RIGHT, padx=5)
-  91:         close_btn.bind("<Button-1>", lambda e: self.cancel())
-  92:         
-  93:         # Bind drag events to title bar elements
-  94:         for widget in [self.title_frame, drag_handle, title_label]:
-  95:             widget.bind("<Button-1>", self.start_drag)
-  96:             widget.bind("<B1-Motion>", self.do_drag)
-  97:             widget.bind("<ButtonRelease-1>", self.end_drag)
-  98:             widget.bind("<Enter>", lambda e: self.configure(cursor='fleur'))
-  99:             widget.bind("<Leave>", lambda e: self.configure(cursor=''))
- 100:         
- 101:         return self.title_frame
- 102:     
- 103:     def add_button(self, text, command, style='primary'):
- 104:         """Add a button to the button frame"""
- 105:         if style == 'primary':
- 106:             bg_color = Colors.DARK_GREEN
- 107:         elif style == 'secondary':
- 108:             bg_color = Colors.MEDIUM_GREEN
- 109:         else:
- 110:             bg_color = Colors.INACTIVE_GRAY
- 111:         
- 112:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
- 113:         button_container.pack(expand=True)
- 114:         
- 115:         btn = tk.Button(button_container, text=text, bg=bg_color, fg=Colors.WHITE,
- 116:                        command=command, width=Dimensions.DIALOG_BUTTON_WIDTH, 
- 117:                        font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 118:         btn.pack(side=tk.LEFT, padx=5)
- 119:         
- 120:         return btn
- 121:     
- 122:     def cancel(self):
- 123:         """Cancel the dialog"""
- 124:         self.result = None
- 125:         self.destroy()
- 126:     
- 127:     def ok(self):
- 128:         """OK button handler - override in subclasses"""
- 129:         self.result = True
- 130:         self.destroy()
- 131:     
- 132:     def start_drag(self, event):
- 133:         """Start dragging the dialog"""
- 134:         self.is_dragging = True
- 135:         self.drag_start_x = event.x_root
- 136:         self.drag_start_y = event.y_root
- 137:         
- 138:         # Visual feedback
- 139:         self.title_frame.configure(bg=Colors.HOVER_GREEN)
- 140:         self.configure(cursor='fleur')
- 141:     
- 142:     def do_drag(self, event):
- 143:         """Handle drag motion"""
- 144:         if not self.is_dragging:
- 145:             return
- 146:         
- 147:         # Calculate the distance moved
- 148:         delta_x = event.x_root - self.drag_start_x
- 149:         delta_y = event.y_root - self.drag_start_y
+  68:         # Pause parent's topmost maintenance if it exists
+  69:         if hasattr(parent, 'pause_topmost_maintenance'):
+  70:             parent.pause_topmost_maintenance()
+  71:         
+  72:         # Resume parent's topmost when this dialog is destroyed
+  73:         self.protocol("WM_DELETE_WINDOW", self._on_closing)
+  74:     
+  75:     def create_title_bar(self, title):
+  76:         """Create custom title bar with drag functionality"""
+  77:         self.title_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=25)
+  78:         self.title_frame.pack(fill=tk.X)
+  79:         self.title_frame.pack_propagate(False)
+  80:         
+  81:         # Drag handle (left side)
+  82:         drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  83:                              font=('Arial', 8), cursor='fleur')
+  84:         drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
+  85:         
+  86:         # Title label
+  87:         title_label = tk.Label(self.title_frame, text=f"📋 {title}", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  88:                               font=Fonts.DIALOG_TITLE, cursor='fleur')
+  89:         title_label.pack(side=tk.LEFT, padx=5, pady=3)
+  90:         
+  91:         # Close button
+  92:         close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  93:                            font=('Arial', 12, 'bold'), cursor='hand2')
+  94:         close_btn.pack(side=tk.RIGHT, padx=5)
+  95:         close_btn.bind("<Button-1>", lambda e: self.cancel())
+  96:         
+  97:         # Bind drag events to title bar elements
+  98:         for widget in [self.title_frame, drag_handle, title_label]:
+  99:             widget.bind("<Button-1>", self.start_drag)
+ 100:             widget.bind("<B1-Motion>", self.do_drag)
+ 101:             widget.bind("<ButtonRelease-1>", self.end_drag)
+ 102:             widget.bind("<Enter>", lambda e: self.configure(cursor='fleur'))
+ 103:             widget.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 104:         
+ 105:         return self.title_frame
+ 106:     
+ 107:     def add_button(self, text, command, style='primary'):
+ 108:         """Add a button to the button frame"""
+ 109:         if style == 'primary':
+ 110:             bg_color = Colors.DARK_GREEN
+ 111:         elif style == 'secondary':
+ 112:             bg_color = Colors.MEDIUM_GREEN
+ 113:         else:
+ 114:             bg_color = Colors.INACTIVE_GRAY
+ 115:         
+ 116:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
+ 117:         button_container.pack(expand=True)
+ 118:         
+ 119:         btn = tk.Button(button_container, text=text, bg=bg_color, fg=Colors.WHITE,
+ 120:                        command=command, width=Dimensions.DIALOG_BUTTON_WIDTH, 
+ 121:                        font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 122:         btn.pack(side=tk.LEFT, padx=5)
+ 123:         
+ 124:         return btn
+ 125:     
+ 126:     def cancel(self):
+ 127:         """Cancel the dialog"""
+ 128:         self.result = None
+ 129:         self.destroy()
+ 130:     
+ 131:     def ok(self):
+ 132:         """OK button handler - override in subclasses"""
+ 133:         self.result = True
+ 134:         self.destroy()
+ 135:     
+ 136:     def start_drag(self, event):
+ 137:         """Start dragging the dialog"""
+ 138:         self.is_dragging = True
+ 139:         self.drag_start_x = event.x_root
+ 140:         self.drag_start_y = event.y_root
+ 141:         
+ 142:         # Visual feedback
+ 143:         self.title_frame.configure(bg=Colors.HOVER_GREEN)
+ 144:         self.configure(cursor='fleur')
+ 145:     
+ 146:     def do_drag(self, event):
+ 147:         """Handle drag motion"""
+ 148:         if not self.is_dragging:
+ 149:             return
  150:         
- 151:         # Get current position
- 152:         current_x = self.winfo_x()
- 153:         current_y = self.winfo_y()
+ 151:         # Calculate the distance moved
+ 152:         delta_x = event.x_root - self.drag_start_x
+ 153:         delta_y = event.y_root - self.drag_start_y
  154:         
- 155:         # Calculate new position
- 156:         new_x = current_x + delta_x
- 157:         new_y = current_y + delta_y
+ 155:         # Get current position
+ 156:         current_x = self.winfo_x()
+ 157:         current_y = self.winfo_y()
  158:         
- 159:         # Keep dialog on screen (basic bounds checking)
- 160:         screen_width = self.winfo_screenwidth()
- 161:         screen_height = self.winfo_screenheight()
- 162:         dialog_width = self.winfo_width()
- 163:         dialog_height = self.winfo_height()
- 164:         
- 165:         # Ensure dialog stays on screen
- 166:         new_x = max(0, min(new_x, screen_width - dialog_width))
- 167:         new_y = max(0, min(new_y, screen_height - dialog_height))
+ 159:         # Calculate new position
+ 160:         new_x = current_x + delta_x
+ 161:         new_y = current_y + delta_y
+ 162:         
+ 163:         # Keep dialog on screen (basic bounds checking)
+ 164:         screen_width = self.winfo_screenwidth()
+ 165:         screen_height = self.winfo_screenheight()
+ 166:         dialog_width = self.winfo_width()
+ 167:         dialog_height = self.winfo_height()
  168:         
- 169:         # Move the dialog
- 170:         self.geometry(f"+{new_x}+{new_y}")
- 171:         
- 172:         # Update start position for next move
- 173:         self.drag_start_x = event.x_root
- 174:         self.drag_start_y = event.y_root
- 175:     
- 176:     def end_drag(self, event):
- 177:         """End dragging operation"""
- 178:         self.is_dragging = False
- 179:         self.configure(cursor='')
- 180:         
- 181:         # Remove visual feedback
- 182:         self.title_frame.configure(bg=Colors.DARK_GREEN)
- 183:     
- 184:     def pause_topmost_maintenance(self):
- 185:         """Pause the topmost maintenance for this dialog"""
- 186:         self.maintain_topmost_active = False
+ 169:         # Ensure dialog stays on screen
+ 170:         new_x = max(0, min(new_x, screen_width - dialog_width))
+ 171:         new_y = max(0, min(new_y, screen_height - dialog_height))
+ 172:         
+ 173:         # Move the dialog
+ 174:         self.geometry(f"+{new_x}+{new_y}")
+ 175:         
+ 176:         # Update start position for next move
+ 177:         self.drag_start_x = event.x_root
+ 178:         self.drag_start_y = event.y_root
+ 179:     
+ 180:     def end_drag(self, event):
+ 181:         """End dragging operation"""
+ 182:         self.is_dragging = False
+ 183:         self.configure(cursor='')
+ 184:         
+ 185:         # Remove visual feedback
+ 186:         self.title_frame.configure(bg=Colors.DARK_GREEN)
  187:     
- 188:     def resume_topmost_maintenance(self):
- 189:         """Resume the topmost maintenance for this dialog"""
- 190:         self.maintain_topmost_active = True
+ 188:     def pause_topmost_maintenance(self):
+ 189:         """Pause the topmost maintenance for this dialog"""
+ 190:         self.maintain_topmost_active = False
  191:     
- 192:     def _maintain_topmost(self):
- 193:         """Periodically ensure dialog stays on top"""
- 194:         try:
- 195:             if self.winfo_exists() and self.maintain_topmost_active:
- 196:                 # Only maintain topmost if no combobox is active to avoid stealing focus
- 197:                 focused_widget = self.focus_get()
- 198:                 if not (focused_widget and isinstance(focused_widget, ttk.Combobox)):
- 199:                     # Check if any combobox in the dialog has focus or is showing dropdown
- 200:                     combobox_active = self._has_active_combobox()
- 201:                     if not combobox_active:
- 202:                         self.lift()
- 203:                         self.attributes('-topmost', True)
- 204:                 self.after(500, self._maintain_topmost)  # Check every 500ms
- 205:             elif self.winfo_exists():
- 206:                 # Still schedule next check even if paused
- 207:                 self.after(500, self._maintain_topmost)
- 208:         except:
- 209:             pass  # Dialog has been destroyed
- 210:     
- 211:     def _has_active_combobox(self):
- 212:         """Check if any combobox in the dialog is currently active (dropdown showing)"""
- 213:         try:
- 214:             # Recursively check all widgets to find active comboboxes
- 215:             return self._check_widget_for_active_combobox(self)
- 216:         except:
- 217:             return False
- 218:     
- 219:     def _check_widget_for_active_combobox(self, widget):
- 220:         """Recursively check widget and its children for active comboboxes"""
- 221:         try:
- 222:             # Check if current widget is an active combobox
- 223:             if isinstance(widget, ttk.Combobox):
- 224:                 # Check if combobox has focus or its dropdown is showing
- 225:                 if widget.focus_get() == widget:
- 226:                     return True
- 227:                 # Additional check: see if the combobox state indicates dropdown is open
- 228:                 try:
- 229:                     if 'pressed' in str(widget.state()) or 'active' in str(widget.state()):
- 230:                         return True
- 231:                 except:
- 232:                     pass
- 233:             
- 234:             # Check all child widgets
- 235:             for child in widget.winfo_children():
- 236:                 if self._check_widget_for_active_combobox(child):
- 237:                     return True
- 238:             
- 239:             return False
- 240:         except:
- 241:             return False
- 242:     
- 243:     def _on_closing(self):
- 244:         """Handle dialog closing"""
- 245:         # Resume parent's topmost maintenance
- 246:         if hasattr(self.parent, 'resume_topmost_maintenance'):
- 247:             self.parent.resume_topmost_maintenance()
- 248:         self.destroy()
- 249:     
- 250:     def destroy(self):
- 251:         """Override destroy to clean up properly"""
- 252:         # Resume parent's topmost maintenance
- 253:         if hasattr(self.parent, 'resume_topmost_maintenance'):
- 254:             self.parent.resume_topmost_maintenance()
- 255:         super().destroy()
- 256: 
- 257: class ConfirmationDialog(CustomDialog):
- 258:     """Confirmation dialog with Yes/No buttons"""
- 259:     
- 260:     def __init__(self, parent, title, message, icon="⚠️"):
- 261:         super().__init__(parent, title, width=350, height=200)
- 262:         
- 263:         # Icon and message
- 264:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
- 265:                              fg=Colors.BLACK, font=Fonts.WARNING_ICON)
- 266:         icon_label.pack(pady=10)
- 267:         
- 268:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
- 269:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=300)
- 270:         message_label.pack(pady=5)
+ 192:     def resume_topmost_maintenance(self):
+ 193:         """Resume the topmost maintenance for this dialog"""
+ 194:         self.maintain_topmost_active = True
+ 195:     
+ 196:     def _maintain_topmost(self):
+ 197:         """Periodically ensure dialog stays on top"""
+ 198:         try:
+ 199:             if self.winfo_exists() and self.maintain_topmost_active:
+ 200:                 # Only maintain topmost if no combobox is active to avoid stealing focus
+ 201:                 focused_widget = self.focus_get()
+ 202:                 if not (focused_widget and isinstance(focused_widget, ttk.Combobox)):
+ 203:                     # Check if any combobox in the dialog has focus or is showing dropdown
+ 204:                     combobox_active = self._has_active_combobox()
+ 205:                     if not combobox_active:
+ 206:                         self.lift()
+ 207:                         self.attributes('-topmost', True)
+ 208:                 self.after(500, self._maintain_topmost)  # Check every 500ms
+ 209:             elif self.winfo_exists():
+ 210:                 # Still schedule next check even if paused
+ 211:                 self.after(500, self._maintain_topmost)
+ 212:         except:
+ 213:             pass  # Dialog has been destroyed
+ 214:     
+ 215:     def _has_active_combobox(self):
+ 216:         """Check if any combobox in the dialog is currently active (dropdown showing)"""
+ 217:         try:
+ 218:             # Recursively check all widgets to find active comboboxes
+ 219:             return self._check_widget_for_active_combobox(self)
+ 220:         except:
+ 221:             return False
+ 222:     
+ 223:     def _check_widget_for_active_combobox(self, widget):
+ 224:         """Recursively check widget and its children for active comboboxes"""
+ 225:         try:
+ 226:             # Check if current widget is an active combobox
+ 227:             if isinstance(widget, ttk.Combobox):
+ 228:                 # Check if combobox has focus or its dropdown is showing
+ 229:                 if widget.focus_get() == widget:
+ 230:                     return True
+ 231:                 # Additional check: see if the combobox state indicates dropdown is open
+ 232:                 try:
+ 233:                     if 'pressed' in str(widget.state()) or 'active' in str(widget.state()):
+ 234:                         return True
+ 235:                 except:
+ 236:                     pass
+ 237:             
+ 238:             # Check all child widgets
+ 239:             for child in widget.winfo_children():
+ 240:                 if self._check_widget_for_active_combobox(child):
+ 241:                     return True
+ 242:             
+ 243:             return False
+ 244:         except:
+ 245:             return False
+ 246:     
+ 247:     def _on_closing(self):
+ 248:         """Handle dialog closing"""
+ 249:         # Resume parent's topmost maintenance
+ 250:         if hasattr(self.parent, 'resume_topmost_maintenance'):
+ 251:             self.parent.resume_topmost_maintenance()
+ 252:         self.destroy()
+ 253:     
+ 254:     def destroy(self):
+ 255:         """Override destroy to clean up properly"""
+ 256:         # Resume parent's topmost maintenance
+ 257:         if hasattr(self.parent, 'resume_topmost_maintenance'):
+ 258:             self.parent.resume_topmost_maintenance()
+ 259:         super().destroy()
+ 260: 
+ 261: class ConfirmationDialog(CustomDialog):
+ 262:     """Confirmation dialog with Yes/No buttons"""
+ 263:     
+ 264:     def __init__(self, parent, title, message, icon="⚠️"):
+ 265:         super().__init__(parent, title, width=350, height=200)
+ 266:         
+ 267:         # Icon and message
+ 268:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
+ 269:                              fg=Colors.BLACK, font=Fonts.WARNING_ICON)
+ 270:         icon_label.pack(pady=10)
  271:         
- 272:         # Buttons
- 273:         self.add_buttons()
- 274:         
- 275:         # Bind keys
- 276:         self.bind('<Return>', lambda e: self.yes())
- 277:         self.bind('<Escape>', lambda e: self.no())
- 278:     
- 279:     def add_buttons(self):
- 280:         """Add Yes/No buttons"""
- 281:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
- 282:         button_container.pack(expand=True)
- 283:         
- 284:         yes_btn = tk.Button(button_container, text="Yes", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 285:                            command=self.yes, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 286:                            font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 287:         yes_btn.pack(side=tk.LEFT, padx=10)
- 288:         
- 289:         no_btn = tk.Button(button_container, text="No", bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
- 290:                           command=self.no, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 291:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 292:         no_btn.pack(side=tk.LEFT, padx=10)
- 293:         
- 294:         # Focus on No button (safer default)
- 295:         no_btn.focus_set()
- 296:     
- 297:     def yes(self):
- 298:         """Yes button clicked"""
- 299:         self.result = True
- 300:         self.destroy()
- 301:     
- 302:     def no(self):
- 303:         """No button clicked"""
- 304:         self.result = False
- 305:         self.destroy()
- 306:     
- 307:     @classmethod
- 308:     def ask(cls, parent, title, message, icon="⚠️"):
- 309:         """Show confirmation dialog and return result"""
- 310:         dialog = cls(parent, title, message, icon)
- 311:         dialog.lift()
- 312:         dialog.focus_force()
- 313:         parent.wait_window(dialog)
- 314:         return dialog.result
- 315: 
- 316: class WarningDialog(CustomDialog):
- 317:     """Warning dialog with OK button"""
- 318:     
- 319:     def __init__(self, parent, title, message, icon="⚠️"):
- 320:         super().__init__(parent, title, width=380, height=220)
- 321:         
- 322:         # Icon and message
- 323:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
- 324:                              fg=Colors.BLACK, font=('Arial', 24))
- 325:         icon_label.pack(pady=10)
- 326:         
- 327:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
- 328:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=320)
- 329:         message_label.pack(pady=5)
+ 272:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
+ 273:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=300)
+ 274:         message_label.pack(pady=5)
+ 275:         
+ 276:         # Buttons
+ 277:         self.add_buttons()
+ 278:         
+ 279:         # Bind keys
+ 280:         self.bind('<Return>', lambda e: self.yes())
+ 281:         self.bind('<Escape>', lambda e: self.no())
+ 282:     
+ 283:     def add_buttons(self):
+ 284:         """Add Yes/No buttons"""
+ 285:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
+ 286:         button_container.pack(expand=True)
+ 287:         
+ 288:         yes_btn = tk.Button(button_container, text="Yes", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 289:                            command=self.yes, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 290:                            font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 291:         yes_btn.pack(side=tk.LEFT, padx=10)
+ 292:         
+ 293:         no_btn = tk.Button(button_container, text="No", bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 294:                           command=self.no, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 295:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 296:         no_btn.pack(side=tk.LEFT, padx=10)
+ 297:         
+ 298:         # Focus on No button (safer default)
+ 299:         no_btn.focus_set()
+ 300:     
+ 301:     def yes(self):
+ 302:         """Yes button clicked"""
+ 303:         self.result = True
+ 304:         self.destroy()
+ 305:     
+ 306:     def no(self):
+ 307:         """No button clicked"""
+ 308:         self.result = False
+ 309:         self.destroy()
+ 310:     
+ 311:     @classmethod
+ 312:     def ask(cls, parent, title, message, icon="⚠️"):
+ 313:         """Show confirmation dialog and return result"""
+ 314:         dialog = cls(parent, title, message, icon)
+ 315:         dialog.lift()
+ 316:         dialog.focus_force()
+ 317:         parent.wait_window(dialog)
+ 318:         return dialog.result
+ 319: 
+ 320: class WarningDialog(CustomDialog):
+ 321:     """Warning dialog with OK button"""
+ 322:     
+ 323:     def __init__(self, parent, title, message, icon="⚠️"):
+ 324:         super().__init__(parent, title, width=380, height=220)
+ 325:         
+ 326:         # Icon and message
+ 327:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
+ 328:                              fg=Colors.BLACK, font=('Arial', 24))
+ 329:         icon_label.pack(pady=10)
  330:         
- 331:         # Buttons
- 332:         self.add_buttons()
- 333:         
- 334:         # Bind keys
- 335:         self.bind('<Return>', lambda e: self.ok())
- 336:         self.bind('<Escape>', lambda e: self.ok())
- 337:     
- 338:     def add_buttons(self):
- 339:         """Add OK button"""
- 340:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
- 341:         button_container.pack(expand=True)
- 342:         
- 343:         ok_btn = tk.Button(button_container, text="OK", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 344:                           command=self.ok, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 345:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 346:         ok_btn.pack(padx=10)
- 347:         ok_btn.focus_set()
- 348:     
- 349:     @classmethod
- 350:     def show(cls, parent, title, message, icon="⚠️"):
- 351:         """Show warning dialog"""
- 352:         dialog = cls(parent, title, message, icon)
- 353:         dialog.lift()
- 354:         dialog.focus_force()
- 355:         dialog.attributes('-topmost', True)
- 356:         parent.wait_window(dialog)
- 357:         return dialog.result
- 358: 
- 359: class ErrorDialog(CustomDialog):
- 360:     """Error dialog with OK button"""
- 361:     
- 362:     def __init__(self, parent, title, message, icon="❌"):
- 363:         super().__init__(parent, title, width=400, height=240)
- 364:         
- 365:         # Icon and message
- 366:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
- 367:                              fg=Colors.BLACK, font=('Arial', 24))
- 368:         icon_label.pack(pady=10)
- 369:         
- 370:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
- 371:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=340)
- 372:         message_label.pack(pady=5)
+ 331:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
+ 332:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=320)
+ 333:         message_label.pack(pady=5)
+ 334:         
+ 335:         # Buttons
+ 336:         self.add_buttons()
+ 337:         
+ 338:         # Bind keys
+ 339:         self.bind('<Return>', lambda e: self.ok())
+ 340:         self.bind('<Escape>', lambda e: self.ok())
+ 341:     
+ 342:     def add_buttons(self):
+ 343:         """Add OK button"""
+ 344:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
+ 345:         button_container.pack(expand=True)
+ 346:         
+ 347:         ok_btn = tk.Button(button_container, text="OK", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 348:                           command=self.ok, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 349:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 350:         ok_btn.pack(padx=10)
+ 351:         ok_btn.focus_set()
+ 352:     
+ 353:     @classmethod
+ 354:     def show(cls, parent, title, message, icon="⚠️"):
+ 355:         """Show warning dialog"""
+ 356:         dialog = cls(parent, title, message, icon)
+ 357:         dialog.lift()
+ 358:         dialog.focus_force()
+ 359:         dialog.attributes('-topmost', True)
+ 360:         parent.wait_window(dialog)
+ 361:         return dialog.result
+ 362: 
+ 363: class ErrorDialog(CustomDialog):
+ 364:     """Error dialog with OK button"""
+ 365:     
+ 366:     def __init__(self, parent, title, message, icon="❌"):
+ 367:         super().__init__(parent, title, width=400, height=240)
+ 368:         
+ 369:         # Icon and message
+ 370:         icon_label = tk.Label(self.dialog_content, text=icon, bg=Colors.LIGHT_GREEN,
+ 371:                              fg=Colors.BLACK, font=('Arial', 24))
+ 372:         icon_label.pack(pady=10)
  373:         
- 374:         # Buttons
- 375:         self.add_buttons()
- 376:         
- 377:         # Bind keys
- 378:         self.bind('<Return>', lambda e: self.ok())
- 379:         self.bind('<Escape>', lambda e: self.ok())
- 380:     
- 381:     def add_buttons(self):
- 382:         """Add OK button"""
- 383:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
- 384:         button_container.pack(expand=True)
- 385:         
- 386:         ok_btn = tk.Button(button_container, text="OK", bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
- 387:                           command=self.ok, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 388:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 389:         ok_btn.pack(padx=10)
- 390:         ok_btn.focus_set()
- 391:     
- 392:     @classmethod
- 393:     def show(cls, parent, title, message, icon="❌"):
- 394:         """Show error dialog"""
- 395:         dialog = cls(parent, title, message, icon)
- 396:         dialog.lift()
- 397:         dialog.focus_force()
- 398:         dialog.attributes('-topmost', True)
- 399:         parent.wait_window(dialog)
- 400:         return dialog.result
- 401: 
- 402: # Updated FormField class (add this to ui_components.py)
- 403: 
- 404: class FormField:
- 405:     """Helper class for creating form fields with clipboard support"""
- 406:     
- 407:     def __init__(self, parent, label_text, field_type='entry', layout='side-by-side', **kwargs):
- 408:         self.frame = tk.Frame(parent, bg=Colors.LIGHT_GREEN)
- 409:         self.layout = layout
- 410:         
- 411:         if layout == 'stacked':
- 412:             # Label on top, widget below
- 413:             self.label = tk.Label(self.frame, text=label_text, bg=Colors.LIGHT_GREEN, 
- 414:                                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
- 415:             self.label.pack(anchor='w', pady=(0, 2))
- 416:             
- 417:             if field_type == 'entry':
- 418:                 self.widget = tk.Entry(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 419:                 self._bind_clipboard_operations()
- 420:             elif field_type == 'combobox':
- 421:                 self.widget = ttk.Combobox(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 422:                 self._bind_combobox_clipboard_operations()
- 423:             elif field_type == 'text':
- 424:                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 425:                 self._bind_text_clipboard_operations()
- 426:             
- 427:             self.widget.pack(fill=tk.X, expand=True)
- 428:             
- 429:         else:
- 430:             # Original side-by-side layout
- 431:             self.label = tk.Label(self.frame, text=label_text, bg=Colors.LIGHT_GREEN, 
- 432:                                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
- 433:             self.label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
- 434:         
- 435:             if field_type == 'entry':
- 436:                 self.widget = tk.Entry(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 437:                 self._bind_clipboard_operations()
- 438:             elif field_type == 'combobox':
- 439:                 self.widget = ttk.Combobox(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 440:                 self._bind_combobox_clipboard_operations()
- 441:             elif field_type == 'text':
- 442:                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
- 443:                 self._bind_text_clipboard_operations()
- 444:             
- 445:             self.widget.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
- 446:             self.frame.grid_columnconfigure(1, weight=1)
- 447:     
- 448:     def _bind_clipboard_operations(self):
- 449:         """Bind standard clipboard operations to Entry widget"""
- 450:         # Standard Windows/cross-platform shortcuts
- 451:         self.widget.bind('<Control-c>', self._copy)
- 452:         self.widget.bind('<Control-x>', self._cut)
- 453:         self.widget.bind('<Control-v>', self._paste)
- 454:         self.widget.bind('<Control-a>', self._select_all)
- 455:         
- 456:         # Right-click context menu
- 457:         self.widget.bind('<Button-3>', self._show_context_menu)
- 458:     
- 459:     def _bind_combobox_clipboard_operations(self):
- 460:         """Bind clipboard operations to Combobox widget"""
- 461:         # Comboboxes need special handling since they have different methods
- 462:         self.widget.bind('<Control-c>', self._copy_combobox)
- 463:         self.widget.bind('<Control-x>', self._cut_combobox)
- 464:         self.widget.bind('<Control-v>', self._paste_combobox)
- 465:         self.widget.bind('<Control-a>', self._select_all_combobox)
- 466:         
- 467:         # Right-click context menu
- 468:         self.widget.bind('<Button-3>', self._show_combobox_context_menu)
- 469:     
- 470:     def _bind_text_clipboard_operations(self):
- 471:         """Enhance Text widget clipboard operations"""
- 472:         # Text widgets already have built-in clipboard support, but we can add context menu
- 473:         self.widget.bind('<Button-3>', self._show_text_context_menu)
- 474:     
- 475:     def _copy(self, event=None):
- 476:         """Copy selected text to clipboard"""
- 477:         try:
- 478:             if self.widget.selection_present():
- 479:                 self.widget.clipboard_clear()
- 480:                 self.widget.clipboard_append(self.widget.selection_get())
- 481:         except tk.TclError:
- 482:             pass  # No selection
- 483:         return 'break'
- 484:     
- 485:     def _cut(self, event=None):
- 486:         """Cut selected text to clipboard"""
- 487:         try:
- 488:             if self.widget.selection_present():
- 489:                 self.widget.clipboard_clear()
- 490:                 self.widget.clipboard_append(self.widget.selection_get())
- 491:                 self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
- 492:         except tk.TclError:
- 493:             pass  # No selection
- 494:         return 'break'
- 495:     
- 496:     def _paste(self, event=None):
- 497:         """Paste from clipboard"""
- 498:         try:
- 499:             clipboard_text = self.widget.clipboard_get()
- 500:             if self.widget.selection_present():
- 501:                 self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
- 502:             self.widget.insert(tk.INSERT, clipboard_text)
- 503:         except tk.TclError:
- 504:             pass  # No clipboard content
- 505:         return 'break'
- 506:     
- 507:     def _select_all(self, event=None):
- 508:         """Select all text"""
- 509:         self.widget.select_range(0, tk.END)
- 510:         self.widget.icursor(tk.END)
- 511:         return 'break'
- 512:     
- 513:     def _copy_combobox(self, event=None):
- 514:         """Copy from combobox"""
- 515:         try:
- 516:             if self.widget.selection_present():
- 517:                 self.widget.clipboard_clear()
- 518:                 self.widget.clipboard_append(self.widget.selection_get())
- 519:         except (tk.TclError, AttributeError):
- 520:             # Fallback: copy entire value if no selection
- 521:             try:
- 522:                 self.widget.clipboard_clear()
- 523:                 self.widget.clipboard_append(self.widget.get())
- 524:             except:
- 525:                 pass
- 526:         return 'break'
- 527:     
- 528:     def _cut_combobox(self, event=None):
- 529:         """Cut from combobox"""
- 530:         try:
- 531:             if self.widget.selection_present():
- 532:                 self.widget.clipboard_clear()
- 533:                 self.widget.clipboard_append(self.widget.selection_get())
- 534:                 # For combobox, we can delete selected text
- 535:                 start = self.widget.index(tk.SEL_FIRST)
- 536:                 end = self.widget.index(tk.SEL_LAST)
- 537:                 current_value = self.widget.get()
- 538:                 new_value = current_value[:start] + current_value[end:]
- 539:                 self.widget.set(new_value)
- 540:         except (tk.TclError, AttributeError):
- 541:             pass
- 542:         return 'break'
- 543:     
- 544:     def _paste_combobox(self, event=None):
- 545:         """Paste to combobox"""
- 546:         try:
- 547:             clipboard_text = self.widget.clipboard_get()
- 548:             if self.widget.selection_present():
- 549:                 # Replace selection
- 550:                 start = self.widget.index(tk.SEL_FIRST)
- 551:                 end = self.widget.index(tk.SEL_LAST)
- 552:                 current_value = self.widget.get()
- 553:                 new_value = current_value[:start] + clipboard_text + current_value[end:]
- 554:                 self.widget.set(new_value)
- 555:             else:
- 556:                 # Insert at cursor position
- 557:                 cursor_pos = self.widget.index(tk.INSERT)
- 558:                 current_value = self.widget.get()
- 559:                 new_value = current_value[:cursor_pos] + clipboard_text + current_value[cursor_pos:]
- 560:                 self.widget.set(new_value)
- 561:         except tk.TclError:
- 562:             pass
- 563:         return 'break'
- 564:     
- 565:     def _select_all_combobox(self, event=None):
- 566:         """Select all text in combobox"""
- 567:         try:
- 568:             self.widget.selection_range(0, tk.END)
- 569:             self.widget.icursor(tk.END)
- 570:         except (tk.TclError, AttributeError):
- 571:             pass
- 572:         return 'break'
- 573:     
- 574:     def _show_context_menu(self, event):
- 575:         """Show right-click context menu for Entry"""
- 576:         context_menu = tk.Menu(self.widget, tearoff=0)
- 577:         
- 578:         # Check if there's a selection
- 579:         has_selection = False
- 580:         try:
- 581:             has_selection = self.widget.selection_present()
- 582:         except:
- 583:             pass
- 584:         
- 585:         # Check if clipboard has content
- 586:         has_clipboard = False
- 587:         try:
- 588:             self.widget.clipboard_get()
- 589:             has_clipboard = True
- 590:         except:
- 591:             pass
- 592:         
- 593:         context_menu.add_command(label="Cut", command=self._cut, 
- 594:                                state=tk.NORMAL if has_selection else tk.DISABLED)
- 595:         context_menu.add_command(label="Copy", command=self._copy,
- 596:                                state=tk.NORMAL if has_selection else tk.DISABLED)
- 597:         context_menu.add_command(label="Paste", command=self._paste,
- 598:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
- 599:         context_menu.add_separator()
- 600:         context_menu.add_command(label="Select All", command=self._select_all)
- 601:         
- 602:         try:
- 603:             context_menu.tk_popup(event.x_root, event.y_root)
- 604:         finally:
- 605:             context_menu.grab_release()
- 606:     
- 607:     def _show_combobox_context_menu(self, event):
- 608:         """Show right-click context menu for Combobox"""
- 609:         context_menu = tk.Menu(self.widget, tearoff=0)
- 610:         
- 611:         # Check if there's a selection
- 612:         has_selection = False
- 613:         try:
- 614:             has_selection = self.widget.selection_present()
- 615:         except:
- 616:             pass
- 617:         
- 618:         # Check if clipboard has content
- 619:         has_clipboard = False
- 620:         try:
- 621:             self.widget.clipboard_get()
- 622:             has_clipboard = True
- 623:         except:
- 624:             pass
- 625:         
- 626:         context_menu.add_command(label="Cut", command=self._cut_combobox,
- 627:                                state=tk.NORMAL if has_selection else tk.DISABLED)
- 628:         context_menu.add_command(label="Copy", command=self._copy_combobox,
- 629:                                state=tk.NORMAL if (has_selection or self.widget.get()) else tk.DISABLED)
- 630:         context_menu.add_command(label="Paste", command=self._paste_combobox,
- 631:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
- 632:         context_menu.add_separator()
- 633:         context_menu.add_command(label="Select All", command=self._select_all_combobox,
- 634:                                state=tk.NORMAL if self.widget.get() else tk.DISABLED)
- 635:         
- 636:         try:
- 637:             context_menu.tk_popup(event.x_root, event.y_root)
- 638:         finally:
- 639:             context_menu.grab_release()
- 640:     
- 641:     def _show_text_context_menu(self, event):
- 642:         """Show right-click context menu for Text widget"""
- 643:         # Text widgets have built-in context menus in some systems,
- 644:         # but we can provide a custom one for consistency
- 645:         context_menu = tk.Menu(self.widget, tearoff=0)
- 646:         
- 647:         # Check if there's a selection
- 648:         has_selection = False
- 649:         try:
- 650:             has_selection = bool(self.widget.tag_ranges(tk.SEL))
- 651:         except:
- 652:             pass
- 653:         
- 654:         # Check if clipboard has content
- 655:         has_clipboard = False
- 656:         try:
- 657:             self.widget.clipboard_get()
- 658:             has_clipboard = True
- 659:         except:
- 660:             pass
- 661:         
- 662:         context_menu.add_command(label="Cut", command=lambda: self.widget.event_generate("<<Cut>>"),
- 663:                                state=tk.NORMAL if has_selection else tk.DISABLED)
- 664:         context_menu.add_command(label="Copy", command=lambda: self.widget.event_generate("<<Copy>>"),
- 665:                                state=tk.NORMAL if has_selection else tk.DISABLED)
- 666:         context_menu.add_command(label="Paste", command=lambda: self.widget.event_generate("<<Paste>>"),
- 667:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
- 668:         context_menu.add_separator()
- 669:         context_menu.add_command(label="Select All", command=lambda: self.widget.tag_add(tk.SEL, "1.0", tk.END))
- 670:         
- 671:         try:
- 672:             context_menu.tk_popup(event.x_root, event.y_root)
- 673:         finally:
- 674:             context_menu.grab_release()
- 675:     
- 676:     def pack(self, **kwargs):
- 677:         self.frame.pack(**kwargs)
- 678:         return self
+ 374:         message_label = tk.Label(self.dialog_content, text=message, bg=Colors.LIGHT_GREEN,
+ 375:                                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL, wraplength=340)
+ 376:         message_label.pack(pady=5)
+ 377:         
+ 378:         # Buttons
+ 379:         self.add_buttons()
+ 380:         
+ 381:         # Bind keys
+ 382:         self.bind('<Return>', lambda e: self.ok())
+ 383:         self.bind('<Escape>', lambda e: self.ok())
+ 384:     
+ 385:     def add_buttons(self):
+ 386:         """Add OK button"""
+ 387:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
+ 388:         button_container.pack(expand=True)
+ 389:         
+ 390:         ok_btn = tk.Button(button_container, text="OK", bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 391:                           command=self.ok, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 392:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 393:         ok_btn.pack(padx=10)
+ 394:         ok_btn.focus_set()
+ 395:     
+ 396:     @classmethod
+ 397:     def show(cls, parent, title, message, icon="❌"):
+ 398:         """Show error dialog"""
+ 399:         dialog = cls(parent, title, message, icon)
+ 400:         dialog.lift()
+ 401:         dialog.focus_force()
+ 402:         dialog.attributes('-topmost', True)
+ 403:         parent.wait_window(dialog)
+ 404:         return dialog.result
+ 405: 
+ 406: # Updated FormField class (add this to ui_components.py)
+ 407: 
+ 408: class FormField:
+ 409:     """Helper class for creating form fields with clipboard support"""
+ 410:     
+ 411:     def __init__(self, parent, label_text, field_type='entry', layout='side-by-side', **kwargs):
+ 412:         self.frame = tk.Frame(parent, bg=Colors.LIGHT_GREEN)
+ 413:         self.layout = layout
+ 414:         
+ 415:         if layout == 'stacked':
+ 416:             # Label on top, widget below
+ 417:             self.label = tk.Label(self.frame, text=label_text, bg=Colors.LIGHT_GREEN, 
+ 418:                                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
+ 419:             self.label.pack(anchor='w', pady=(0, 2))
+ 420:             
+ 421:             if field_type == 'entry':
+ 422:                 self.widget = tk.Entry(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 423:                 self._bind_clipboard_operations()
+ 424:             elif field_type == 'combobox':
+ 425:                 self.widget = ttk.Combobox(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 426:                 self._bind_combobox_clipboard_operations()
+ 427:             elif field_type == 'text':
+ 428:                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 429:                 self._bind_text_clipboard_operations()
+ 430:             
+ 431:             self.widget.pack(fill=tk.X, expand=True)
+ 432:             
+ 433:         else:
+ 434:             # Original side-by-side layout
+ 435:             self.label = tk.Label(self.frame, text=label_text, bg=Colors.LIGHT_GREEN, 
+ 436:                                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
+ 437:             self.label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+ 438:         
+ 439:             if field_type == 'entry':
+ 440:                 self.widget = tk.Entry(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 441:                 self._bind_clipboard_operations()
+ 442:             elif field_type == 'combobox':
+ 443:                 self.widget = ttk.Combobox(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 444:                 self._bind_combobox_clipboard_operations()
+ 445:             elif field_type == 'text':
+ 446:                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
+ 447:                 self._bind_text_clipboard_operations()
+ 448:             
+ 449:             self.widget.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+ 450:             self.frame.grid_columnconfigure(1, weight=1)
+ 451:     
+ 452:     def _bind_clipboard_operations(self):
+ 453:         """Bind standard clipboard operations to Entry widget"""
+ 454:         # Standard Windows/cross-platform shortcuts
+ 455:         self.widget.bind('<Control-c>', self._copy)
+ 456:         self.widget.bind('<Control-x>', self._cut)
+ 457:         self.widget.bind('<Control-v>', self._paste)
+ 458:         self.widget.bind('<Control-a>', self._select_all)
+ 459:         
+ 460:         # Right-click context menu
+ 461:         self.widget.bind('<Button-3>', self._show_context_menu)
+ 462:     
+ 463:     def _bind_combobox_clipboard_operations(self):
+ 464:         """Bind clipboard operations to Combobox widget"""
+ 465:         # Comboboxes need special handling since they have different methods
+ 466:         self.widget.bind('<Control-c>', self._copy_combobox)
+ 467:         self.widget.bind('<Control-x>', self._cut_combobox)
+ 468:         self.widget.bind('<Control-v>', self._paste_combobox)
+ 469:         self.widget.bind('<Control-a>', self._select_all_combobox)
+ 470:         
+ 471:         # Right-click context menu
+ 472:         self.widget.bind('<Button-3>', self._show_combobox_context_menu)
+ 473:     
+ 474:     def _bind_text_clipboard_operations(self):
+ 475:         """Enhance Text widget clipboard operations"""
+ 476:         # Text widgets already have built-in clipboard support, but we can add context menu
+ 477:         self.widget.bind('<Button-3>', self._show_text_context_menu)
+ 478:     
+ 479:     def _copy(self, event=None):
+ 480:         """Copy selected text to clipboard"""
+ 481:         try:
+ 482:             if self.widget.selection_present():
+ 483:                 self.widget.clipboard_clear()
+ 484:                 self.widget.clipboard_append(self.widget.selection_get())
+ 485:         except tk.TclError:
+ 486:             pass  # No selection
+ 487:         return 'break'
+ 488:     
+ 489:     def _cut(self, event=None):
+ 490:         """Cut selected text to clipboard"""
+ 491:         try:
+ 492:             if self.widget.selection_present():
+ 493:                 self.widget.clipboard_clear()
+ 494:                 self.widget.clipboard_append(self.widget.selection_get())
+ 495:                 self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
+ 496:         except tk.TclError:
+ 497:             pass  # No selection
+ 498:         return 'break'
+ 499:     
+ 500:     def _paste(self, event=None):
+ 501:         """Paste from clipboard"""
+ 502:         try:
+ 503:             clipboard_text = self.widget.clipboard_get()
+ 504:             if self.widget.selection_present():
+ 505:                 self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
+ 506:             self.widget.insert(tk.INSERT, clipboard_text)
+ 507:         except tk.TclError:
+ 508:             pass  # No clipboard content
+ 509:         return 'break'
+ 510:     
+ 511:     def _select_all(self, event=None):
+ 512:         """Select all text"""
+ 513:         self.widget.select_range(0, tk.END)
+ 514:         self.widget.icursor(tk.END)
+ 515:         return 'break'
+ 516:     
+ 517:     def _copy_combobox(self, event=None):
+ 518:         """Copy from combobox"""
+ 519:         try:
+ 520:             if self.widget.selection_present():
+ 521:                 self.widget.clipboard_clear()
+ 522:                 self.widget.clipboard_append(self.widget.selection_get())
+ 523:         except (tk.TclError, AttributeError):
+ 524:             # Fallback: copy entire value if no selection
+ 525:             try:
+ 526:                 self.widget.clipboard_clear()
+ 527:                 self.widget.clipboard_append(self.widget.get())
+ 528:             except:
+ 529:                 pass
+ 530:         return 'break'
+ 531:     
+ 532:     def _cut_combobox(self, event=None):
+ 533:         """Cut from combobox"""
+ 534:         try:
+ 535:             if self.widget.selection_present():
+ 536:                 self.widget.clipboard_clear()
+ 537:                 self.widget.clipboard_append(self.widget.selection_get())
+ 538:                 # For combobox, we can delete selected text
+ 539:                 start = self.widget.index(tk.SEL_FIRST)
+ 540:                 end = self.widget.index(tk.SEL_LAST)
+ 541:                 current_value = self.widget.get()
+ 542:                 new_value = current_value[:start] + current_value[end:]
+ 543:                 self.widget.set(new_value)
+ 544:         except (tk.TclError, AttributeError):
+ 545:             pass
+ 546:         return 'break'
+ 547:     
+ 548:     def _paste_combobox(self, event=None):
+ 549:         """Paste to combobox"""
+ 550:         try:
+ 551:             clipboard_text = self.widget.clipboard_get()
+ 552:             if self.widget.selection_present():
+ 553:                 # Replace selection
+ 554:                 start = self.widget.index(tk.SEL_FIRST)
+ 555:                 end = self.widget.index(tk.SEL_LAST)
+ 556:                 current_value = self.widget.get()
+ 557:                 new_value = current_value[:start] + clipboard_text + current_value[end:]
+ 558:                 self.widget.set(new_value)
+ 559:             else:
+ 560:                 # Insert at cursor position
+ 561:                 cursor_pos = self.widget.index(tk.INSERT)
+ 562:                 current_value = self.widget.get()
+ 563:                 new_value = current_value[:cursor_pos] + clipboard_text + current_value[cursor_pos:]
+ 564:                 self.widget.set(new_value)
+ 565:         except tk.TclError:
+ 566:             pass
+ 567:         return 'break'
+ 568:     
+ 569:     def _select_all_combobox(self, event=None):
+ 570:         """Select all text in combobox"""
+ 571:         try:
+ 572:             self.widget.selection_range(0, tk.END)
+ 573:             self.widget.icursor(tk.END)
+ 574:         except (tk.TclError, AttributeError):
+ 575:             pass
+ 576:         return 'break'
+ 577:     
+ 578:     def _show_context_menu(self, event):
+ 579:         """Show right-click context menu for Entry"""
+ 580:         context_menu = tk.Menu(self.widget, tearoff=0)
+ 581:         
+ 582:         # Check if there's a selection
+ 583:         has_selection = False
+ 584:         try:
+ 585:             has_selection = self.widget.selection_present()
+ 586:         except:
+ 587:             pass
+ 588:         
+ 589:         # Check if clipboard has content
+ 590:         has_clipboard = False
+ 591:         try:
+ 592:             self.widget.clipboard_get()
+ 593:             has_clipboard = True
+ 594:         except:
+ 595:             pass
+ 596:         
+ 597:         context_menu.add_command(label="Cut", command=self._cut, 
+ 598:                                state=tk.NORMAL if has_selection else tk.DISABLED)
+ 599:         context_menu.add_command(label="Copy", command=self._copy,
+ 600:                                state=tk.NORMAL if has_selection else tk.DISABLED)
+ 601:         context_menu.add_command(label="Paste", command=self._paste,
+ 602:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
+ 603:         context_menu.add_separator()
+ 604:         context_menu.add_command(label="Select All", command=self._select_all)
+ 605:         
+ 606:         try:
+ 607:             context_menu.tk_popup(event.x_root, event.y_root)
+ 608:         finally:
+ 609:             context_menu.grab_release()
+ 610:     
+ 611:     def _show_combobox_context_menu(self, event):
+ 612:         """Show right-click context menu for Combobox"""
+ 613:         context_menu = tk.Menu(self.widget, tearoff=0)
+ 614:         
+ 615:         # Check if there's a selection
+ 616:         has_selection = False
+ 617:         try:
+ 618:             has_selection = self.widget.selection_present()
+ 619:         except:
+ 620:             pass
+ 621:         
+ 622:         # Check if clipboard has content
+ 623:         has_clipboard = False
+ 624:         try:
+ 625:             self.widget.clipboard_get()
+ 626:             has_clipboard = True
+ 627:         except:
+ 628:             pass
+ 629:         
+ 630:         context_menu.add_command(label="Cut", command=self._cut_combobox,
+ 631:                                state=tk.NORMAL if has_selection else tk.DISABLED)
+ 632:         context_menu.add_command(label="Copy", command=self._copy_combobox,
+ 633:                                state=tk.NORMAL if (has_selection or self.widget.get()) else tk.DISABLED)
+ 634:         context_menu.add_command(label="Paste", command=self._paste_combobox,
+ 635:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
+ 636:         context_menu.add_separator()
+ 637:         context_menu.add_command(label="Select All", command=self._select_all_combobox,
+ 638:                                state=tk.NORMAL if self.widget.get() else tk.DISABLED)
+ 639:         
+ 640:         try:
+ 641:             context_menu.tk_popup(event.x_root, event.y_root)
+ 642:         finally:
+ 643:             context_menu.grab_release()
+ 644:     
+ 645:     def _show_text_context_menu(self, event):
+ 646:         """Show right-click context menu for Text widget"""
+ 647:         # Text widgets have built-in context menus in some systems,
+ 648:         # but we can provide a custom one for consistency
+ 649:         context_menu = tk.Menu(self.widget, tearoff=0)
+ 650:         
+ 651:         # Check if there's a selection
+ 652:         has_selection = False
+ 653:         try:
+ 654:             has_selection = bool(self.widget.tag_ranges(tk.SEL))
+ 655:         except:
+ 656:             pass
+ 657:         
+ 658:         # Check if clipboard has content
+ 659:         has_clipboard = False
+ 660:         try:
+ 661:             self.widget.clipboard_get()
+ 662:             has_clipboard = True
+ 663:         except:
+ 664:             pass
+ 665:         
+ 666:         context_menu.add_command(label="Cut", command=lambda: self.widget.event_generate("<<Cut>>"),
+ 667:                                state=tk.NORMAL if has_selection else tk.DISABLED)
+ 668:         context_menu.add_command(label="Copy", command=lambda: self.widget.event_generate("<<Copy>>"),
+ 669:                                state=tk.NORMAL if has_selection else tk.DISABLED)
+ 670:         context_menu.add_command(label="Paste", command=lambda: self.widget.event_generate("<<Paste>>"),
+ 671:                                state=tk.NORMAL if has_clipboard else tk.DISABLED)
+ 672:         context_menu.add_separator()
+ 673:         context_menu.add_command(label="Select All", command=lambda: self.widget.tag_add(tk.SEL, "1.0", tk.END))
+ 674:         
+ 675:         try:
+ 676:             context_menu.tk_popup(event.x_root, event.y_root)
+ 677:         finally:
+ 678:             context_menu.grab_release()
  679:     
- 680:     def grid(self, **kwargs):
- 681:         self.frame.grid(**kwargs)
+ 680:     def pack(self, **kwargs):
+ 681:         self.frame.pack(**kwargs)
  682:         return self
  683:     
- 684:     def get(self):
- 685:         if hasattr(self.widget, 'get'):
- 686:             return self.widget.get()
- 687:         return ""
- 688:     
- 689:     def set(self, value):
- 690:         if hasattr(self.widget, 'delete') and hasattr(self.widget, 'insert'):
- 691:             self.widget.delete(0, tk.END)
- 692:             self.widget.insert(0, value)
- 693:         elif hasattr(self.widget, 'set'):
- 694:             self.widget.set(value)
- 695: 
- 696: class StyledButton(tk.Button):
- 697:     """Custom styled button"""
- 698:     
- 699:     def __init__(self, parent, text, style='primary', **kwargs):
- 700:         # Set default styling based on style type
- 701:         if style == 'primary':
- 702:             bg_color = Colors.DARK_GREEN
- 703:             fg_color = Colors.WHITE
- 704:         elif style == 'secondary':
- 705:             bg_color = Colors.MEDIUM_GREEN
- 706:             fg_color = Colors.BLACK
- 707:         elif style == 'success':
- 708:             bg_color = Colors.LIGHT_GREEN
- 709:             fg_color = Colors.BLACK
- 710:         else:  # 'danger' or other
- 711:             bg_color = Colors.INACTIVE_GRAY
- 712:             fg_color = Colors.WHITE
- 713:         
- 714:         defaults = {
- 715:             'bg': bg_color,
- 716:             'fg': fg_color,
- 717:             'font': Fonts.DIALOG_BUTTON,
- 718:             'relief': tk.RAISED,
- 719:             'bd': 1,
- 720:             'cursor': 'hand2',
- 721:             'activebackground': Colors.HOVER_GREEN,
- 722:             'activeforeground': Colors.WHITE
- 723:         }
- 724:         
- 725:         # Override defaults with provided kwargs
- 726:         defaults.update(kwargs)
- 727:         
- 728:         super().__init__(parent, text=text, **defaults)
- 729: 
- 730: class CategoryHeader(tk.Frame):
- 731:     """Styled category header for lists"""
- 732:     
- 733:     def __init__(self, parent, title, **kwargs):
- 734:         super().__init__(parent, bg=Colors.MEDIUM_GREEN, relief=tk.RAISED, bd=1, **kwargs)
- 735:         
- 736:         self.title_label = tk.Label(self, text=title, bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 737:                                    font=Fonts.MENU_HEADER, height=1)
- 738:         self.title_label.pack(pady=1)
- 739:     
- 740:     def set_title(self, title):
- 741:         self.title_label.config(text=title)
+ 684:     def grid(self, **kwargs):
+ 685:         self.frame.grid(**kwargs)
+ 686:         return self
+ 687:     
+ 688:     def get(self):
+ 689:         if hasattr(self.widget, 'get'):
+ 690:             return self.widget.get()
+ 691:         return ""
+ 692:     
+ 693:     def set(self, value):
+ 694:         if hasattr(self.widget, 'delete') and hasattr(self.widget, 'insert'):
+ 695:             self.widget.delete(0, tk.END)
+ 696:             self.widget.insert(0, value)
+ 697:         elif hasattr(self.widget, 'set'):
+ 698:             self.widget.set(value)
+ 699: 
+ 700: class StyledButton(tk.Button):
+ 701:     """Custom styled button"""
+ 702:     
+ 703:     def __init__(self, parent, text, style='primary', **kwargs):
+ 704:         # Set default styling based on style type
+ 705:         if style == 'primary':
+ 706:             bg_color = Colors.DARK_GREEN
+ 707:             fg_color = Colors.WHITE
+ 708:         elif style == 'secondary':
+ 709:             bg_color = Colors.MEDIUM_GREEN
+ 710:             fg_color = Colors.BLACK
+ 711:         elif style == 'success':
+ 712:             bg_color = Colors.LIGHT_GREEN
+ 713:             fg_color = Colors.BLACK
+ 714:         else:  # 'danger' or other
+ 715:             bg_color = Colors.INACTIVE_GRAY
+ 716:             fg_color = Colors.WHITE
+ 717:         
+ 718:         defaults = {
+ 719:             'bg': bg_color,
+ 720:             'fg': fg_color,
+ 721:             'font': Fonts.DIALOG_BUTTON,
+ 722:             'relief': tk.RAISED,
+ 723:             'bd': 1,
+ 724:             'cursor': 'hand2',
+ 725:             'activebackground': Colors.HOVER_GREEN,
+ 726:             'activeforeground': Colors.WHITE
+ 727:         }
+ 728:         
+ 729:         # Override defaults with provided kwargs
+ 730:         defaults.update(kwargs)
+ 731:         
+ 732:         super().__init__(parent, text=text, **defaults)
+ 733: 
+ 734: class CategoryHeader(tk.Frame):
+ 735:     """Styled category header for lists"""
+ 736:     
+ 737:     def __init__(self, parent, title, **kwargs):
+ 738:         super().__init__(parent, bg=Colors.MEDIUM_GREEN, relief=tk.RAISED, bd=1, **kwargs)
+ 739:         
+ 740:         self.title_label = tk.Label(self, text=title, bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 741:                                    font=Fonts.MENU_HEADER, height=1)
+ 742:         self.title_label.pack(pady=1)
+ 743:     
+ 744:     def set_title(self, title):
+ 745:         self.title_label.config(text=title)
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: utils.py
@@ -5868,16 +5847,16 @@ FILE: windows_menu.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: windows_menu.py
 Size: 16.2 KB
-Lines: 407 total, 325 non-empty
-Characters: 16,166
+Lines: 402 total, 323 non-empty
+Characters: 16,175
 Type: .PY file
 ────────────────────────────────────────────────────────────────────────────────
 
-   1: # windows_menu.py (updated with left/right edge resizing)
+   1: # windows_menu.py (modified)
    2: """
    3: Windows menu UI for SuiteView Taskbar
    4: Shows list of open windows with hide/pin functionality
-   5: Now with left/right edge resizing capability
+   5: Now excludes pinned windows from the list
    6: """
    7: 
    8: import tkinter as tk
@@ -5948,338 +5927,333 @@ Type: .PY file
   73:             # Position above taskbar (assuming taskbar height of 40)
   74:             y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
   75:             
-  76: 
-  77:             
-  78:             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
-  79:         
-  80:         # Bind window close event
-  81:         self.protocol("WM_DELETE_WINDOW", self.close_window)
-  82:         
-  83:         # Ensure window is visible
-  84:         self.deiconify()
-  85:         self.lift()
-  86:     
-  87:     def create_header(self):
-  88:         """Create menu header"""
-  89:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=30)
-  90:         header_frame.pack(fill=tk.X, padx=1, pady=1)
-  91:         header_frame.pack_propagate(False)
-  92:         
-  93:         # Make header draggable
-  94:         header_frame.bind("<Button-1>", self.start_drag)
-  95:         header_frame.bind("<B1-Motion>", self.do_drag)
-  96:         
-  97:         # Title
-  98:         title = tk.Label(header_frame, text="🪟 Windows Manager", 
-  99:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 100:                         font=Fonts.MENU_HEADER, cursor='fleur')
- 101:         title.pack(side=tk.LEFT, padx=10, pady=5)
- 102:         title.bind("<Button-1>", self.start_drag)
- 103:         title.bind("<B1-Motion>", self.do_drag)
- 104:         
- 105:         # Refresh button
- 106:         refresh_btn = tk.Button(header_frame, text="↻ Refresh", 
- 107:                                bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 108:                                relief=tk.RAISED, bd=1, cursor='hand2',
- 109:                                font=Fonts.MENU_ITEM, command=self.refresh_window_list)
- 110:         refresh_btn.pack(side=tk.RIGHT, padx=10, pady=5)
- 111:         
- 112:         # Close button
- 113:         close_btn = tk.Button(header_frame, text="X", 
- 114:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 115:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 116:                              font=Fonts.MENU_ITEM, width=3,
- 117:                              command=self.close_window)
- 118:         close_btn.pack(side=tk.RIGHT, padx=5, pady=5)
- 119:     
- 120:     def create_resize_handles(self):
- 121:         """Create resize handles for top, left, and right edges"""
- 122:         # Top resize handle
- 123:         top_handle = tk.Frame(self, cursor='size_ns', height=5)
- 124:         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
- 125:         top_handle.configure(bg=Colors.DARK_GREEN)
- 126:         
- 127:         # Bind resize events for top
- 128:         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
- 129:         top_handle.bind("<B1-Motion>", self.do_resize)
- 130:         top_handle.bind("<ButtonRelease-1>", self.end_resize)
- 131:         
- 132:         # Left resize handle
- 133:         left_handle = tk.Frame(self, cursor='size_we', width=5)
- 134:         left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
- 135:         left_handle.configure(bg=Colors.DARK_GREEN)
- 136:         
- 137:         # Bind resize events for left
- 138:         left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
- 139:         left_handle.bind("<B1-Motion>", self.do_resize)
- 140:         left_handle.bind("<ButtonRelease-1>", self.end_resize)
- 141:         
- 142:         # Right resize handle
- 143:         right_handle = tk.Frame(self, cursor='size_we', width=5)
- 144:         right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
- 145:         right_handle.configure(bg=Colors.DARK_GREEN)
- 146:         
- 147:         # Bind resize events for right
- 148:         right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
- 149:         right_handle.bind("<B1-Motion>", self.do_resize)
- 150:         right_handle.bind("<ButtonRelease-1>", self.end_resize)
- 151:         
- 152:         # Visual feedback on hover
- 153:         top_handle.bind("<Enter>", lambda e: self.configure(cursor='size_ns'))
- 154:         top_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 155:         left_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
- 156:         left_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 157:         right_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
- 158:         right_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 159: 
- 160:     def start_drag(self, event):
- 161:         """Start dragging the window"""
- 162:         self.drag_start_x = event.x_root
- 163:         self.drag_start_y = event.y_root
- 164:         self.original_x = self.winfo_x()
- 165:         self.original_y = self.winfo_y()
- 166: 
- 167:     def do_drag(self, event):
- 168:         """Handle window dragging"""
- 169:         dx = event.x_root - self.drag_start_x
- 170:         dy = event.y_root - self.drag_start_y
- 171:         
- 172:         new_x = self.original_x + dx
- 173:         new_y = self.original_y + dy
- 174:         
- 175:         # Keep window on screen
- 176:         screen_width = self.winfo_screenwidth()
- 177:         screen_height = self.winfo_screenheight()
- 178:         window_width = self.winfo_width()
- 179:         window_height = self.winfo_height()
- 180:         
- 181:         new_x = max(0, min(new_x, screen_width - window_width))
- 182:         new_y = max(0, min(new_y, screen_height - window_height))
+  76:             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
+  77:         
+  78:         # Bind window close event
+  79:         self.protocol("WM_DELETE_WINDOW", self.close_window)
+  80:         
+  81:         # Ensure window is visible
+  82:         self.deiconify()
+  83:         self.lift()
+  84:     
+  85:     def create_header(self):
+  86:         """Create menu header"""
+  87:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=30)
+  88:         header_frame.pack(fill=tk.X, padx=1, pady=1)
+  89:         header_frame.pack_propagate(False)
+  90:         
+  91:         # Make header draggable
+  92:         header_frame.bind("<Button-1>", self.start_drag)
+  93:         header_frame.bind("<B1-Motion>", self.do_drag)
+  94:         
+  95:         # Title
+  96:         title = tk.Label(header_frame, text="🪟 Windows Manager", 
+  97:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  98:                         font=Fonts.MENU_HEADER, cursor='fleur')
+  99:         title.pack(side=tk.LEFT, padx=10, pady=5)
+ 100:         title.bind("<Button-1>", self.start_drag)
+ 101:         title.bind("<B1-Motion>", self.do_drag)
+ 102:         
+ 103:         # Refresh button
+ 104:         refresh_btn = tk.Button(header_frame, text="↻ Refresh", 
+ 105:                                bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 106:                                relief=tk.RAISED, bd=1, cursor='hand2',
+ 107:                                font=Fonts.MENU_ITEM, command=self.refresh_window_list)
+ 108:         refresh_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+ 109:         
+ 110:         # Close button
+ 111:         close_btn = tk.Button(header_frame, text="X", 
+ 112:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 113:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 114:                              font=Fonts.MENU_ITEM, width=3,
+ 115:                              command=self.close_window)
+ 116:         close_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+ 117:     
+ 118:     def create_resize_handles(self):
+ 119:         """Create resize handles for top, left, and right edges"""
+ 120:         # Top resize handle
+ 121:         top_handle = tk.Frame(self, cursor='size_ns', height=5)
+ 122:         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
+ 123:         top_handle.configure(bg=Colors.DARK_GREEN)
+ 124:         
+ 125:         # Bind resize events for top
+ 126:         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
+ 127:         top_handle.bind("<B1-Motion>", self.do_resize)
+ 128:         top_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 129:         
+ 130:         # Left resize handle
+ 131:         left_handle = tk.Frame(self, cursor='size_we', width=5)
+ 132:         left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
+ 133:         left_handle.configure(bg=Colors.DARK_GREEN)
+ 134:         
+ 135:         # Bind resize events for left
+ 136:         left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
+ 137:         left_handle.bind("<B1-Motion>", self.do_resize)
+ 138:         left_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 139:         
+ 140:         # Right resize handle
+ 141:         right_handle = tk.Frame(self, cursor='size_we', width=5)
+ 142:         right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
+ 143:         right_handle.configure(bg=Colors.DARK_GREEN)
+ 144:         
+ 145:         # Bind resize events for right
+ 146:         right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
+ 147:         right_handle.bind("<B1-Motion>", self.do_resize)
+ 148:         right_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 149:         
+ 150:         # Visual feedback on hover
+ 151:         top_handle.bind("<Enter>", lambda e: self.configure(cursor='size_ns'))
+ 152:         top_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 153:         left_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+ 154:         left_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 155:         right_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+ 156:         right_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 157: 
+ 158:     def start_drag(self, event):
+ 159:         """Start dragging the window"""
+ 160:         self.drag_start_x = event.x_root
+ 161:         self.drag_start_y = event.y_root
+ 162:         self.original_x = self.winfo_x()
+ 163:         self.original_y = self.winfo_y()
+ 164: 
+ 165:     def do_drag(self, event):
+ 166:         """Handle window dragging"""
+ 167:         dx = event.x_root - self.drag_start_x
+ 168:         dy = event.y_root - self.drag_start_y
+ 169:         
+ 170:         new_x = self.original_x + dx
+ 171:         new_y = self.original_y + dy
+ 172:         
+ 173:         # Keep window on screen
+ 174:         screen_width = self.winfo_screenwidth()
+ 175:         screen_height = self.winfo_screenheight()
+ 176:         window_width = self.winfo_width()
+ 177:         window_height = self.winfo_height()
+ 178:         
+ 179:         new_x = max(0, min(new_x, screen_width - window_width))
+ 180:         new_y = max(0, min(new_y, screen_height - window_height))
+ 181:         
+ 182:         self.geometry(f"+{int(new_x)}+{int(new_y)}")
  183:         
- 184:         self.geometry(f"+{int(new_x)}+{int(new_y)}")
- 185:         
- 186:         # Update stored geometry in parent
- 187:         if hasattr(self.parent, 'windows_menu_geometry'):
- 188:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 189:     
- 190:     def start_resize(self, event, edge):
- 191:         """Start resizing operation"""
- 192:         self.is_resizing = True
- 193:         self.resize_edge = edge
- 194:         self.resize_start_x = event.x_root
- 195:         self.resize_start_y = event.y_root
- 196:         
- 197:         # Store original geometry
- 198:         self.original_geometry = {
- 199:             'x': self.winfo_x(),
- 200:             'y': self.winfo_y(),
- 201:             'width': self.winfo_width(),
- 202:             'height': self.winfo_height()
- 203:         }
- 204:         
- 205:         # Visual feedback
- 206:         self.main_frame.configure(relief=tk.SUNKEN)
- 207: 
- 208:     def do_resize(self, event):
- 209:         """Handle resize drag for all edges"""
- 210:         if not self.is_resizing or not self.resize_edge:
- 211:             return
- 212:         
- 213:         dx = event.x_root - self.resize_start_x
- 214:         dy = event.y_root - self.resize_start_y
- 215:         
- 216:         x = self.original_geometry['x']
- 217:         y = self.original_geometry['y']
- 218:         width = self.original_geometry['width']
- 219:         height = self.original_geometry['height']
- 220:         
- 221:         min_width = 400
- 222:         min_height = 300
- 223:         
- 224:         # Handle different edges
- 225:         if self.resize_edge == 't':  # Top edge
- 226:             new_height = max(min_height, height - dy)
- 227:             if new_height != height:
- 228:                 y = y + (height - new_height)
- 229:                 height = new_height
- 230:                 
- 231:         elif self.resize_edge == 'l':  # Left edge
- 232:             new_width = max(min_width, width - dx)
- 233:             if new_width != width:
- 234:                 x = x + (width - new_width)
- 235:                 width = new_width
- 236:                 
- 237:         elif self.resize_edge == 'r':  # Right edge
- 238:             new_width = max(min_width, width + dx)
- 239:             width = new_width
- 240:         
- 241:         # Apply new geometry
- 242:         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
- 243: 
- 244:     def end_resize(self, event):
- 245:         """End resizing operation"""
- 246:         self.is_resizing = False
- 247:         self.resize_edge = None
- 248:         
- 249:         # Remove visual feedback
- 250:         self.main_frame.configure(relief=tk.RAISED)
- 251:         
- 252:         # Update stored geometry in parent
- 253:         if hasattr(self.parent, 'windows_menu_geometry'):
- 254:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 255:             print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
- 256:     
- 257:     def create_content_area(self):
- 258:         """Create scrollable content area"""
- 259:         # Create canvas and scrollbar for scrolling
- 260:         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
- 261:                                highlightthickness=0)
- 262:         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
- 263:                                 command=self.canvas.yview)
- 264:         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
- 265:         
- 266:         self.scrollable_frame.bind(
- 267:             "<Configure>",
- 268:             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
- 269:         )
- 270:         
- 271:         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
- 272:         self.canvas.configure(yscrollcommand=scrollbar.set)
- 273:         
- 274:         self.canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
- 275:         scrollbar.pack(side="right", fill="y")
- 276:         
- 277:         # Bind mouse wheel
- 278:         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
- 279:     
- 280:     def _on_mousewheel(self, event):
- 281:         """Handle mouse wheel scrolling"""
- 282:         if self.canvas.winfo_exists():
- 283:             self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
- 284:     
- 285:     def refresh_window_list(self):
- 286:         """Refresh the list of windows"""
- 287:         # Clear existing items
- 288:         for widget in self.scrollable_frame.winfo_children():
- 289:             widget.destroy()
- 290:         self.window_items.clear()
- 291:         
- 292:         # Get current windows
- 293:         windows = self.window_manager.get_relevant_windows()
- 294:         
- 295:         if not windows:
- 296:             label = tk.Label(self.scrollable_frame, text="No windows found", 
- 297:                            bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
- 298:                            font=Fonts.MENU_ITEM)
- 299:             label.pack(pady=20)
- 300:             return
- 301:         
- 302:         # Create item for each window
- 303:         for window in windows:
- 304:             self.create_window_item(window)
- 305:     
- 306:     def create_window_item(self, window: ManagedWindow):
- 307:         """Create a single window item in the list"""
- 308:         # Item container
- 309:         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
- 310:                              relief=tk.RAISED, bd=1)
- 311:         item_frame.pack(fill=tk.X, padx=5, pady=2)
- 312:         
- 313:         # Window name label (clickable to toggle visibility)
- 314:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
- 315:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
- 316:         
- 317:         name_label = tk.Label(item_frame, text=window.display_name, 
- 318:                              bg=label_bg, fg=label_fg,
- 319:                              font=Fonts.MENU_ITEM, anchor='w',
- 320:                              cursor='hand2', padx=5, pady=3)
- 321:         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
- 322:         
- 323:         # Bind click to toggle visibility
- 324:         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
- 325:         
- 326:         # Pin/Unpin button
- 327:         pin_text = "Unpin" if window.is_pinned else "Pin"
- 328:         pin_btn = tk.Button(item_frame, text=pin_text, 
- 329:                            bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
- 330:                            relief=tk.RAISED, bd=1, cursor='hand2',
- 331:                            font=Fonts.MENU_ITEM, width=6,
- 332:                            command=lambda: self.toggle_pin(window))
- 333:         pin_btn.pack(side=tk.RIGHT, padx=5, pady=2)
- 334:         
- 335:         # Store references for updating
- 336:         self.window_items[window.hwnd] = {
- 337:             'frame': item_frame,
- 338:             'label': name_label,
- 339:             'pin_btn': pin_btn,
- 340:             'window': window
- 341:         }
- 342:     
- 343:     def toggle_window_visibility(self, window: ManagedWindow):
- 344:         """Toggle window visibility and update UI"""
- 345:         if self.window_manager.toggle_window_visibility(window):
- 346:             self.update_window_item(window)
- 347:     
- 348:     def toggle_pin(self, window: ManagedWindow):
- 349:         """Toggle window pin state"""
- 350:         print(f"\n=== TOGGLE PIN DEBUG ===")
- 351:         print(f"Window: {window.display_name}")
- 352:         print(f"Was pinned: {window.is_pinned}")
- 353:         
- 354:         if window.is_pinned:
- 355:             self.window_manager.unpin_window(window)
- 356:         else:
- 357:             self.window_manager.pin_window(window)
+ 184:         # Update stored geometry in parent
+ 185:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 186:             self.parent.windows_menu_geometry = self.get_current_geometry()
+ 187:     
+ 188:     def start_resize(self, event, edge):
+ 189:         """Start resizing operation"""
+ 190:         self.is_resizing = True
+ 191:         self.resize_edge = edge
+ 192:         self.resize_start_x = event.x_root
+ 193:         self.resize_start_y = event.y_root
+ 194:         
+ 195:         # Store original geometry
+ 196:         self.original_geometry = {
+ 197:             'x': self.winfo_x(),
+ 198:             'y': self.winfo_y(),
+ 199:             'width': self.winfo_width(),
+ 200:             'height': self.winfo_height()
+ 201:         }
+ 202:         
+ 203:         # Visual feedback
+ 204:         self.main_frame.configure(relief=tk.SUNKEN)
+ 205: 
+ 206:     def do_resize(self, event):
+ 207:         """Handle resize drag for all edges"""
+ 208:         if not self.is_resizing or not self.resize_edge:
+ 209:             return
+ 210:         
+ 211:         dx = event.x_root - self.resize_start_x
+ 212:         dy = event.y_root - self.resize_start_y
+ 213:         
+ 214:         x = self.original_geometry['x']
+ 215:         y = self.original_geometry['y']
+ 216:         width = self.original_geometry['width']
+ 217:         height = self.original_geometry['height']
+ 218:         
+ 219:         min_width = 400
+ 220:         min_height = 300
+ 221:         
+ 222:         # Handle different edges
+ 223:         if self.resize_edge == 't':  # Top edge
+ 224:             new_height = max(min_height, height - dy)
+ 225:             if new_height != height:
+ 226:                 y = y + (height - new_height)
+ 227:                 height = new_height
+ 228:                 
+ 229:         elif self.resize_edge == 'l':  # Left edge
+ 230:             new_width = max(min_width, width - dx)
+ 231:             if new_width != width:
+ 232:                 x = x + (width - new_width)
+ 233:                 width = new_width
+ 234:                 
+ 235:         elif self.resize_edge == 'r':  # Right edge
+ 236:             new_width = max(min_width, width + dx)
+ 237:             width = new_width
+ 238:         
+ 239:         # Apply new geometry
+ 240:         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
+ 241: 
+ 242:     def end_resize(self, event):
+ 243:         """End resizing operation"""
+ 244:         self.is_resizing = False
+ 245:         self.resize_edge = None
+ 246:         
+ 247:         # Remove visual feedback
+ 248:         self.main_frame.configure(relief=tk.RAISED)
+ 249:         
+ 250:         # Update stored geometry in parent
+ 251:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 252:             self.parent.windows_menu_geometry = self.get_current_geometry()
+ 253:             print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
+ 254:     
+ 255:     def create_content_area(self):
+ 256:         """Create scrollable content area"""
+ 257:         # Create canvas and scrollbar for scrolling
+ 258:         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
+ 259:                                highlightthickness=0)
+ 260:         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
+ 261:                                 command=self.canvas.yview)
+ 262:         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
+ 263:         
+ 264:         self.scrollable_frame.bind(
+ 265:             "<Configure>",
+ 266:             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+ 267:         )
+ 268:         
+ 269:         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+ 270:         self.canvas.configure(yscrollcommand=scrollbar.set)
+ 271:         
+ 272:         self.canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
+ 273:         scrollbar.pack(side="right", fill="y")
+ 274:         
+ 275:         # Bind mouse wheel
+ 276:         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+ 277:     
+ 278:     def _on_mousewheel(self, event):
+ 279:         """Handle mouse wheel scrolling"""
+ 280:         if self.canvas.winfo_exists():
+ 281:             self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+ 282:     
+ 283:     def refresh_window_list(self):
+ 284:         """Refresh the list of windows"""
+ 285:         # Clear existing items
+ 286:         for widget in self.scrollable_frame.winfo_children():
+ 287:             widget.destroy()
+ 288:         self.window_items.clear()
+ 289:         
+ 290:         # Get current windows and filter out pinned ones
+ 291:         all_windows = self.window_manager.get_relevant_windows()
+ 292:         windows = [w for w in all_windows if not w.is_pinned]  # Exclude pinned windows
+ 293:         
+ 294:         if not windows:
+ 295:             label = tk.Label(self.scrollable_frame, text="No unpinned windows found", 
+ 296:                            bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
+ 297:                            font=Fonts.MENU_ITEM)
+ 298:             label.pack(pady=20)
+ 299:             return
+ 300:         
+ 301:         # Create item for each window
+ 302:         for window in windows:
+ 303:             self.create_window_item(window)
+ 304:     
+ 305:     def create_window_item(self, window: ManagedWindow):
+ 306:         """Create a single window item in the list"""
+ 307:         # Item container
+ 308:         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
+ 309:                              relief=tk.RAISED, bd=1)
+ 310:         item_frame.pack(fill=tk.X, padx=5, pady=2)
+ 311:         
+ 312:         # Pin button on the LEFT side
+ 313:         pin_btn = tk.Button(item_frame, text="Pin", 
+ 314:                            bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
+ 315:                            relief=tk.RAISED, bd=1, cursor='hand2',
+ 316:                            font=Fonts.MENU_ITEM, width=6,
+ 317:                            command=lambda: self.toggle_pin(window))
+ 318:         pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
+ 319:         
+ 320:         # Window name label (clickable to toggle visibility)
+ 321:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
+ 322:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
+ 323:         
+ 324:         name_label = tk.Label(item_frame, text=window.display_name, 
+ 325:                              bg=label_bg, fg=label_fg,
+ 326:                              font=Fonts.MENU_ITEM, anchor='w',
+ 327:                              cursor='hand2', padx=5, pady=3)
+ 328:         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Still LEFT but after pin button
+ 329:         
+ 330:         # Bind click to toggle visibility
+ 331:         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
+ 332:         
+ 333:         # Store references for updating
+ 334:         self.window_items[window.hwnd] = {
+ 335:             'frame': item_frame,
+ 336:             'label': name_label,
+ 337:             'pin_btn': pin_btn,
+ 338:             'window': window
+ 339:         }
+ 340:     
+ 341:     def toggle_window_visibility(self, window: ManagedWindow):
+ 342:         """Toggle window visibility and update UI"""
+ 343:         if self.window_manager.toggle_window_visibility(window):
+ 344:             self.update_window_item(window)
+ 345:     
+ 346:     def toggle_pin(self, window: ManagedWindow):
+ 347:         """Toggle window pin state"""
+ 348:         print(f"\n=== TOGGLE PIN DEBUG ===")
+ 349:         print(f"Window: {window.display_name}")
+ 350:         print(f"Was pinned: {window.is_pinned}")
+ 351:         
+ 352:         if window.is_pinned:
+ 353:             self.window_manager.unpin_window(window)
+ 354:         else:
+ 355:             self.window_manager.pin_window(window)
+ 356:         
+ 357:         print(f"Now pinned: {window.is_pinned}")
  358:         
- 359:         print(f"Now pinned: {window.is_pinned}")
- 360:         
- 361:         # Notify callback to update taskbar
- 362:         if self.on_pin_callback:
- 363:             print(f"Calling on_pin_callback: {self.on_pin_callback}")
- 364:             self.on_pin_callback()
- 365:         else:
- 366:             print("ERROR: on_pin_callback is None!")
- 367:         
- 368:         # Update UI
- 369:         self.update_window_item(window)
- 370:         
- 371:         # List all pinned windows
- 372:         pinned = self.window_manager.get_pinned_windows()
- 373:         print(f"Total pinned windows: {len(pinned)}")
- 374:         for pw in pinned:
- 375:             print(f"  - {pw.display_name}")
- 376:         print("=== END DEBUG ===\n")
- 377:     
- 378:     def update_window_item(self, window: ManagedWindow):
- 379:         """Update the UI for a specific window item"""
- 380:         if window.hwnd not in self.window_items:
- 381:             return
- 382:         
- 383:         item = self.window_items[window.hwnd]
- 384:         
- 385:         # Update label color based on visibility
- 386:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
- 387:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
- 388:         item['label'].configure(bg=label_bg, fg=label_fg)
- 389:         
- 390:         # Update pin button text
- 391:         pin_text = "Unpin" if window.is_pinned else "Pin"
- 392:         item['pin_btn'].configure(text=pin_text)
- 393:     
- 394:     def get_current_geometry(self):
- 395:         """Get current window geometry string"""
- 396:         return self.geometry()
- 397:     
- 398:     def close_window(self):
- 399:         """Close the windows menu"""
- 400:         # Store geometry in parent before closing
- 401:         if hasattr(self.parent, 'windows_menu_geometry'):
- 402:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 403:             print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
- 404:         
- 405:         # Unbind mousewheel to prevent errors
- 406:         self.canvas.unbind_all("<MouseWheel>")
- 407:         self.destroy()
+ 359:         # Notify callback to update taskbar
+ 360:         if self.on_pin_callback:
+ 361:             print(f"Calling on_pin_callback: {self.on_pin_callback}")
+ 362:             self.on_pin_callback()
+ 363:         else:
+ 364:             print("ERROR: on_pin_callback is None!")
+ 365:         
+ 366:         # Remove this window from the list since it's now pinned
+ 367:         if window.is_pinned:
+ 368:             self.refresh_window_list()
+ 369:         
+ 370:         # List all pinned windows
+ 371:         pinned = self.window_manager.get_pinned_windows()
+ 372:         print(f"Total pinned windows: {len(pinned)}")
+ 373:         for pw in pinned:
+ 374:             print(f"  - {pw.display_name}")
+ 375:         print("=== END DEBUG ===\n")
+ 376:     
+ 377:     def update_window_item(self, window: ManagedWindow):
+ 378:         """Update the UI for a specific window item"""
+ 379:         if window.hwnd not in self.window_items:
+ 380:             return
+ 381:         
+ 382:         item = self.window_items[window.hwnd]
+ 383:         
+ 384:         # Update label color based on visibility
+ 385:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
+ 386:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
+ 387:         item['label'].configure(bg=label_bg, fg=label_fg)
+ 388:     
+ 389:     def get_current_geometry(self):
+ 390:         """Get current window geometry string"""
+ 391:         return self.geometry()
+ 392:     
+ 393:     def close_window(self):
+ 394:         """Close the windows menu"""
+ 395:         # Store geometry in parent before closing
+ 396:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 397:             self.parent.windows_menu_geometry = self.get_current_geometry()
+ 398:             print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
+ 399:         
+ 400:         # Unbind mousewheel to prevent errors
+ 401:         self.canvas.unbind_all("<MouseWheel>")
+ 402:         self.destroy()
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: requirements.txt
@@ -6303,8 +6277,8 @@ comtypes
 ================================================================================
 
 Files Processed: 19
-Total Size: 239.9 KB
-Total Python Lines: 6,028
+Total Size: 239.2 KB
+Total Python Lines: 6,002
 
 File Breakdown:
     README.md                  718.0 B (  31 lines)
@@ -6316,15 +6290,15 @@ File Breakdown:
     inventory_view_window.py   21.1 KB ( 498 lines)
     links_manager.py           11.1 KB ( 306 lines)
     main.py                     1.1 KB (  42 lines)
-    pinned_windows.py           8.2 KB ( 203 lines)
+    pinned_windows.py           7.3 KB ( 177 lines)
     quick_links.py             36.3 KB ( 867 lines)
     restore_deskop.py           1.5 KB (  41 lines)
     snip_feature.py            16.1 KB ( 410 lines)
-    taskbar.py                 16.0 KB ( 397 lines)
-    ui_components.py           28.5 KB ( 741 lines)
+    taskbar.py                 16.1 KB ( 398 lines)
+    ui_components.py           28.7 KB ( 745 lines)
     utils.py                    7.0 KB ( 211 lines)
     window_manager.py           9.4 KB ( 244 lines)
-    windows_menu.py            16.2 KB ( 407 lines)
+    windows_menu.py            16.2 KB ( 402 lines)
     requirements.txt            42.0 B (   5 lines)
 
 ================================================================================

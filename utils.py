@@ -8,6 +8,7 @@ import ctypes
 from ctypes import wintypes
 import os
 import webbrowser
+from pathlib import Path
 from config import WindowsAPI
 
 class WindowsUtils:
@@ -89,17 +90,45 @@ class FileUtils:
     """File and path utility functions"""
     
     @staticmethod
+    def normalize_path(path):
+        """
+        Convert any path to Windows format with backslashes
+        Handles forward slashes, mixed slashes, and Path objects
+        """
+        if not path:
+            return ""
+        
+        # Convert Path object to string first
+        if isinstance(path, Path):
+            path = str(path)
+        
+        # Convert string paths
+        path_str = str(path).strip()
+        
+        # Skip URLs
+        if path_str.startswith(('http://', 'https://', 'www.')):
+            return path_str
+        
+        # Convert forward slashes to backslashes and normalize
+        normalized = os.path.normpath(path_str.replace('/', '\\'))
+        
+        return normalized
+    
+    @staticmethod
     def open_path(path, parent=None):
         """Open a file, folder, or URL"""
         try:
-            if path.startswith(('http://', 'https://', 'www.')):
-                webbrowser.open(path)
+            # Normalize the path first
+            normalized_path = FileUtils.normalize_path(path)
+            
+            if normalized_path.startswith(('http://', 'https://', 'www.')):
+                webbrowser.open(normalized_path)
                 return True
-            elif os.path.exists(path):
-                os.startfile(path)
+            elif os.path.exists(normalized_path):
+                os.startfile(normalized_path)
                 return True
             else:
-                FileUtils._show_error(parent, "Error", f"Path not found: {path}")
+                FileUtils._show_error(parent, "Error", f"Path not found: {normalized_path}")
                 return False
         except Exception as e:
             FileUtils._show_error(parent, "Error", f"Could not open: {str(e)}")

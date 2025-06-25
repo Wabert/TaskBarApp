@@ -50,6 +50,18 @@ class Paths:
     def ensure_config_dir(cls):
         """Ensure configuration directory exists"""
         cls.CONFIG_DIR.mkdir(exist_ok=True)
+    
+    @classmethod
+    def get_config_dir_str(cls):
+        """Get configuration directory as normalized Windows path string"""
+        import os
+        return os.path.normpath(str(cls.CONFIG_DIR))
+    
+    @classmethod
+    def get_links_file_str(cls):
+        """Get links file path as normalized Windows path string"""
+        import os
+        return os.path.normpath(str(cls.LINKS_FILE))
 
 # Windows API Constants
 class WindowsAPI:

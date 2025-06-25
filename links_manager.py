@@ -5,8 +5,10 @@ Handles loading, saving, and CRUD operations for links
 """
 
 import json
+import os
 from pathlib import Path
 from config import Paths, DEFAULT_CATEGORIES
+from utils import FileUtils  # Import FileUtils for path normalization
 
 class LinksManager:
     """Manages saved links with categories"""
@@ -19,23 +21,29 @@ class LinksManager:
     
     def load_links(self):
         """Load links from config file"""
-        if self.config_file.exists():
-            try:
+        try:
+            if self.config_file.exists():
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # Ensure all required keys exist
-                    if 'categories' not in data:
-                        data['categories'] = DEFAULT_CATEGORIES.copy()
-                    if 'links' not in data:
-                        data['links'] = []
-                    if 'ui_preferences' not in data:
-                        data['ui_preferences'] = {"menu_height": 300}
-                    return data
-            except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
-                print(f"Error loading links: {e}. Creating new config.")
+                    # Validate structure
+                    if "categories" in data and "links" in data:
+                        # Fix any existing path issues
+                        self._fix_path_separators(data)
+                        return data
+                    else:
+                        print("Invalid config structure, creating new config")
+                        return self._create_default_config()
+            else:
                 return self._create_default_config()
-        
-        return self._create_default_config()
+        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+            print(f"Error loading links: {e}. Creating new config.")
+            return self._create_default_config()
+    
+    def _fix_path_separators(self, data):
+        """Fix forward slash path separators in existing links"""
+        for link in data.get("links", []):
+            if "path" in link:
+                link["path"] = FileUtils.normalize_path(link["path"])
     
     def _create_default_config(self):
         """Create default configuration"""
@@ -61,6 +69,9 @@ class LinksManager:
         """Add a new link"""
         if not name or not path:
             return False
+            
+        # Normalize the path for Windows
+        normalized_path = FileUtils.normalize_path(path)
         
         # Ensure category exists
         if category not in self.links["categories"]:
@@ -68,7 +79,7 @@ class LinksManager:
         
         new_link = {
             "name": name.strip(),
-            "path": path.strip(),
+            "path": normalized_path,
             "category": category,
             "icon": icon
         }
@@ -84,13 +95,16 @@ class LinksManager:
         if not name or not path:
             return False
         
+        # Normalize the path for Windows
+        normalized_path = FileUtils.normalize_path(path)
+        
         # Ensure category exists
         if category not in self.links["categories"]:
             self.links["categories"].append(category)
         
         self.links["links"][index] = {
             "name": name.strip(),
-            "path": path.strip(),
+            "path": normalized_path,
             "category": category,
             "icon": icon
         }

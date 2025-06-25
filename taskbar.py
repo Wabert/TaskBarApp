@@ -340,17 +340,23 @@ class SuiteViewTaskbar:
 
     def toggle_windows_menu(self):
         """Toggle the windows management menu"""
-        if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists') and self.windows_menu.winfo_exists():
-            self.windows_menu.close_window()
-            self.windows_menu = None
-        else:
-            # Position menu above taskbar
-            x = self.root.winfo_screenwidth() - 700 - 20  # 20px from right edge
-            y = self.y_position - 600 - 5  # Above taskbar
-            
-            self.windows_menu = WindowsMenu(self.root, self.window_manager, 
-                                          self.on_windows_pinned)
-            self.windows_menu.geometry(f"+{x}+{y}")
+        if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+            try:
+                if self.windows_menu.winfo_exists():
+                    # Store current geometry BEFORE closing
+                    self.windows_menu_geometry = self.windows_menu.get_current_geometry()
+                    print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
+                    self.windows_menu.close_window()
+                    self.windows_menu = None
+                    return
+            except:
+                self.windows_menu = None
+        
+        # Create new windows menu
+        print(f"Creating menu with stored geometry: {self.windows_menu_geometry}")  # Debug
+        self.windows_menu = WindowsMenu(self.root, self.window_manager, 
+                                    self.on_windows_pinned,
+                                    self.windows_menu_geometry)
     
     def on_windows_pinned(self):
         """Callback when windows are pinned/unpinned"""

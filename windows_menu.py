@@ -1,7 +1,8 @@
-# windows_menu.py (complete updated version with persistence and resizing)
+# windows_menu.py (updated with left/right edge resizing)
 """
 Windows menu UI for SuiteView Taskbar
 Shows list of open windows with hide/pin functionality
+Now with left/right edge resizing capability
 """
 
 import tkinter as tk
@@ -58,15 +59,26 @@ class WindowsMenu(tk.Toplevel):
         # Populate with windows
         self.refresh_window_list()
         
-        # Set focus
-        self.focus_set()
-        
-        # Apply stored geometry or default size
+        # Apply stored geometry or default size and position
         if stored_geometry:
             self.geometry(stored_geometry)
+            print(f"Applied stored geometry: {stored_geometry}")  # Debug
         else:
-            # Set default size
-            self.geometry("700x600")
+            # Set default size and position (bottom-right)
+            default_width = 700
+            default_height = 600
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight() - Dimensions.TASKBAR_HEIGHT 
+            x = screen_width - default_width - 5  # 20px from right edge
+            # Position above taskbar (assuming taskbar height of 40)
+            y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
+            
+
+            
+            self.geometry(f"{default_width}x{default_height}+{x}+{y}")
+        
+        # Bind window close event
+        self.protocol("WM_DELETE_WINDOW", self.close_window)
         
         # Ensure window is visible
         self.deiconify()
@@ -106,23 +118,44 @@ class WindowsMenu(tk.Toplevel):
         close_btn.pack(side=tk.RIGHT, padx=5, pady=5)
     
     def create_resize_handles(self):
-        """Create resize handle only at the top for height adjustment"""
-        # Create a transparent top resize handle spanning the full width
-        # Make it at the very top of the window (y=0) to allow pulling from the very top
+        """Create resize handles for top, left, and right edges"""
+        # Top resize handle
         top_handle = tk.Frame(self, cursor='size_ns', height=5)
         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
-        
-        # Make it transparent by matching the window background
         top_handle.configure(bg=Colors.DARK_GREEN)
         
-        # Bind resize events
+        # Bind resize events for top
         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
         top_handle.bind("<B1-Motion>", self.do_resize)
         top_handle.bind("<ButtonRelease-1>", self.end_resize)
         
+        # Left resize handle
+        left_handle = tk.Frame(self, cursor='size_we', width=5)
+        left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
+        left_handle.configure(bg=Colors.DARK_GREEN)
+        
+        # Bind resize events for left
+        left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
+        left_handle.bind("<B1-Motion>", self.do_resize)
+        left_handle.bind("<ButtonRelease-1>", self.end_resize)
+        
+        # Right resize handle
+        right_handle = tk.Frame(self, cursor='size_we', width=5)
+        right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
+        right_handle.configure(bg=Colors.DARK_GREEN)
+        
+        # Bind resize events for right
+        right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
+        right_handle.bind("<B1-Motion>", self.do_resize)
+        right_handle.bind("<ButtonRelease-1>", self.end_resize)
+        
         # Visual feedback on hover
         top_handle.bind("<Enter>", lambda e: self.configure(cursor='size_ns'))
         top_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+        left_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+        left_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+        right_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+        right_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
 
     def start_drag(self, event):
         """Start dragging the window"""
@@ -149,6 +182,10 @@ class WindowsMenu(tk.Toplevel):
         new_y = max(0, min(new_y, screen_height - window_height))
         
         self.geometry(f"+{int(new_x)}+{int(new_y)}")
+        
+        # Update stored geometry in parent
+        if hasattr(self.parent, 'windows_menu_geometry'):
+            self.parent.windows_menu_geometry = self.get_current_geometry()
     
     def start_resize(self, event, edge):
         """Start resizing operation"""
@@ -169,14 +206,11 @@ class WindowsMenu(tk.Toplevel):
         self.main_frame.configure(relief=tk.SUNKEN)
 
     def do_resize(self, event):
-        """Handle resize drag - only top edge for height adjustment"""
+        """Handle resize drag for all edges"""
         if not self.is_resizing or not self.resize_edge:
             return
         
-        # Only handle top edge resizing
-        if self.resize_edge != 't':
-            return
-        
+        dx = event.x_root - self.resize_start_x
         dy = event.y_root - self.resize_start_y
         
         x = self.original_geometry['x']
@@ -184,15 +218,27 @@ class WindowsMenu(tk.Toplevel):
         width = self.original_geometry['width']
         height = self.original_geometry['height']
         
+        min_width = 400
         min_height = 300
         
-        # Top edge resizing
-        new_height = max(min_height, height - dy)
-        if new_height != height:
-            y = y + (height - new_height)
-            height = new_height
+        # Handle different edges
+        if self.resize_edge == 't':  # Top edge
+            new_height = max(min_height, height - dy)
+            if new_height != height:
+                y = y + (height - new_height)
+                height = new_height
+                
+        elif self.resize_edge == 'l':  # Left edge
+            new_width = max(min_width, width - dx)
+            if new_width != width:
+                x = x + (width - new_width)
+                width = new_width
+                
+        elif self.resize_edge == 'r':  # Right edge
+            new_width = max(min_width, width + dx)
+            width = new_width
         
-        # Apply new geometry (only height and y position change)
+        # Apply new geometry
         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
 
     def end_resize(self, event):
@@ -202,6 +248,11 @@ class WindowsMenu(tk.Toplevel):
         
         # Remove visual feedback
         self.main_frame.configure(relief=tk.RAISED)
+        
+        # Update stored geometry in parent
+        if hasattr(self.parent, 'windows_menu_geometry'):
+            self.parent.windows_menu_geometry = self.get_current_geometry()
+            print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
     
     def create_content_area(self):
         """Create scrollable content area"""
@@ -346,6 +397,11 @@ class WindowsMenu(tk.Toplevel):
     
     def close_window(self):
         """Close the windows menu"""
+        # Store geometry in parent before closing
+        if hasattr(self.parent, 'windows_menu_geometry'):
+            self.parent.windows_menu_geometry = self.get_current_geometry()
+            print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
+        
         # Unbind mousewheel to prevent errors
         self.canvas.unbind_all("<MouseWheel>")
         self.destroy()

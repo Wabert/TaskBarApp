@@ -13,10 +13,12 @@ from typing import Callable, Optional
 class WindowsMenu(tk.Toplevel):
     """Windows management menu"""
     
-    def __init__(self, parent, window_manager: WindowManager, on_pin_callback: Callable, 
+    def __init__(self, taskbar, window_manager: WindowManager, on_pin_callback: Callable, 
                  stored_geometry: Optional[str] = None):
-        super().__init__(parent)
-        self.parent = parent
+        super().__init__(taskbar.root)
+        self.parent = taskbar
+
+
         self.window_manager = window_manager
         self.on_pin_callback = on_pin_callback
         self.stored_geometry = stored_geometry
@@ -392,9 +394,9 @@ class WindowsMenu(tk.Toplevel):
     
     def close_window(self):
         """Close the windows menu"""
-        # Store geometry in parent before closing
+        # Store geometry before closing
         if hasattr(self.parent, 'windows_menu_geometry'):
-            self.parent.windows_menu_geometry = self.get_current_geometry()
+            self.parent.stored_geometry = self.get_current_geometry()
             print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
         
         # Unbind mousewheel to prevent errors

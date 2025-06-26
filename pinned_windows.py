@@ -9,13 +9,15 @@ import tkinter as tk
 from config import Colors, Fonts, Settings
 from window_manager import ManagedWindow, WindowManager
 from ui_components import ConfirmationDialog
+import win32gui
+import win32con
 
 class PinnedWindowButton(tk.Frame):
     """Individual pinned window button"""
     
     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
                  on_unpin_callback):
-        super().__init__(parent, bg=Colors.DARK_GREEN)
+        super().__init__(parent, bg=Colors.DARK_GREEN, bd=0, highlightthickness=0)
         self.window = window
         self.window_manager = window_manager
         self.on_unpin_callback = on_unpin_callback
@@ -32,27 +34,27 @@ class PinnedWindowButton(tk.Frame):
         print(f"Window: {self.window.display_name}")
         print(f"Parent: {self.master}")
         
-        # Determine colors based on visibility
-        bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-        fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
+        # Always use consistent colors for pinned buttons
+        bg_color = Colors.DARK_GREEN
+        fg_color = Colors.WHITE
         
-        # Use app name with word wrapping instead of truncating
+        # Use app name
         display_text = self.window.app_name
         
-        # Create smaller font for button text
-        button_font = (Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1] - 2)
+        # Create button font
+        button_font = Fonts.TASKBAR_BUTTON
         
         self.button = tk.Button(self, text=display_text,
                                bg=bg_color, fg=fg_color,
                                relief=tk.RAISED, bd=2,
-                               font=button_font,
-                               width=6, height=2,  # More square: 6 chars wide, 2 lines high
+                               width=3,
+                               font=('Arial', 8),
+                               padx=15,  # Internal padding for text
                                cursor='hand2',
+                               wraplength=40,
                                activebackground=Colors.HOVER_GREEN,
-                               command=self.toggle_window,
-                               wraplength=45,  # Enable word wrapping at ~45 pixels
-                               justify=tk.CENTER)  # Center the wrapped text
-        self.button.pack(padx=2, pady=2)
+                               command=self.toggle_window)
+        self.button.pack(fill=tk.BOTH, expand=True)  # Fill entire frame
         
         # Force visibility
         self.button.update()
@@ -63,26 +65,63 @@ class PinnedWindowButton(tk.Frame):
         print(f"=== END CREATING PINNED BUTTON ===\n")
     
     def toggle_window(self):
-        """Toggle window visibility"""
-        self.window.bring_to_front()
-        self.update_appearance()
-    
-    def update_appearance(self):
-        """Update button appearance based on window state"""
-        bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-        fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
-        self.button.configure(bg=bg_color, fg=fg_color)
+        """Toggle window - hide if fully visible/on top, otherwise bring to front"""
+        try:
+            import win32gui
+            
+            if self.window.is_hidden:
+                # Window is hidden - show and bring to front
+                print(f"Window {self.window.display_name} is hidden - showing")
+                self.window_manager.toggle_window_visibility(self.window)
+                self.window.bring_to_front()
+            else:
+                # Window is visible - check if it's the foreground window
+                current_foreground = win32gui.GetForegroundWindow()
+                
+                # Check if window is minimized
+                if win32gui.IsIconic(self.window.hwnd):
+                    print(f"Window {self.window.display_name} is minimized - restoring")
+                    self.window.bring_to_front()
+                elif current_foreground == self.window.hwnd:
+                    # Window is the foreground window - hide it
+                    print(f"Window {self.window.display_name} is foreground - hiding")
+                    self.window_manager.toggle_window_visibility(self.window)
+                else:
+                    # Window is visible but not foreground - bring it to front
+                    print(f"Window {self.window.display_name} is not foreground - bringing to front")
+                    self.window.bring_to_front()
+                
+        except Exception as e:
+            print(f"Error in toggle_window: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to just bringing to front
+            self.window.bring_to_front()
+            
+        # Don't update appearance - keep button color consistent
     
     def show_unpin_menu(self, event):
         """Show right-click menu for unpinning"""
-        result = ConfirmationDialog.ask(
-            self.winfo_toplevel(),
-            "Unpin Window",
-            f"Unpin '{self.window.app_name}' from taskbar?",
-            icon="📌"
+        # Get taskbar position for proper dialog placement
+        taskbar = self.winfo_toplevel()
+        taskbar_x = taskbar.winfo_x()
+        taskbar_y = taskbar.winfo_y()
+        
+        # Get button position relative to taskbar
+        button_x = self.winfo_rootx()
+        
+        # Create custom confirmation dialog positioned above taskbar
+        dialog = UnpinConfirmationDialog(
+            taskbar,
+            self.window.app_name,
+            button_x,
+            taskbar_y
         )
         
-        if result:
+        # Wait for dialog result
+        taskbar.wait_window(dialog)
+        
+        if dialog.result:
             self.window_manager.unpin_window(self.window)
             self.on_unpin_callback()
             
@@ -104,16 +143,15 @@ class PinnedWindowsSection(tk.Frame):
         print(f"Parent: {parent}")
         print(f"Window manager: {window_manager}")
 
-        # Set minimum and fixed size
-        self.configure(width=Settings.PINNED_SECTION_WIDTH, height=35)
-        self.pack_propagate(False)  # Maintain fixed size
+        # Don't set a fixed width - let it expand based on content
+        self.configure(height=40)  # Match taskbar height
         
         # Remove any visible border
         self.configure(highlightbackground=Colors.DARK_GREEN, highlightthickness=0)
         
-        # Create container for buttons with no special background
+        # Create container for buttons with no padding
         self.button_container = tk.Frame(self, bg=Colors.DARK_GREEN)
-        self.button_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
+        self.button_container.pack(fill=tk.BOTH, expand=True)  # No padding
         
         # No empty state label - just leave it blank
         
@@ -146,7 +184,7 @@ class PinnedWindowsSection(tk.Frame):
                         self.window_manager,
                         self.on_pin_changed
                     )
-                    button.pack(side=tk.LEFT, padx=2)
+                    button.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)  # No padding, fill height
                     self.pinned_buttons[window.hwnd] = button
                     print(f"   Button created and packed")
                     
@@ -162,11 +200,6 @@ class PinnedWindowsSection(tk.Frame):
         print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
         print("=== END REFRESH ===\n")
     
-    def update_window_states(self):
-        """Update appearance of all pinned window buttons"""
-        for button in self.pinned_buttons.values():
-            button.update_appearance()
-    
     def on_pin_changed(self):
         """Called when a window is pinned/unpinned from the button"""
         # Refresh the pinned section
@@ -175,3 +208,105 @@ class PinnedWindowsSection(tk.Frame):
         # Also call the taskbar callback if it exists
         if self.on_pin_changed_callback:
             self.on_pin_changed_callback()
+
+
+class UnpinConfirmationDialog(tk.Toplevel):
+    """Custom unpin confirmation dialog positioned above taskbar"""
+    
+    def __init__(self, parent, app_name, button_x, taskbar_y):
+        super().__init__(parent)
+        self.result = False
+        
+        # Window setup
+        self.overrideredirect(True)
+        self.configure(bg=Colors.DARK_GREEN)
+        self.attributes('-topmost', True)
+        
+        # Create main frame with border
+        main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        # Create header
+        header = tk.Frame(main_frame, bg=Colors.DARK_GREEN, height=25)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+        
+        # Title with icon
+        title_label = tk.Label(header, text="📌 Unpin Window", 
+                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                             font=Fonts.DIALOG_TITLE)
+        title_label.pack(side=tk.LEFT, padx=10, pady=3)
+        
+        # Close button
+        close_btn = tk.Label(header, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                           font=('Arial', 12, 'bold'), cursor='hand2')
+        close_btn.pack(side=tk.RIGHT, padx=5)
+        close_btn.bind("<Button-1>", lambda e: self.cancel())
+        
+        # Content area
+        content = tk.Frame(main_frame, bg=Colors.LIGHT_GREEN)
+        content.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Pin icon
+        icon_label = tk.Label(content, text="📌", bg=Colors.LIGHT_GREEN,
+                            font=('Arial', 24))
+        icon_label.pack(pady=5)
+        
+        # Message
+        msg = f"Unpin '{app_name}' from taskbar?"
+        msg_label = tk.Label(content, text=msg, bg=Colors.LIGHT_GREEN,
+                           fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
+        msg_label.pack(pady=5)
+        
+        # Buttons
+        button_frame = tk.Frame(content, bg=Colors.LIGHT_GREEN)
+        button_frame.pack(pady=10)
+        
+        yes_btn = tk.Button(button_frame, text="Yes", 
+                          bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                          command=self.yes, width=8,
+                          font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+        yes_btn.pack(side=tk.LEFT, padx=5)
+        
+        no_btn = tk.Button(button_frame, text="No", 
+                         bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+                         command=self.cancel, width=8,
+                         font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+        no_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Set dialog size
+        dialog_width = 350
+        dialog_height = 200
+        
+        # Position dialog above taskbar, centered on button
+        x = button_x - dialog_width // 2
+        y = taskbar_y - dialog_height - 5  # 5px gap above taskbar
+        
+        # Ensure dialog stays on screen
+        screen_width = self.winfo_screenwidth()
+        if x < 0:
+            x = 0
+        elif x + dialog_width > screen_width:
+            x = screen_width - dialog_width
+        
+        self.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+        
+        # Focus on No button (safer default)
+        no_btn.focus_set()
+        
+        # Bind keys
+        self.bind('<Return>', lambda e: self.yes())
+        self.bind('<Escape>', lambda e: self.cancel())
+        
+        # Make modal
+        self.grab_set()
+    
+    def yes(self):
+        """Yes button clicked"""
+        self.result = True
+        self.destroy()
+    
+    def cancel(self):
+        """No button clicked or dialog cancelled"""
+        self.result = False
+        self.destroy()

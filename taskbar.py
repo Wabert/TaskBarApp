@@ -58,43 +58,6 @@ class SuiteViewTaskbar:
         # Apply Windows API modifications
         self.setup_windows_integration()
         
-
-    def toggle_windows_menu(self):
-        """Toggle the windows management menu"""
-        if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
-            try:
-                if self.windows_menu.winfo_exists():
-                    # Store current geometry before closing
-                    self.windows_menu_geometry = self.windows_menu.get_current_geometry()
-                    self.windows_menu.close_window()
-                    self.windows_menu = None
-                    return
-            except:
-                self.windows_menu = None
-        
-        # Create new windows menu
-        self.windows_menu = WindowsMenu(self.root, self.window_manager, 
-                                      self.on_windows_pinned,
-                                      self.windows_menu_geometry)
-        
-        # If no stored geometry, position it properly
-        if not self.windows_menu_geometry:
-            # Update the window to get its actual size
-            self.windows_menu.update_idletasks()
-            
-            # Calculate position - above taskbar, right side
-            window_width = self.windows_menu.winfo_reqwidth()
-            window_height = self.windows_menu.winfo_reqheight()
-            
-            x = self.root.winfo_screenwidth() - window_width - 20  # 20px from right edge
-            y = self.y_position - window_height - 5  # 5px above taskbar
-            
-            # Ensure it doesn't go off-screen
-            x = max(0, x)
-            y = max(0, y)
-            
-            self.windows_menu.geometry(f"{window_width}x{window_height}+{x}+{y}")
-    
     def setup_window(self):
         """Configure the main window properties"""
         # Remove window decorations
@@ -178,13 +141,10 @@ class SuiteViewTaskbar:
         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
         
-        # Create and store pinned windows section - THIS IS THE KEY FIX
+        # Create and store pinned windows section
         print(f"Creating pinned section...")
         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
-        self.pinned_section.pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        
-        # Set minimum width for the section
-        self.pinned_section.configure(width=Settings.PINNED_SECTION_WIDTH)
+        self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
         
         # Debug to confirm it's created and assigned
         print(f"Pinned section created and assigned: {self.pinned_section}")
@@ -332,9 +292,9 @@ class SuiteViewTaskbar:
         """Periodically ensure window stays on top"""
         self.set_always_on_top()
 
-        # Update pinned window button states
-        if self.pinned_section:
-            self.pinned_section.update_window_states()
+        # # Update pinned window button states
+        # if self.pinned_section:
+        #     self.pinned_section.update_window_states()
 
         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
 
@@ -353,12 +313,11 @@ class SuiteViewTaskbar:
                 self.windows_menu = None
         
         # Create new windows menu
-        print(f"Creating menu with stored geometry: {self.windows_menu_geometry}")  # Debug
-        self.windows_menu = WindowsMenu(self.root, self.window_manager, 
+        print(f"Class: {type(self).__name__}")  # Debug
+        self.windows_menu = WindowsMenu(self, self.window_manager, 
                                     self.on_windows_pinned,
                                     self.windows_menu_geometry)
     
-
     def on_windows_pinned(self):
         """Callback when windows are pinned/unpinned"""
         print(f"\n=== ON_WINDOWS_PINNED CALLED ===")

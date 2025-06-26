@@ -1,7 +1,8 @@
-# window_manager.py
+# window_manager.py (fixed)
 """
 Windows detection and management functionality for SuiteView Taskbar
 Handles window enumeration, filtering, hiding/showing, and pinning
+Fixed to properly restore minimized windows
 """
 
 import win32gui
@@ -43,7 +44,8 @@ class ManagedWindow:
             'code': 'VS Code',
             'devenv': 'Visual Studio',
             'acrobat': 'Acrobat',
-            'acrord32': 'Acrobat Reader'
+            'acrord32': 'Acrobat Reader',
+            'explorer': 'File Explorer'
         }
         
         return common_apps.get(app.lower(), app.title())
@@ -95,16 +97,33 @@ class ManagedWindow:
             return False
     
     def bring_to_front(self) -> bool:
-        """Bring window to front and give it focus without changing size"""
+        """Bring window to front and give it focus, restoring from minimized if needed"""
         try:
             if self.is_hidden:
                 self.show()
             
-            # Bring to front without changing window state (no resizing)
-            win32gui.SetForegroundWindow(self.hwnd)
-            # Only show if it's actually hidden, don't restore from minimized/maximized
-            if not win32gui.IsWindowVisible(self.hwnd):
+            # Check if window is minimized (iconic)
+            if win32gui.IsIconic(self.hwnd):
+                print(f"Window {self.display_name} is minimized, restoring...")
+                # Restore the window from minimized state
+                win32gui.ShowWindow(self.hwnd, win32con.SW_RESTORE)
+            elif not win32gui.IsWindowVisible(self.hwnd):
+                # Window is hidden but not minimized
                 win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+            
+            # Bring window to foreground
+            # Sometimes SetForegroundWindow fails, so we try a few methods
+            try:
+                win32gui.SetForegroundWindow(self.hwnd)
+            except:
+                # Alternative method: simulate alt key to allow focus change
+                win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+                win32gui.SetForegroundWindow(self.hwnd)
+                win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+            
+            # Ensure window is active
+            win32gui.SetActiveWindow(self.hwnd)
+            
             return True
         except Exception as e:
             print(f"Error bringing window to front {self.display_name}: {e}")
@@ -120,7 +139,7 @@ class WindowManager:
     def __init__(self):
         self.managed_windows: Dict[int, ManagedWindow] = {}
         self.excluded_processes = {
-            'explorer.exe', 'searchui.exe', 'shellexperiencehost.exe',
+            'searchui.exe', 'shellexperiencehost.exe',
             'applicationframehost.exe', 'systemsettings.exe', 'textinputhost.exe',
             'lockapp.exe', 'searchapp.exe', 'startmenuexperiencehost.exe',
             'runtimebroker.exe', 'svchost.exe', 'system', 'registry',
@@ -167,8 +186,8 @@ class WindowManager:
     def _is_relevant_window(self, hwnd: int) -> bool:
         """Check if window is relevant (user-facing, not system)"""
         try:
-            # Window must be visible
-            if not win32gui.IsWindowVisible(hwnd):
+            # Window must be visible or minimized (but not completely hidden)
+            if not win32gui.IsWindowVisible(hwnd) and not win32gui.IsIconic(hwnd):
                 return False
             
             # Get window info
@@ -176,8 +195,15 @@ class WindowManager:
             process = psutil.Process(pid)
             process_name = process.name().lower()
             
-            # Exclude system processes
-            if process_name in self.excluded_processes:
+            # Special handling for explorer.exe - we want File Explorer windows but not the desktop/taskbar
+            if process_name == 'explorer.exe':
+                # Get window class name to distinguish File Explorer from desktop/taskbar
+                class_name = win32gui.GetClassName(hwnd)
+                # File Explorer windows have these class names
+                if class_name not in ['CabinetWClass', 'ExploreWClass']:
+                    return False
+            elif process_name in self.excluded_processes:
+                # Exclude other system processes
                 return False
             
             # Get window style

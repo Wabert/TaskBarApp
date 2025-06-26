@@ -36,9 +36,9 @@ class LinksManager:
             else:
                 return self._create_default_config()
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
-            print(f"Error loading links: {e}. Creating new config.")
-            return self._create_default_config()
-    
+                print(f"Error loading links: {e}. Creating new config.")
+                return self._create_default_config()
+        
     def _fix_path_separators(self, data):
         """Fix forward slash path separators in existing links"""
         for link in data.get("links", []):

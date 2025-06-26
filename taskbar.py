@@ -147,8 +147,8 @@ class SuiteViewTaskbar:
         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
         
         # Debug to confirm it's created and assigned
-        print(f"Pinned section created and assigned: {self.pinned_section}")
-        print(f"self.pinned_section is not None: {self.pinned_section is not None}")
+        #print(f"Pinned section created and assigned: {self.pinned_section}")
+        #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
     
     def create_right_side_elements(self):
         """Create the right side elements of the taskbar"""
@@ -280,7 +280,7 @@ class SuiteViewTaskbar:
         """Start the application"""
         """Start the application"""
         # Verify setup before starting
-        self.verify_setup()
+        #self.verify_setup()
         
         # Start the periodic topmost maintenance
         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
@@ -320,8 +320,8 @@ class SuiteViewTaskbar:
     
     def on_windows_pinned(self):
         """Callback when windows are pinned/unpinned"""
-        print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
-        print(f"Pinned section: {self.pinned_section}")
+        #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
+        #print(f"Pinned section: {self.pinned_section}")
         
         if self.pinned_section:
             print(f"Refreshing pinned section...")
@@ -343,7 +343,7 @@ class SuiteViewTaskbar:
         else:
             print(f"Windows Manager is not open")
             
-        print(f"=== END ON_WINDOWS_PINNED ===\n")
+        #print(f"=== END ON_WINDOWS_PINNED ===\n")
 
     def verify_setup(self):
         """Verify all components are properly initialized"""

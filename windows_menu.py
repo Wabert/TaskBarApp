@@ -22,7 +22,7 @@ class WindowsMenu(tk.Toplevel):
         self.window_manager = window_manager
         self.on_pin_callback = on_pin_callback
         self.stored_geometry = stored_geometry
-        
+                
         # Window setup
         self.title("")  # No title for custom window
         self.configure(bg=Colors.DARK_GREEN)
@@ -64,13 +64,21 @@ class WindowsMenu(tk.Toplevel):
         # Apply stored geometry or default size and position
         if stored_geometry:
             self.geometry(stored_geometry)
-            print(f"Applied stored geometry: {stored_geometry}")  # Debug
+            #print(f"Applied stored geometry: {stored_geometry}")  # Debug
         else:
             # Set default size and position (bottom-right)
             default_width = 700
-            default_height = 600
+            # Calculate height based on number of windows
+            
+            window_count = len(self.window_manager.get_relevant_windows())
+            base_height = 100  # Minimum height for header and padding
+            item_height = 40   # Height per window item
+            max_height = 600   # Maximum height
+            default_height = min(base_height + (window_count * item_height), max_height)
+
             screen_width = self.winfo_screenwidth()
             screen_height = self.winfo_screenheight() - Dimensions.TASKBAR_HEIGHT 
+
             x = screen_width - default_width - 5  # 20px from right edge
             # Position above taskbar (assuming taskbar height of 40)
             y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
@@ -252,7 +260,7 @@ class WindowsMenu(tk.Toplevel):
         # Update stored geometry in parent
         if hasattr(self.parent, 'windows_menu_geometry'):
             self.parent.windows_menu_geometry = self.get_current_geometry()
-            print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
+            #print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
     
     def create_content_area(self):
         """Create scrollable content area"""
@@ -315,7 +323,7 @@ class WindowsMenu(tk.Toplevel):
         pin_btn = tk.Button(item_frame, text="Pin", 
                            bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
                            relief=tk.RAISED, bd=1, cursor='hand2',
-                           font=Fonts.MENU_ITEM, width=6,
+                           font=Fonts.MENU_ITEM, width=4,
                            command=lambda: self.toggle_pin(window))
         pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
         

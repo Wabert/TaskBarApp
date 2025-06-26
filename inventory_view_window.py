@@ -25,18 +25,27 @@ class InventoryViewWindow(tk.Toplevel):
         self.active_filters = {}  # column_name -> set of selected values
         self.column_unique_values = {}  # column_name -> list of unique values
         
-        # Window setup
-        self.title("Folder Inventory - Interactive View")
+        # Window setup - remove default decorations for custom title bar
+        self.overrideredirect(True)
         self.configure(bg=Colors.DARK_GREEN)
         self.attributes('-topmost', True)
         self.geometry("1000x700")
         
-        # Make window resizable
-        self.resizable(True, True)
+        # Initialize drag variables for custom title bar
+        self.is_dragging = False
+        self.drag_start_x = 0
+        self.drag_start_y = 0
         
-        # Main container
+        # Main container with dark green border (matching other windows)
         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+        
+        # Create custom title bar (matching other windows style)
+        self.create_custom_title_bar()
+        
+        # Content frame with light green background
+        self.content_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN)
+        self.content_frame.pack(fill=tk.BOTH, expand=True)
         
         # Create header with scan information
         self.create_header()
@@ -57,9 +66,78 @@ class InventoryViewWindow(tk.Toplevel):
         # Center the window
         self.center_window()
     
+    def create_custom_title_bar(self):
+        """Create custom title bar matching other windows' style"""
+        self.title_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=25)
+        self.title_frame.pack(fill=tk.X)
+        self.title_frame.pack_propagate(False)
+        
+        # Drag handle (left side)
+        drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                             font=('Arial', 8), cursor='fleur')
+        drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
+        
+        # Title label
+        title_label = tk.Label(self.title_frame, text="📁 Folder Inventory - Interactive View", 
+                              bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                              font=Fonts.DIALOG_TITLE, cursor='fleur')
+        title_label.pack(side=tk.LEFT, padx=5, pady=3)
+        
+        # Close button
+        close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                           font=('Arial', 12, 'bold'), cursor='hand2')
+        close_btn.pack(side=tk.RIGHT, padx=5)
+        close_btn.bind("<Button-1>", lambda e: self.on_closing())
+        
+        # Bind drag events to title bar elements
+        for widget in [self.title_frame, drag_handle, title_label]:
+            widget.bind("<Button-1>", self.start_drag)
+            widget.bind("<B1-Motion>", self.do_drag)
+            widget.bind("<ButtonRelease-1>", self.end_drag)
+    
+    def start_drag(self, event):
+        """Start dragging the window"""
+        self.is_dragging = True
+        self.drag_start_x = event.x_root
+        self.drag_start_y = event.y_root
+        
+        # Visual feedback
+        self.title_frame.configure(bg=Colors.HOVER_GREEN)
+    
+    def do_drag(self, event):
+        """Handle drag motion"""
+        if not self.is_dragging:
+            return
+        
+        # Calculate the distance moved
+        delta_x = event.x_root - self.drag_start_x
+        delta_y = event.y_root - self.drag_start_y
+        
+        # Get current position
+        current_x = self.winfo_x()
+        current_y = self.winfo_y()
+        
+        # Calculate new position
+        new_x = current_x + delta_x
+        new_y = current_y + delta_y
+        
+        # Move the window
+        self.geometry(f"+{new_x}+{new_y}")
+        
+        # Update start position for next move
+        self.drag_start_x = event.x_root
+        self.drag_start_y = event.y_root
+    
+    def end_drag(self, event):
+        """End dragging operation"""
+        self.is_dragging = False
+        
+        # Remove visual feedback
+        self.title_frame.configure(bg=Colors.DARK_GREEN)
+    
     def create_header(self):
         """Create header with scan information"""
-        header_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
+        header_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
         header_frame.pack(fill=tk.X, padx=2, pady=2)
         
         # Title
@@ -100,7 +178,7 @@ class InventoryViewWindow(tk.Toplevel):
     def create_data_grid(self):
         """Create the main data grid with filtering"""
         # Grid container
-        grid_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN, relief=tk.SUNKEN, bd=1)
+        grid_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.SUNKEN, bd=1)
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
         # Create Treeview for the data grid
@@ -125,8 +203,8 @@ class InventoryViewWindow(tk.Toplevel):
         
         for col in self.columns:
             self.tree.column(col, width=column_widths.get(col, 100), anchor='w')
-            # Create clickable headers for filtering
-            self.tree.heading(col, text=f"{col} ▼", command=lambda c=col: self.show_filter_menu(c))
+            # Create clickable headers for filtering - no arrow by default
+            self.tree.heading(col, text=col, command=lambda c=col: self.show_filter_menu(c))
         
         # Scrollbars
         v_scrollbar = ttk.Scrollbar(grid_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -149,9 +227,19 @@ class InventoryViewWindow(tk.Toplevel):
         style.configure('Treeview.Heading', background=Colors.MEDIUM_GREEN,
                        foreground=Colors.BLACK, font=Fonts.MENU_HEADER)
     
+    def update_column_headers(self):
+        """Update column headers to show/hide filter indicators"""
+        for col in self.columns:
+            if col in self.active_filters:
+                # Show arrow if filter is active
+                self.tree.heading(col, text=f"{col} ▼")
+            else:
+                # No arrow if no filter
+                self.tree.heading(col, text=col)
+    
     def create_footer(self):
         """Create footer with action buttons and filter status"""
-        footer_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=50)
+        footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
         footer_frame.pack_propagate(False)
         
@@ -203,23 +291,55 @@ class InventoryViewWindow(tk.Toplevel):
             values = [item[col] for col in self.columns]
             self.tree.insert('', 'end', values=values)
         
-        # Calculate unique values for each column (from original data for proper filtering)
+        # Calculate unique values for each column (from FILTERED data)
         self.calculate_unique_values()
     
     def calculate_unique_values(self):
-        """Calculate unique values for each column from original data"""
+        """Calculate unique values for each column from currently FILTERED data"""
         self.column_unique_values = {}
+        
+        # For each column, get unique values from the FILTERED data
         for col in self.columns:
             unique_vals = set()
-            for item in self.inventory_data:
+            for item in self.filtered_data:  # Use filtered_data instead of inventory_data
                 val = item.get(col, '')
                 if val != '':  # Don't include empty values
                     unique_vals.add(str(val))
             self.column_unique_values[col] = sorted(list(unique_vals))
     
+    def get_available_values_for_column(self, column):
+        """Get all possible values for a column considering OTHER column filters"""
+        available_values = set()
+        
+        # Apply all filters EXCEPT the one for this column
+        temp_filters = self.active_filters.copy()
+        if column in temp_filters:
+            del temp_filters[column]
+        
+        # Filter data with all filters except this column's filter
+        for item in self.inventory_data:
+            include_item = True
+            
+            # Check each filter except this column's filter
+            for filter_col, filter_values in temp_filters.items():
+                item_value = str(item.get(filter_col, ''))
+                if item_value not in filter_values:
+                    include_item = False
+                    break
+            
+            if include_item:
+                val = item.get(column, '')
+                if val != '':
+                    available_values.add(str(val))
+        
+        return sorted(list(available_values))
+    
     def show_filter_menu(self, column):
         """Show filter menu for a specific column"""
-        FilterMenuDialog(self, column, self.column_unique_values[column], 
+        # Get available values for this column (considering other filters but not this column's filter)
+        available_values = self.get_available_values_for_column(column)
+        
+        FilterMenuDialog(self, column, available_values, 
                         self.active_filters.get(column, set()), self.apply_filter)
     
     def apply_filter(self, column, selected_values):
@@ -235,6 +355,7 @@ class InventoryViewWindow(tk.Toplevel):
         self.filter_data()
         self.update_display()
         self.update_filter_status()
+        self.update_column_headers()
     
     def filter_data(self):
         """Apply all active filters to the data"""
@@ -266,6 +387,9 @@ class InventoryViewWindow(tk.Toplevel):
         
         # Update stats
         self.update_stats()
+        
+        # Recalculate unique values for next filter operation
+        self.calculate_unique_values()
     
     def update_stats(self):
         """Update the statistics display"""
@@ -306,10 +430,7 @@ class InventoryViewWindow(tk.Toplevel):
         self.filtered_data = self.inventory_data.copy()
         self.update_display()
         self.update_filter_status()
-        
-        # Update column headers to remove filter indicators
-        for col in self.columns:
-            self.tree.heading(col, text=f"{col} ▼")
+        self.update_column_headers()
     
     def export_to_excel(self):
         """Export the current filtered data to Excel"""
@@ -346,16 +467,36 @@ class FilterMenuDialog(CustomDialog):
         self.unique_values = unique_values
         self.current_selection = current_selection.copy()
         self.apply_callback = apply_callback
+        self.parent_window = parent
+        
+        # Check if this column already has a filter applied
+        self.has_existing_filter = column_name in parent.active_filters
         
         # If no current selection, default to all selected
         if not self.current_selection:
             self.current_selection = set(unique_values)
+        
+        # If there's an existing filter, use that selection instead of all
+        if self.has_existing_filter and parent.active_filters.get(column_name):
+            self.current_selection = parent.active_filters[column_name].copy()
         
         self.create_filter_interface()
         self.create_action_buttons()
     
     def create_filter_interface(self):
         """Create the filter selection interface"""
+        # Clear Filter button - only show if filter exists
+        if self.has_existing_filter:
+            clear_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
+            clear_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            clear_filter_btn = tk.Button(clear_frame, text="Clear Filter for This Column", 
+                                       bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+                                       command=self.clear_column_filter, 
+                                       font=Fonts.DIALOG_LABEL,
+                                       cursor='hand2', relief=tk.RAISED, bd=1)
+            clear_filter_btn.pack(pady=5)
+        
         # Search box
         search_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
         search_frame.pack(fill=tk.X, pady=5)
@@ -402,9 +543,25 @@ class FilterMenuDialog(CustomDialog):
         # Populate the list
         self.populate_filter_list()
         
-        # Bind double-click to toggle selection
-        self.filter_tree.bind('<Double-1>', self.toggle_item)
+        # Bind SINGLE click to toggle selection (not double-click)
+        self.filter_tree.bind('<Button-1>', self.on_click)
         self.filter_tree.bind('<Return>', self.toggle_item)
+    
+    def clear_column_filter(self):
+        """Clear the filter for this specific column"""
+        # Clear the filter by passing an empty list
+        self.apply_callback(self.column_name, [])
+        self.destroy()
+    
+    def on_click(self, event):
+        """Handle single click on items"""
+        # Get the item under the mouse
+        item = self.filter_tree.identify('item', event.x, event.y)
+        if item:
+            # Select the item
+            self.filter_tree.selection_set(item)
+            # Toggle it
+            self.toggle_item()
     
     def populate_filter_list(self, search_text=""):
         """Populate the filter list with checkboxes"""

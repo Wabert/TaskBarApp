@@ -47,9 +47,9 @@ class PinnedWindowButton(tk.Frame):
         self.button = tk.Button(self, text=display_text,
                                bg=bg_color, fg=fg_color,
                                relief=tk.RAISED, bd=2,
-                               width=3,
-                               font=('Arial', 8),
-                               padx=15,  # Internal padding for text
+                               width=6,
+                               font=('Arial', 7),
+                               padx=1,  # Internal padding for text
                                cursor='hand2',
                                wraplength=40,
                                activebackground=Colors.HOVER_GREEN,
@@ -139,9 +139,9 @@ class PinnedWindowsSection(tk.Frame):
         self.on_pin_changed_callback = on_pin_changed_callback
         
         # Debug output
-        print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
-        print(f"Parent: {parent}")
-        print(f"Window manager: {window_manager}")
+        # print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
+        # print(f"Parent: {parent}")
+        # print(f"Window manager: {window_manager}")
 
         # Don't set a fixed width - let it expand based on content
         self.configure(height=40)  # Match taskbar height
@@ -155,13 +155,13 @@ class PinnedWindowsSection(tk.Frame):
         
         # No empty state label - just leave it blank
         
-        print(f"PinnedWindowsSection created successfully: {self}")
-        print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
+        # print(f"PinnedWindowsSection created successfully: {self}")
+        # print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
     
     def refresh(self):
         """Refresh the pinned windows display"""
-        print(f"\n=== PINNED SECTION REFRESH ===")
-        print(f"Current button count: {len(self.pinned_buttons)}")
+        # print(f"\n=== PINNED SECTION REFRESH ===")
+        # print(f"Current button count: {len(self.pinned_buttons)}")
         
         # Clear existing buttons
         for hwnd in list(self.pinned_buttons.keys()):
@@ -196,9 +196,9 @@ class PinnedWindowsSection(tk.Frame):
         
         # Force the section to update
         self.update_idletasks()
-        print(f"Button container visible: {self.button_container.winfo_viewable()}")
-        print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
-        print("=== END REFRESH ===\n")
+        # print(f"Button container visible: {self.button_container.winfo_viewable()}")
+        # print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
+        # print("=== END REFRESH ===\n")
     
     def on_pin_changed(self):
         """Called when a window is pinned/unpinned from the button"""

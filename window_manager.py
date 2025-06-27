@@ -57,27 +57,49 @@ class ManagedWindow:
         return common_apps.get(app.lower(), app.title())
     
     def _create_display_name(self) -> str:
-        """Create display name WITHOUT app prefix"""
+        """Create display name WITHOUT app prefix and with cleaned tab counts"""
         # Remove app name from title if it's at the beginning
         if self.title.startswith(self.app_name + " - "):
-            return self.title[len(self.app_name) + 3:]  # Remove "AppName - "
+            display_name = self.title[len(self.app_name) + 3:]  # Remove "AppName - "
         elif self.title.startswith(self.app_name):
             # Some apps don't use " - " separator
-            return self.title[len(self.app_name):].lstrip(" -")
+            display_name = self.title[len(self.app_name):].lstrip(" -")
+        else:
+            display_name = self.title
         
         # For some apps, the title format might be different
         # Remove common patterns
         patterns_to_remove = [
             f" - {self.app_name}",  # "Document - Word"
-            f" - {self.app_name}",  # Em dash variant
-            f" - {self.app_name}",  # Em dash variant
+            f" – {self.app_name}",  # Em dash variant
+            f" — {self.app_name}",  # Em dash variant
         ]
         
-        display_name = self.title
         for pattern in patterns_to_remove:
             if display_name.endswith(pattern):
                 display_name = display_name[:-len(pattern)]
                 break
+        
+        # Clean up browser tab counts
+        # Replace "and X more tabs" with "(+X)"
+        import re
+        
+        # Pattern to match "and X more tab" or "and X more tabs"
+        tab_pattern = r' and (\d+) more tabs?'
+        match = re.search(tab_pattern, display_name)
+        if match:
+            tab_count = match.group(1)
+            display_name = re.sub(tab_pattern, f' (+{tab_count})', display_name)
+        
+        # Also handle other browser patterns like "- X tabs" or "(X tabs)"
+        # Chrome sometimes uses different formats
+        other_patterns = [
+            (r' - (\d+) tabs?$', r' (+\1)'),  # " - 3 tabs" -> " (+3)"
+            (r' \((\d+) tabs?\)$', r' (+\1)'),  # " (3 tabs)" -> " (+3)"
+        ]
+        
+        for pattern, replacement in other_patterns:
+            display_name = re.sub(pattern, replacement, display_name)
         
         return display_name if display_name else self.title
     

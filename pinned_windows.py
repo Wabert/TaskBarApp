@@ -137,6 +137,22 @@ class PinnedWindowButton(tk.Frame):
             
         # Prevent event from propagating to parent widgets (taskbar)
         return 'break'
+    
+    def update_window_title(self, window: ManagedWindow):
+        """Update the title of a specific pinned window button"""
+        if window.hwnd in self.pinned_buttons:
+            button_widget = self.pinned_buttons[window.hwnd]
+            
+            # Update button text with new display name
+            display_text = window.display_name
+            
+            # Truncate if too long
+            max_chars = 12
+            if len(display_text) > max_chars:
+                display_text = display_text[:max_chars-2] + ".."
+            
+            button_widget.button.configure(text=display_text)
+            print(f"Updated pinned button text to: {display_text}")
 
 class PinnedWindowsSection(tk.Frame):
     """Section in taskbar for pinned windows - now blends with taskbar"""

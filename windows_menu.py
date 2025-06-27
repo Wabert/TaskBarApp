@@ -67,7 +67,7 @@ class WindowsMenu(tk.Toplevel):
             self.geometry(stored_geometry)
         else:
             # Set default size and position
-            default_width = 600  # Slightly narrower
+            default_width = 400  # Slightly narrower
             
             # Calculate height based on number of windows with smaller item height
             window_count = len([w for w in self.window_manager.get_relevant_windows() if not w.is_pinned])
@@ -267,9 +267,9 @@ class WindowsMenu(tk.Toplevel):
         """Create scrollable content area with adjusted sizing"""
         # Create canvas and scrollbar for scrolling
         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
-                               highlightthickness=0)
+                            highlightthickness=0)
         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
-                                command=self.canvas.yview, width=12)  # Narrower scrollbar
+                                command=self.canvas.yview, width=12)
         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
         
         self.scrollable_frame.bind(
@@ -277,7 +277,16 @@ class WindowsMenu(tk.Toplevel):
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
         
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        # Make sure the canvas window fills the width
+        canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        # Bind canvas resize to update frame width
+        def configure_frame_width(event):
+            canvas_width = event.width
+            self.canvas.itemconfig(canvas_window, width=canvas_width)
+        
+        self.canvas.bind('<Configure>', configure_frame_width)
+        
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
         self.canvas.pack(side="left", fill="both", expand=True, padx=1, pady=1)
@@ -314,47 +323,88 @@ class WindowsMenu(tk.Toplevel):
             self.create_window_item(window)
     
     def create_window_item(self, window: ManagedWindow):
-        """Create a single window item with colored pin button"""
-        # Item container - make it more compact
+        """Create a single window item with app-named pin button"""
+        # Item container - this will stretch full width
         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
-                             relief=tk.RAISED, bd=1, height=20)  # Fixed height
-        item_frame.pack(fill=tk.X, padx=3, pady=1)  # Reduced padding
-        #item_frame.pack_propagate(False)  # Prevent frame from resizing
+                            relief=tk.RAISED, bd=1)
+        item_frame.pack(fill=tk.X, padx=3, pady=1, anchor='e')  # Anchor to east (right)
         
-        # # Pin button with app colors
-        pin_btn = tk.Button(item_frame, text="Pin", 
-                           bg=window.colors['bg'], fg=window.colors['fg'],
-                           relief=tk.RAISED, bd=1, cursor='hand2',
-                           font=('Arial', 8), width=4,  # Smaller font
-                           command=lambda: self.toggle_pin(window))
-        pin_btn.pack(side=tk.LEFT, padx=3, pady=2)
+        # Pin button with app name
+        try:
+            # Check if colors exist, use defaults if not
+            if hasattr(window, 'colors'):
+                bg_color = window.colors['bg']
+                fg_color = window.colors['fg']
+            else:
+                bg_color = Colors.MEDIUM_GREEN
+                fg_color = Colors.BLACK
+            
+            # Use app name for button text
+            button_text = window.app_name
+
+            #Remove .exe from button_text (regardless of case)
+            button_text = button_text.replace('.exe', '').replace('.EXE', '').replace('.Exe', '')
+
+            
+            # Special cases for common abbreviations
+            app_name_display = {
+                'File Explorer': 'Explorer',
+                'Visual Studio': 'VS',
+                'VS Code': 'Code',
+                'Acrobat Reader': 'Reader',
+                'Google Chrome': 'Chrome',
+                'Winword': 'Word',
+            }.get(button_text, button_text)
+            
+            pin_btn = tk.Button(item_frame, text=app_name_display, 
+                            bg=bg_color, fg=fg_color,
+                            relief=tk.RAISED, bd=1, cursor='hand2',
+                            font=('Arial', 8), 
+                            width=10,  # Wider to accommodate app names
+                            wraplength=60,  # Allow text wrapping
+                            justify='center',
+                            height=1,  # Keep height at 1 as requested
+                            command=lambda: self.toggle_pin(window))
+            pin_btn.pack(side=tk.LEFT, padx=3, pady=2)
+            
+        except Exception as e:
+            print(f"Error creating pin button: {e}")
+            # Fallback pin button
+            pin_btn = tk.Button(item_frame, text="Pin", 
+                            bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+                            relief=tk.RAISED, bd=1, cursor='hand2',
+                            font=('Arial', 8), width=10, height=1,
+                            command=lambda: self.toggle_pin(window))
+            pin_btn.pack(side=tk.LEFT, padx=3, pady=2)
         
-        # Window name label (without app prefix)
+        # Add color indicator on right side FIRST (so it appears on the far right)
+        try:
+            if hasattr(window, 'colors'):
+                color_indicator = tk.Frame(item_frame, bg=window.colors['bg'], width=5)
+                color_indicator.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 2))
+        except:
+            pass  # Skip color indicator if there's an issue
+        
+        # Window name label - pack after color indicator so it fills the middle space
         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
         
-        # Use the display name which no longer has the app prefix
-        display_text = window.display_name
+        # Use the display name
+        display_text = window.display_name if hasattr(window, 'display_name') else window.title
         
         # Truncate very long names
-        max_chars = 60
+        max_chars = 200  # Reduced because button is wider now
         if len(display_text) > max_chars:
             display_text = display_text[:max_chars-3] + "..."
         
         name_label = tk.Label(item_frame, text=display_text, 
-                             bg=label_bg, fg=label_fg,
-                             font=('Arial', 8), anchor='w',  # Smaller font
-                             cursor='hand2', padx=5, pady=2)  # Reduced padding
+                            bg=label_bg, fg=label_fg,
+                            font=('Arial', 9), anchor='w',
+                            cursor='hand2', padx=5, pady=2)
         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Add subtle border on right side with app color
-        color_indicator = tk.Frame(item_frame, bg=window.colors['bg'], width=3)
-        color_indicator.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Bind click to toggle visibility
+        # Bind click events
         name_label.bind("<Button-1>", lambda e: self.show_window(window))
-        
-        # Bind double click to close window
         name_label.bind("<Double-Button-1>", lambda e: self.remove_window(window))
         
         # Store references for updating
@@ -364,6 +414,9 @@ class WindowsMenu(tk.Toplevel):
             'pin_btn': pin_btn,
             'window': window
         }
+        
+        # Force the frame to update
+        item_frame.update_idletasks()
     
     def toggle_window_visibility(self, window: ManagedWindow):
         """Toggle window visibility and update UI"""
@@ -375,7 +428,6 @@ class WindowsMenu(tk.Toplevel):
         window.show()
         window.bring_to_front()
 
-    
     def update_window_item(self, window: ManagedWindow):
         """Update the UI for a specific window item"""
         if window.hwnd not in self.window_items:
@@ -388,9 +440,8 @@ class WindowsMenu(tk.Toplevel):
         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
         item['label'].configure(bg=label_bg, fg=label_fg)
 
-    # Close window and remove label button from windows_menu   
     def remove_window(self, window: ManagedWindow):
-        """Close the window"""
+        """Close window and remove label button from windows_menu  """
         self.window_manager.close_managed_window(window)
         self.refresh_window_list()
 
@@ -439,3 +490,65 @@ class WindowsMenu(tk.Toplevel):
         # Unbind mousewheel to prevent errors
         self.canvas.unbind_all("<MouseWheel>")
         self.destroy()
+
+    def refresh_window_list(self, only_update_titles=False):
+        """Refresh the list of windows or just update titles"""
+        if only_update_titles and self.window_items:
+            # Just update existing titles without full refresh
+            current_windows = self.window_manager.get_relevant_windows()
+            
+            for window in current_windows:
+                if window.hwnd in self.window_items and not window.is_pinned:
+                    self.update_window_title(window)
+            
+            return
+        
+        
+        # Clear existing items
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+        self.window_items.clear()
+        
+        # Get current windows and filter out pinned ones
+        all_windows = self.window_manager.get_relevant_windows()
+        windows = [w for w in all_windows if not w.is_pinned]
+        
+        if not windows:
+            label = tk.Label(self.scrollable_frame, text="No unpinned windows found", 
+                        bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
+                        font=Fonts.MENU_ITEM)
+            label.pack(pady=20)
+            return
+        
+        # Create item for each window
+        for window in windows:
+            self.create_window_item(window)
+    
+    def update_window_title(self, window: ManagedWindow):
+        """Update a specific window's title without refreshing entire list"""
+        if window.hwnd in self.window_items:
+            item = self.window_items[window.hwnd]
+            
+            # Update the label text
+            display_text = window.display_name
+            
+            # Truncate very long names
+            max_chars = 60
+            if len(display_text) > max_chars:
+                display_text = display_text[:max_chars-3] + "..."
+            
+            item['label'].configure(text=display_text)
+            
+            # Update colors if file type changed (e.g., opened different file type in Notepad)
+            if hasattr(window, 'colors'):
+                # Update pin button colors
+                item['pin_btn'].configure(
+                    bg=window.colors['bg'], 
+                    fg=window.colors['fg']
+                )
+                
+                # Update color indicator if it exists
+                for widget in item['frame'].winfo_children():
+                    if isinstance(widget, tk.Frame) and widget.winfo_width() == 3:
+                        widget.configure(bg=window.colors['bg'])
+                        break

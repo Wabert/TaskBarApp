@@ -399,3 +399,86 @@ class SuiteViewTaskbar:
             print(f"Pinned section parent: {self.pinned_section.master}")
             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
         print(f"=== END VERIFICATION ===\n")
+    
+    def check_window_states(self):
+        """Periodically check for closed windows, new windows, and title changes"""
+        try:
+            # Get current window list
+            current_windows = self.window_manager.get_relevant_windows()
+            current_hwnds = {w.hwnd for w in current_windows}
+            
+            # Check for closed pinned windows
+            if hasattr(self, 'pinned_section') and self.pinned_section:
+                pinned_windows = self.window_manager.get_pinned_windows()
+                windows_to_unpin = []
+                
+                for window in pinned_windows:
+                    if not window.is_valid():
+                        print(f"Window {window.display_name} no longer exists, unpinning...")
+                        windows_to_unpin.append(window)
+                
+                if windows_to_unpin:
+                    for window in windows_to_unpin:
+                        self.window_manager.unpin_window(window)
+                    self.pinned_section.refresh()
+            
+            # Initialize tracking dictionaries if they don't exist
+            if not hasattr(self, '_previous_hwnds'):
+                self._previous_hwnds = current_hwnds
+                self._window_titles = {}
+            
+            # Check for new windows
+            new_hwnds = current_hwnds - self._previous_hwnds
+            if new_hwnds:
+                print(f"Detected {len(new_hwnds)} new window(s)")
+                self._refresh_windows_menu()
+            
+            # Check for title changes in existing windows
+            title_changed = False
+            for window in current_windows:
+                hwnd = window.hwnd
+                current_title = window.title
+                
+                # Store or compare title
+                if hwnd in self._window_titles:
+                    if self._window_titles[hwnd] != current_title:
+                        print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
+                        title_changed = True
+                        self._window_titles[hwnd] = current_title
+                        
+                        # Update the window's display name
+                        window.display_name = window._create_display_name()
+                        
+                        # Update pinned button if this window is pinned
+                        if window.is_pinned and hasattr(self, 'pinned_section') and self.pinned_section:
+                            self.pinned_section.update_window_title(window)
+                else:
+                    self._window_titles[hwnd] = current_title
+            
+            # Clean up titles for closed windows
+            closed_hwnds = set(self._window_titles.keys()) - current_hwnds
+            for hwnd in closed_hwnds:
+                del self._window_titles[hwnd]
+            
+            # Refresh Windows menu if titles changed
+            if title_changed:
+                self._refresh_windows_menu()
+            
+            # Update previous list for next check
+            self._previous_hwnds = current_hwnds
+        
+        except Exception as e:
+            print(f"Error checking window states: {e}")
+        
+        # Schedule next check (every 1 second for responsive updates)
+        self.root.after(1000, self.check_window_states)
+
+    def _refresh_windows_menu(self):
+        """Helper method to refresh Windows menu if it's open"""
+        if hasattr(self, 'windows_menu') and self.windows_menu:
+            try:
+                if self.windows_menu.winfo_exists():
+                    print("Refreshing Windows Manager...")
+                    self.windows_menu.refresh_window_list()
+            except:
+                pass

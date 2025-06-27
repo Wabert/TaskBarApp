@@ -5,8 +5,8 @@
 ================================================================================
 
 Export Information:
-    Generated on: 2025-06-26 23:25:15
-    Project Directory: C:\Users\rober\Documents\Code\TaskBarApp
+    Generated on: 2025-06-27 12:34:38
+    Project Directory: C:\Users\ab7y02\OneDrive - American National Insurance Company\Documents\TaskBarApp
     Export Tool: SuiteView Code Exporter v1.0
 
 Description:
@@ -449,6 +449,247 @@ Type: Application configuration and constants
  173:             return cls.APP_COLORS['msaccess']
  174:         
  175:         return None
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: email_manager.py
+────────────────────────────────────────────────────────────────────────────────
+Path: email_manager.py
+Size: 997.0 B
+Lines: 22 total, 19 non-empty
+Characters: 976
+Type: .PY file
+────────────────────────────────────────────────────────────────────────────────
+
+   1: import win32com.client
+   2: from datetime import datetime, timedelta
+   3: 
+   4: class EmailManager:
+   5:     def __init__(self):
+   6:         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+   7: 
+   8:     def get_emails_with_attachments(self):
+   9:         inbox = self.outlook.GetDefaultFolder(6)  # 6 refers to the inbox
+  10:         messages = inbox.Items
+  11:         messages = messages.Restrict("[ReceivedTime] >= '" + (datetime.now() - timedelta(weeks=2)).strftime("%m/%d/%Y %H:%M %p") + "'")
+  12:         emails_with_attachments = []
+  13:         for message in messages:
+  14:             if message.Attachments.Count > 0:
+  15:                 emails_with_attachments.append({
+  16:                     'subject': message.Subject,
+  17:                     'sender': message.SenderName,
+  18:                     'received_time': message.ReceivedTime.strftime("%m/%d/%Y %H:%M %p"),
+  19:                     'webLink': message.EntryID  # Use EntryID to open the email
+  20:                 })
+  21:         return emails_with_attachments
+  22: 
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: email_menu.py
+────────────────────────────────────────────────────────────────────────────────
+Path: email_menu.py
+Size: 7.8 KB
+Lines: 197 total, 149 non-empty
+Characters: 7,837
+Type: .PY file
+────────────────────────────────────────────────────────────────────────────────
+
+   1: import tkinter as tk
+   2: from config import Colors, Fonts
+   3: from email_manager import EmailManager
+   4: import win32com.client
+   5: 
+   6: class EmailMenu(tk.Toplevel):
+   7:     def __init__(self, parent):
+   8:         super().__init__(parent)
+   9:         self.configure(bg=Colors.DARK_GREEN)
+  10:         self.attributes('-topmost', True)
+  11:         self.geometry("400x400")  # Set the initial size of the popup menu
+  12: 
+  13:         # Remove window title bar
+  14:         self.overrideredirect(True)
+  15: 
+  16:         # Initialize EmailManager
+  17:         self.email_manager = EmailManager()
+  18: 
+  19:         # Create main frame
+  20:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN)
+  21:         self.main_frame.pack(fill=tk.BOTH, expand=True)
+  22: 
+  23:         # Create header with close button
+  24:         self.create_header()
+  25: 
+  26:         # Create scrollable content area
+  27:         self.create_scrollable_content()
+  28: 
+  29:         # Fetch and display emails
+  30:         self.display_emails()
+  31: 
+  32:         # Make the menu resizable
+  33:         self.create_resize_handles()
+  34: 
+  35:     def create_header(self):
+  36:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=30)
+  37:         header_frame.pack(fill=tk.X)
+  38:         header_frame.pack_propagate(False)
+  39: 
+  40:         # Title label
+  41:         title_label = tk.Label(header_frame, text="Email Attachments", bg=Colors.DARK_GREEN, fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
+  42:         title_label.pack(side=tk.LEFT, padx=10)
+  43: 
+  44:         # Close button
+  45:         close_btn = tk.Button(header_frame, text="X", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK, font=Fonts.TASKBAR_BUTTON, command=self.close_menu)
+  46:         close_btn.pack(side=tk.RIGHT, padx=10)
+  47: 
+  48:         # Bind drag events to the header
+  49:         header_frame.bind("<Button-1>", self.start_drag)
+  50:         header_frame.bind("<B1-Motion>", self.do_drag)
+  51: 
+  52:     def create_scrollable_content(self):
+  53:         self.content_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN)
+  54:         self.content_frame.pack(fill=tk.BOTH, expand=True)
+  55: 
+  56:         # Create canvas and scrollbar for scrolling
+  57:         self.canvas = tk.Canvas(self.content_frame, bg=Colors.LIGHT_GREEN, highlightthickness=0)
+  58:         self.scrollbar = tk.Scrollbar(self.content_frame, orient="vertical", command=self.canvas.yview)
+  59:         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
+  60: 
+  61:         self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+  62:         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+  63:         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+  64: 
+  65:         self.canvas.pack(side="left", fill="both", expand=True)
+  66:         self.scrollbar.pack(side="right", fill="y")
+  67: 
+  68:     def display_emails(self):
+  69:         emails = self.email_manager.get_emails_with_attachments()
+  70:         for email in emails:
+  71:             self.add_email_to_menu(email)
+  72: 
+  73:     # def add_email_to_menu(self, email):
+  74:     #     email_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
+  75:     #     email_frame.pack(fill=tk.X, padx=3, pady=1)
+  76: 
+  77:     #     email_label = tk.Label(email_frame, text=email['subject'], bg=Colors.LIGHT_GREEN, fg=Colors.BLACK, font=Fonts.TASKBAR_BUTTON, anchor='w', cursor='hand2')
+  78:     #     email_label.pack(fill=tk.X, padx=5, pady=2)
+  79:     #     email_label.bind("<Button-1>", lambda e, email=email: self.open_email(email))
+  80: 
+  81: 
+  82: 
+  83:     def add_email_to_menu(self, email):
+  84:         email_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
+  85:         email_frame.pack(fill=tk.X, padx=3, pady=1)
+  86: 
+  87:         sender_label = tk.Label(email_frame, text=email['sender'], bg=Colors.LIGHT_GREEN, fg=Colors.BLACK, font=Fonts.TASKBAR_BUTTON, anchor='w', cursor='hand2')
+  88:         sender_label.pack(side=tk.LEFT, padx=5, pady=2)
+  89: 
+  90:         received_time_label = tk.Label(email_frame, text=email['received_time'], bg=Colors.LIGHT_GREEN, fg=Colors.BLACK, font=Fonts.TASKBAR_BUTTON, anchor='w', cursor='hand2')
+  91:         received_time_label.pack(side=tk.LEFT, padx=5, pady=2)
+  92: 
+  93: 
+  94:         subject_label = tk.Label(email_frame, text=email['subject'], bg=Colors.LIGHT_GREEN, fg=Colors.BLACK, font=Fonts.TASKBAR_BUTTON, anchor='w', cursor='hand2')
+  95:         subject_label.pack(side=tk.LEFT, padx=5, pady=2)
+  96:         subject_label.bind("<Button-1>", lambda e, email=email: self.open_email(email))
+  97: 
+  98: 
+  99:     def open_email(self, email):
+ 100:         outlook = win32com.client.Dispatch("Outlook.Application")
+ 101:         mail_item = outlook.Session.GetItemFromID(email['webLink'])
+ 102:         mail_item.Display()
+ 103: 
+ 104:     def close_menu(self):
+ 105:         self.destroy()
+ 106: 
+ 107:     def start_drag(self, event):
+ 108:         self.drag_start_x = event.x_root
+ 109:         self.drag_start_y = event.y_root
+ 110: 
+ 111:     def do_drag(self, event):
+ 112:         dx = event.x_root - self.drag_start_x
+ 113:         dy = event.y_root - self.drag_start_y
+ 114:         new_x = self.winfo_x() + dx
+ 115:         new_y = self.winfo_y() + dy
+ 116:         self.geometry(f"+{new_x}+{new_y}")
+ 117:         self.drag_start_x = event.x_root
+ 118:         self.drag_start_y = event.y_root
+ 119: 
+ 120:     def create_resize_handles(self):
+ 121:         # Top resize handle
+ 122:         top_handle = tk.Frame(self, cursor='size_ns', height=5)
+ 123:         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
+ 124:         top_handle.configure(bg=Colors.DARK_GREEN)
+ 125: 
+ 126:         # Left resize handle
+ 127:         left_handle = tk.Frame(self, cursor='size_we', width=5)
+ 128:         left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
+ 129:         left_handle.configure(bg=Colors.DARK_GREEN)
+ 130: 
+ 131:         # Right resize handle
+ 132:         right_handle = tk.Frame(self, cursor='size_we', width=5)
+ 133:         right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
+ 134:         right_handle.configure(bg=Colors.DARK_GREEN)
+ 135: 
+ 136:         # Bind resize events
+ 137:         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
+ 138:         top_handle.bind("<B1-Motion>", self.do_resize)
+ 139:         top_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 140: 
+ 141:         left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
+ 142:         left_handle.bind("<B1-Motion>", self.do_resize)
+ 143:         left_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 144: 
+ 145:         right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
+ 146:         right_handle.bind("<B1-Motion>", self.do_resize)
+ 147:         right_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 148: 
+ 149:     def start_resize(self, event, edge):
+ 150:         self.is_resizing = True
+ 151:         self.resize_edge = edge
+ 152:         self.resize_start_x = event.x_root
+ 153:         self.resize_start_y = event.y_root
+ 154:         self.original_geometry = {
+ 155:             'x': self.winfo_x(),
+ 156:             'y': self.winfo_y(),
+ 157:             'width': self.winfo_width(),
+ 158:             'height': self.winfo_height()
+ 159:         }
+ 160: 
+ 161:     def do_resize(self, event):
+ 162:         if not self.is_resizing or not self.resize_edge:
+ 163:             return
+ 164: 
+ 165:         dx = event.x_root - self.resize_start_x
+ 166:         dy = event.y_root - self.resize_start_y
+ 167: 
+ 168:         x = self.original_geometry['x']
+ 169:         y = self.original_geometry['y']
+ 170:         width = self.original_geometry['width']
+ 171:         height = self.original_geometry['height']
+ 172: 
+ 173:         min_width = 300
+ 174:         min_height = 200
+ 175: 
+ 176:         if self.resize_edge == 't':  # Top edge
+ 177:             new_height = max(min_height, height - dy)
+ 178:             if new_height != height:
+ 179:                 y = y + (height - new_height)
+ 180:                 height = new_height
+ 181: 
+ 182:         elif self.resize_edge == 'l':  # Left edge
+ 183:             new_width = max(min_width, width - dx)
+ 184:             if new_width != width:
+ 185:                 x = x + (width - new_width)
+ 186:                 width = new_width
+ 187: 
+ 188:         elif self.resize_edge == 'r':  # Right edge
+ 189:             new_width = max(min_width, width + dx)
+ 190:             width = new_width
+ 191: 
+ 192:         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
+ 193: 
+ 194:     def end_resize(self, event):
+ 195:         self.is_resizing = False
+ 196:         self.resize_edge = None
+ 197: 
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: enhanced_folder_inventory.py
@@ -2541,7 +2782,7 @@ Type: Inventory view window and filtering
 FILE: links_manager.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: links_manager.py
-Size: 10.8 KB
+Size: 11.1 KB
 Lines: 306 total, 253 non-empty
 Characters: 11,087
 Type: Data management for links and categories
@@ -3262,7 +3503,7 @@ FILE: quick_links.py
 Path: quick_links.py
 Size: 36.3 KB
 Lines: 867 total, 691 non-empty
-Characters: 36,267
+Characters: 36,277
 Type: Quick links menu and management
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -3393,11 +3634,11 @@ Type: Quick links menu and management
  125:                            command=self.add_new_link)
  126:         add_btn.pack(side=tk.LEFT, padx=1)
  127:         
- 128:         # View button (placeholder for future features)
- 129:         view_btn = tk.Button(button_frame, text="Vie", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 130:                             relief=tk.RAISED, bd=1, cursor='hand2',
- 131:                             font=Fonts.MENU_ITEM, width=4, height=1)
- 132:         view_btn.pack(side=tk.LEFT, padx=1)
+ 128:         # # View button (placeholder for future features)
+ 129:         # view_btn = tk.Button(button_frame, text="Vie", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 130:         #                     relief=tk.RAISED, bd=1, cursor='hand2',
+ 131:         #                     font=Fonts.MENU_ITEM, width=4, height=1)
+ 132:         # view_btn.pack(side=tk.LEFT, padx=1)
  133:         
  134:         # Close button
  135:         close_btn = tk.Button(button_frame, text="X", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
@@ -4611,9 +4852,9 @@ Type: .PY file
 FILE: taskbar.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: taskbar.py
-Size: 19.9 KB
-Lines: 484 total, 387 non-empty
-Characters: 19,911
+Size: 20.6 KB
+Lines: 505 total, 398 non-empty
+Characters: 20,554
 Type: Core taskbar functionality and UI
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -4637,476 +4878,497 @@ Type: Core taskbar functionality and UI
   18: from window_manager import WindowManager
   19: from windows_menu import WindowsMenu
   20: from pinned_windows import PinnedWindowsSection
-  21: 
-  22: class SuiteViewTaskbar:
-  23:     """Main taskbar application window"""
-  24:     
-  25:     def __init__(self):
-  26:         self.root = tk.Tk()
-  27:         self.links_manager = LinksManager()
-  28:         self.window_manager = WindowManager()
-  29: 
-  30:         # Initialize these BEFORE creating UI
-  31:         self.links_menu = None
-  32:         self.windows_menu = None
-  33:         self.pinned_section = None  # Initialize to None
-  34:         self.windows_menu_geometry = None
-  35: 
-  36: 
-  37:         # Store original work area for restoration
-  38:         self.original_work_area = WindowsUtils.get_work_area()
-  39:         
-  40:         # Get screen dimensions
-  41:         self.screen_width, self.screen_height = WindowsUtils.get_screen_dimensions()
-  42:         
-  43:         # Get Windows taskbar height for better positioning
-  44:         self.windows_taskbar_height = WindowsUtils.get_windows_taskbar_height()
-  45:         
-  46:         # Position the custom taskbar above Windows taskbar
-  47:         self.y_position = self.screen_height - self.windows_taskbar_height - Dimensions.TASKBAR_HEIGHT
-  48:         
-  49:         # Setup the window
-  50:         self.setup_window()
-  51:         
-  52:         # Create taskbar content
-  53:         self.create_taskbar_content()
-  54:         
-  55:         # Setup event bindings
-  56:         self.bind_events()
-  57:         
-  58:         # Apply Windows API modifications
-  59:         self.setup_windows_integration()
-  60:         
-  61:     def setup_window(self):
-  62:         """Configure the main window properties"""
-  63:         # Remove window decorations
-  64:         self.root.overrideredirect(True)
-  65:         
-  66:         # Set window attributes
-  67:         self.root.attributes('-topmost', True)
-  68:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
-  69:         
-  70:         # Configure window geometry
-  71:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
-  72:         
-  73:         # Set background color to dark green
-  74:         self.root.configure(bg=Colors.DARK_GREEN)
-  75:     
-  76:     def create_taskbar_content(self):
-  77:         """Create the taskbar UI elements"""
-  78:         # Create main frame
-  79:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
-  80:         self.main_frame.pack(fill=tk.BOTH, expand=True)
-  81:         
-  82:         # SuiteView Logo/Title
-  83:         self.create_logo_section()
-  84:         
-  85:         # Separator
-  86:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-  87:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
-  88:         
-  89:         # Main buttons
-  90:         self.create_main_buttons()
-  91:         
-  92:         # Right side elements
-  93:         self.create_right_side_elements()
-  94:     
-  95:     def create_logo_section(self):
-  96:         """Create the SuiteView logo/title section"""
-  97:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
-  98:         logo_frame.pack(side=tk.LEFT, padx=10)
-  99:         
- 100:         # Logo text with styling
- 101:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
- 102:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
- 103:         logo_label.pack()
- 104:         logo_label.bind("<Button-3>", self.show_links_menu)
- 105:     
- 106:     def create_main_buttons(self):
- 107:         """Create the main taskbar buttons"""
- 108:         # Existing buttons
- 109:         buttons_data = [
- 110:             ("Get Policy", None),
- 111:             ("Cyber", None),
- 112:             ("TAI", None)
- 113:         ]
- 114:         
- 115:         for text, command in buttons_data:
- 116:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 117:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
- 118:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
- 119:             btn.pack(side=tk.LEFT, padx=5)
- 120:             btn.bind("<Button-3>", self.show_links_menu)
- 121:             if command:
- 122:                 btn.configure(command=command)
- 123:         
- 124:         # Add separator before new features
- 125:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 126:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 127:         
- 128:         # Add Inventory feature
- 129:         inventory_btn = add_folder_inventory_to_taskbar(self)
- 130:         inventory_btn.pack(side=tk.LEFT, padx=5)
- 131:         inventory_btn.bind("<Button-3>", self.show_links_menu)
- 132:         
- 133:         # Add separator before Snip feature
- 134:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 135:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 136:         
- 137:         # Add Snip feature
- 138:         self.snipping_manager = add_snip_feature_to_taskbar(self)
- 139:         
- 140:         # Add separator before pinned windows section
- 141:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 142:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 143:         
- 144:         # Create and store pinned windows section
- 145:         print(f"Creating pinned section...")
- 146:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
- 147:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
- 148:         
- 149:         # Debug to confirm it's created and assigned
- 150:         #print(f"Pinned section created and assigned: {self.pinned_section}")
- 151:         #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
- 152:     
- 153:     def create_right_side_elements(self):
- 154:         """Create the right side elements of the taskbar"""
- 155:         
- 156:         # X close button
- 157:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 158:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
- 159:                             cursor='hand2')
- 160:         close_btn.pack(side=tk.RIGHT, padx=5)
- 161:         close_btn.bind("<Button-1>", self.close_app)
- 162:     
- 163:         #Windows button
- 164:         windows_btn = tk.Button(self.main_frame, text="Windows", 
- 165:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 166:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
- 167:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
- 168:                             bd=0, padx=15, command=self.toggle_windows_menu)
- 169:         windows_btn.pack(side=tk.RIGHT, padx=5)
- 170: 
- 171:     def bind_events(self):
- 172:         """Bind event handlers"""
- 173:         # Main window events
- 174:         self.root.bind("<Button-3>", self.show_links_menu)
- 175:         self.main_frame.bind("<Button-3>", self.show_links_menu)
- 176:         
- 177:         # Emergency exit keys
- 178:         self.root.bind("<Escape>", self.close_app)
- 179:         self.root.bind("<Control-q>", self.close_app)
- 180:         self.root.bind("<Control-Q>", self.close_app)
- 181:         self.root.bind("<Alt-F4>", self.close_app)
- 182:     
- 183:     def setup_windows_integration(self):
- 184:         """Setup Windows API integration"""
- 185:         # Keep window on top using Windows API
- 186:         self.set_always_on_top()
- 187:         
- 188:         # Adjust desktop working area
- 189:         self.adjust_work_area()
- 190:         
- 191:     def show_links_menu(self, event):
- 192:         """Show the right-click links menu positioned above the taskbar"""
- 193:         if self.links_menu:
- 194:             self.links_menu.destroy()
- 195:         
- 196:         # Create the menu at a temporary position first
- 197:         temp_x, temp_y = 0, 0
- 198:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
+  21: from email_menu import EmailMenu
+  22: 
+  23: 
+  24: 
+  25: class SuiteViewTaskbar:
+  26:     """Main taskbar application window"""
+  27:     
+  28:     def __init__(self):
+  29:         self.root = tk.Tk()
+  30:         self.links_manager = LinksManager()
+  31:         self.window_manager = WindowManager()
+  32: 
+  33:         # Initialize these BEFORE creating UI
+  34:         self.links_menu = None
+  35:         self.windows_menu = None
+  36:         self.pinned_section = None  # Initialize to None
+  37:         self.windows_menu_geometry = None
+  38: 
+  39:         # Store original work area for restoration
+  40:         self.original_work_area = WindowsUtils.get_work_area()
+  41:         
+  42:         # Get screen dimensions
+  43:         self.screen_width, self.screen_height = WindowsUtils.get_screen_dimensions()
+  44:         
+  45:         # Get Windows taskbar height for better positioning
+  46:         self.windows_taskbar_height = WindowsUtils.get_windows_taskbar_height()
+  47:         
+  48:         # Position the custom taskbar above Windows taskbar
+  49:         self.y_position = self.screen_height - self.windows_taskbar_height - Dimensions.TASKBAR_HEIGHT
+  50:         
+  51:         # Setup the window
+  52:         self.setup_window()
+  53:         
+  54:         # Create taskbar content
+  55:         self.create_taskbar_content()
+  56:         
+  57:         # Setup event bindings
+  58:         self.bind_events()
+  59:         
+  60:         # Apply Windows API modifications
+  61:         self.setup_windows_integration()
+  62:         
+  63:     def setup_window(self):
+  64:         """Configure the main window properties"""
+  65:         # Remove window decorations
+  66:         self.root.overrideredirect(True)
+  67:         
+  68:         # Set window attributes
+  69:         self.root.attributes('-topmost', True)
+  70:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
+  71:         
+  72:         # Configure window geometry
+  73:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
+  74:         
+  75:         # Set background color to dark green
+  76:         self.root.configure(bg=Colors.DARK_GREEN)
+  77:     
+  78:     def create_taskbar_content(self):
+  79:         """Create the taskbar UI elements"""
+  80:         # Create main frame
+  81:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
+  82:         self.main_frame.pack(fill=tk.BOTH, expand=True)
+  83:         
+  84:         # SuiteView Logo/Title
+  85:         self.create_logo_section()
+  86:         
+  87:         # Separator
+  88:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+  89:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+  90:         
+  91:         # Main buttons
+  92:         self.create_main_buttons()
+  93:         
+  94:         # Right side elements
+  95:         self.create_right_side_elements()
+  96:     
+  97:     def create_logo_section(self):
+  98:         """Create the SuiteView logo/title section"""
+  99:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
+ 100:         logo_frame.pack(side=tk.LEFT, padx=10)
+ 101:         
+ 102:         # Logo text with styling
+ 103:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
+ 104:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
+ 105:         logo_label.pack()
+ 106:         logo_label.bind("<Button-3>", self.show_links_menu)
+ 107:     
+ 108:     def create_main_buttons(self):
+ 109:         """Create the main taskbar buttons"""
+ 110:         # Existing buttons
+ 111:         buttons_data = [
+ 112:             ("Get Policy", None),
+ 113:             ("Cyber", None),
+ 114:             ("TAI", None)
+ 115:         ]
+ 116:         
+ 117:         for text, command in buttons_data:
+ 118:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 119:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
+ 120:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
+ 121:             btn.pack(side=tk.LEFT, padx=5)
+ 122:             btn.bind("<Button-3>", self.show_links_menu)
+ 123:             if command:
+ 124:                 btn.configure(command=command)
+ 125:         
+ 126:         # Add separator before new features
+ 127:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 128:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 129:         
+ 130:         # Add Inventory feature
+ 131:         inventory_btn = add_folder_inventory_to_taskbar(self)
+ 132:         inventory_btn.pack(side=tk.LEFT, padx=5)
+ 133:         inventory_btn.bind("<Button-3>", self.show_links_menu)
+ 134:         
+ 135:         # Add separator before Snip feature
+ 136:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 137:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 138:         
+ 139:         # Add Snip feature
+ 140:         self.snipping_manager = add_snip_feature_to_taskbar(self)
+ 141:         
+ 142:         # Add separator before pinned windows section
+ 143:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 144:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 145:         
+ 146:         # Create and store pinned windows section
+ 147:         print(f"Creating pinned section...")
+ 148:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
+ 149:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
+ 150:         
+ 151:         # Debug to confirm it's created and assigned
+ 152:         #print(f"Pinned section created and assigned: {self.pinned_section}")
+ 153:         #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
+ 154:     
+ 155:     def create_right_side_elements(self):
+ 156:         """Create the right side elements of the taskbar"""
+ 157:         
+ 158:         # X close button
+ 159:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 160:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
+ 161:                             cursor='hand2')
+ 162:         close_btn.pack(side=tk.RIGHT, padx=5)
+ 163:         close_btn.bind("<Button-1>", self.close_app)
+ 164:     
+ 165:         #Windows button
+ 166:         windows_btn = tk.Button(self.main_frame, text="Windows", 
+ 167:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 168:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+ 169:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+ 170:                             bd=0, padx=15, command=self.toggle_windows_menu)
+ 171:         windows_btn.pack(side=tk.RIGHT, padx=5)
+ 172: 
+ 173:         
+ 174:         # Add Email Attachments button
+ 175:         email_attachments_btn = tk.Button(self.main_frame, text="Email Attachments", 
+ 176:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 177:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+ 178:                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+ 179:                         bd=0, padx=15, command=self.show_email_attachments_menu)
+ 180:         email_attachments_btn.pack(side=tk.LEFT, padx=5)
+ 181: 
+ 182: 
+ 183:     def bind_events(self):
+ 184:         """Bind event handlers"""
+ 185:         # Main window events
+ 186:         self.root.bind("<Button-3>", self.show_links_menu)
+ 187:         self.main_frame.bind("<Button-3>", self.show_links_menu)
+ 188:         
+ 189:         # Emergency exit keys
+ 190:         self.root.bind("<Escape>", self.close_app)
+ 191:         self.root.bind("<Control-q>", self.close_app)
+ 192:         self.root.bind("<Control-Q>", self.close_app)
+ 193:         self.root.bind("<Alt-F4>", self.close_app)
+ 194:     
+ 195:     def setup_windows_integration(self):
+ 196:         """Setup Windows API integration"""
+ 197:         # Keep window on top using Windows API
+ 198:         self.set_always_on_top()
  199:         
- 200:         # Get cursor position or use center position
- 201:         if event:
- 202:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
- 203:         else:
- 204:             x = self.screen_width // 2 - 200  # Center horizontally
- 205:         
- 206:         # Calculate proper position above YOUR custom taskbar
- 207:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
- 208:         final_x = x
- 209:         
- 210:         # Reposition the menu to the correct location
- 211:         self.links_menu.geometry(f"+{final_x}+{final_y}")
- 212:         
- 213:         # Debug output
- 214:         print(f"Estimated height: {self.links_menu.menu_height}")
- 215:         print(f"Positioned menu at: {final_x}, {final_y}")
- 216:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
- 217:        
- 218:     def show_windows_menu(self, event=None):
- 219:         """Show the windows management menu - toggle if already open"""
- 220:         if self.windows_menu and self.windows_menu.winfo_exists():
- 221:             # If menu exists and is open, close it
- 222:             self.windows_menu.close_window()
- 223:             self.windows_menu = None
- 224:         else:
- 225:             # Otherwise, create and show it
- 226:             # Get screen dimensions
- 227:             screen_width = self.root.winfo_screenwidth()
- 228:             
- 229:             # Position the menu above the taskbar, centered on screen
- 230:             x = (screen_width - 700) // 2  # Center a 700px wide menu
- 231:             y = self.y_position - 600  # Default height assumption
- 232:             
- 233:     def set_always_on_top(self):
- 234:         """Force window to stay on top using Windows API"""
- 235:         WindowsUtils.set_window_topmost(self.root.winfo_id())
- 236:     
- 237:     def adjust_work_area(self):
- 238:         """Adjust desktop work area to make room for taskbar"""
- 239:         if self.original_work_area:
- 240:             work_area = wintypes.RECT()
- 241:             work_area.left = self.original_work_area.left
- 242:             work_area.top = self.original_work_area.top
- 243:             work_area.right = self.original_work_area.right
- 244:             work_area.bottom = self.y_position
- 245:             
- 246:             success = WindowsUtils.set_work_area(work_area)
- 247:             if not success:
- 248:                 print("Could not adjust work area. May require admin privileges.")
- 249:     
- 250:     def close_app(self, event=None):
- 251:         """Close the application"""
- 252:         try:
- 253:             self.window_manager.unhide_all_windows()
- 254:             self.restore_work_area()
- 255:         except:
- 256:             pass  # Don't fail if restore doesn't work
- 257:         
- 258:         # Clean up snipping manager if it exists
- 259:         if hasattr(self, 'snipping_manager'):
- 260:             try:
- 261:                 self.snipping_manager.cleanup_temp_directory()
- 262:             except:
- 263:                 pass
- 264:         
- 265:         # Force kill any open dialogs
- 266:         for child in self.root.winfo_children():
- 267:             if isinstance(child, tk.Toplevel):
- 268:                 child.destroy()
+ 200:         # Adjust desktop working area
+ 201:         self.adjust_work_area()
+ 202:         
+ 203:     def show_links_menu(self, event):
+ 204:         """Show the right-click links menu positioned above the taskbar"""
+ 205:         if self.links_menu:
+ 206:             self.links_menu.destroy()
+ 207:         
+ 208:         # Create the menu at a temporary position first
+ 209:         temp_x, temp_y = 0, 0
+ 210:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
+ 211:         
+ 212:         # Get cursor position or use center position
+ 213:         if event:
+ 214:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
+ 215:         else:
+ 216:             x = self.screen_width // 2 - 200  # Center horizontally
+ 217:         
+ 218:         # Calculate proper position above YOUR custom taskbar
+ 219:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
+ 220:         final_x = x
+ 221:         
+ 222:         # Reposition the menu to the correct location
+ 223:         self.links_menu.geometry(f"+{final_x}+{final_y}")
+ 224:         
+ 225:         # Debug output
+ 226:         print(f"Estimated height: {self.links_menu.menu_height}")
+ 227:         print(f"Positioned menu at: {final_x}, {final_y}")
+ 228:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
+ 229:        
+ 230:     def show_windows_menu(self, event=None):
+ 231:         """Show the windows management menu - toggle if already open"""
+ 232:         if self.windows_menu and self.windows_menu.winfo_exists():
+ 233:             # If menu exists and is open, close it
+ 234:             self.windows_menu.close_window()
+ 235:             self.windows_menu = None
+ 236:         else:
+ 237:             # Otherwise, create and show it
+ 238:             # Get screen dimensions
+ 239:             screen_width = self.root.winfo_screenwidth()
+ 240:             
+ 241:             # Position the menu above the taskbar, centered on screen
+ 242:             x = (screen_width - 700) // 2  # Center a 700px wide menu
+ 243:             y = self.y_position - 600  # Default height assumption
+ 244:             
+ 245:     def set_always_on_top(self):
+ 246:         """Force window to stay on top using Windows API"""
+ 247:         WindowsUtils.set_window_topmost(self.root.winfo_id())
+ 248:     
+ 249:     def adjust_work_area(self):
+ 250:         """Adjust desktop work area to make room for taskbar"""
+ 251:         if self.original_work_area:
+ 252:             work_area = wintypes.RECT()
+ 253:             work_area.left = self.original_work_area.left
+ 254:             work_area.top = self.original_work_area.top
+ 255:             work_area.right = self.original_work_area.right
+ 256:             work_area.bottom = self.y_position
+ 257:             
+ 258:             success = WindowsUtils.set_work_area(work_area)
+ 259:             if not success:
+ 260:                 print("Could not adjust work area. May require admin privileges.")
+ 261:     
+ 262:     def close_app(self, event=None):
+ 263:         """Close the application"""
+ 264:         try:
+ 265:             self.window_manager.unhide_all_windows()
+ 266:             self.restore_work_area()
+ 267:         except:
+ 268:             pass  # Don't fail if restore doesn't work
  269:         
- 270:         self.root.quit()
- 271:         self.root.destroy()
- 272:         sys.exit(0)
- 273:     
- 274:     def restore_work_area(self):
- 275:         """Restore original work area"""
- 276:         if self.original_work_area:
- 277:             WindowsUtils.restore_work_area(self.original_work_area)
- 278:     
- 279:     def run(self):
- 280:         """Start the application"""
- 281:         """Start the application"""
- 282:         # Verify setup before starting
- 283:         #self.verify_setup()
- 284:         
- 285:         # Start the periodic topmost maintenance
- 286:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
- 287:         
- 288:         # Start window state monitoring
- 289:         self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
- 290: 
- 291:         # Start the main event loop
- 292:         self.root.mainloop()
- 293:     
- 294:     def maintain_topmost(self):
- 295:         """Periodically ensure window stays on top"""
- 296:         self.set_always_on_top()
- 297: 
- 298:         # # Update pinned window button states
- 299:         # if self.pinned_section:
- 300:         #     self.pinned_section.update_window_states()
- 301: 
- 302:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
- 303: 
- 304:     def toggle_windows_menu(self):
- 305:         """Toggle the windows management menu"""
- 306:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 307:             try:
- 308:                 if self.windows_menu.winfo_exists():
- 309:                     # Store current geometry BEFORE closing
- 310:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
- 311:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
- 312:                     self.windows_menu.close_window()
- 313:                     self.windows_menu = None
- 314:                     return
- 315:             except:
- 316:                 self.windows_menu = None
- 317:         
- 318:         # Create new windows menu
- 319:         print(f"Class: {type(self).__name__}")  # Debug
- 320:         self.windows_menu = WindowsMenu(self, self.window_manager, 
- 321:                                     self.on_windows_pinned,
- 322:                                     self.windows_menu_geometry)
- 323:     
- 324:     def on_windows_pinned(self):
- 325:         """Callback when windows are pinned/unpinned"""
- 326:         #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
- 327:         #print(f"Pinned section: {self.pinned_section}")
- 328:         
- 329:         if self.pinned_section:
- 330:             print(f"Refreshing pinned section...")
- 331:             self.pinned_section.refresh()
- 332:         else:
- 333:             print(f"ERROR: pinned_section is None!")
- 334:         
- 335:         # Always refresh the Windows Manager if it's open to update the list
- 336:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 337:             try:
- 338:                 if self.windows_menu.winfo_exists():
- 339:                     print(f"Refreshing Windows Manager...")
- 340:                     self.windows_menu.refresh_window_list()
- 341:                 else:
- 342:                     print(f"Windows Manager exists but window is destroyed")
- 343:             except Exception as e:
- 344:                 print(f"Error refreshing Windows Manager: {e}")
- 345:                 self.windows_menu = None
- 346:         else:
- 347:             print(f"Windows Manager is not open")
- 348:             
- 349:         #print(f"=== END ON_WINDOWS_PINNED ===\n")
- 350: 
- 351: 
- 352:     def start_window_monitoring(self):
- 353:         """Start monitoring for closed windows"""
- 354:         self.check_window_states()
- 355:         
- 356:     def check_window_states(self):
- 357:         """Periodically check if pinned windows still exist"""
- 358:         try:
- 359:             if hasattr(self, 'pinned_section') and self.pinned_section:
- 360:                 # Get current pinned windows
- 361:                 pinned_windows = self.window_manager.get_pinned_windows()
- 362:                 windows_to_unpin = []
- 363:                 
- 364:                 for window in pinned_windows:
- 365:                     # Check if window still exists
- 366:                     if not window.is_valid():
- 367:                         print(f"Window {window.display_name} no longer exists, unpinning...")
- 368:                         windows_to_unpin.append(window)
- 369:                 
- 370:                 # Unpin any closed windows
- 371:                 if windows_to_unpin:
- 372:                     for window in windows_to_unpin:
- 373:                         self.window_manager.unpin_window(window)
- 374:                     
- 375:                     # Refresh the pinned section
- 376:                     self.pinned_section.refresh()
- 377:                     
- 378:                     # Also refresh Windows Manager if it's open
- 379:                     if hasattr(self, 'windows_menu') and self.windows_menu:
- 380:                         try:
- 381:                             if self.windows_menu.winfo_exists():
- 382:                                 self.windows_menu.refresh_window_list()
- 383:                         except:
- 384:                             pass
- 385:         
- 386:         except Exception as e:
- 387:             print(f"Error checking window states: {e}")
- 388:         
- 389:         # Schedule next check (every 2 seconds)
- 390:         self.root.after(2000, self.check_window_states)
- 391: 
- 392:     def verify_setup(self):
- 393:         """Verify all components are properly initialized"""
- 394:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
- 395:         print(f"Window manager: {self.window_manager}")
- 396:         print(f"Pinned section: {self.pinned_section}")
- 397:         print(f"Pinned section type: {type(self.pinned_section)}")
- 398:         if self.pinned_section:
- 399:             print(f"Pinned section parent: {self.pinned_section.master}")
- 400:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
- 401:         print(f"=== END VERIFICATION ===\n")
- 402:     
- 403:     def check_window_states(self):
- 404:         """Periodically check for closed windows, new windows, and title changes"""
- 405:         try:
- 406:             # Get current window list
- 407:             current_windows = self.window_manager.get_relevant_windows()
- 408:             current_hwnds = {w.hwnd for w in current_windows}
- 409:             
- 410:             # Check for closed pinned windows
- 411:             if hasattr(self, 'pinned_section') and self.pinned_section:
- 412:                 pinned_windows = self.window_manager.get_pinned_windows()
- 413:                 windows_to_unpin = []
- 414:                 
- 415:                 for window in pinned_windows:
- 416:                     if not window.is_valid():
- 417:                         print(f"Window {window.display_name} no longer exists, unpinning...")
- 418:                         windows_to_unpin.append(window)
- 419:                 
- 420:                 if windows_to_unpin:
- 421:                     for window in windows_to_unpin:
- 422:                         self.window_manager.unpin_window(window)
- 423:                     self.pinned_section.refresh()
- 424:             
- 425:             # Initialize tracking dictionaries if they don't exist
- 426:             if not hasattr(self, '_previous_hwnds'):
- 427:                 self._previous_hwnds = current_hwnds
- 428:                 self._window_titles = {}
- 429:             
- 430:             # Check for new windows
- 431:             new_hwnds = current_hwnds - self._previous_hwnds
- 432:             if new_hwnds:
- 433:                 print(f"Detected {len(new_hwnds)} new window(s)")
- 434:                 self._refresh_windows_menu()
- 435:             
- 436:             # Check for title changes in existing windows
- 437:             title_changed = False
- 438:             for window in current_windows:
- 439:                 hwnd = window.hwnd
- 440:                 current_title = window.title
- 441:                 
- 442:                 # Store or compare title
- 443:                 if hwnd in self._window_titles:
- 444:                     if self._window_titles[hwnd] != current_title:
- 445:                         print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
- 446:                         title_changed = True
- 447:                         self._window_titles[hwnd] = current_title
- 448:                         
- 449:                         # Update the window's display name
- 450:                         window.display_name = window._create_display_name()
- 451:                         
- 452:                         # Update pinned button if this window is pinned
- 453:                         if window.is_pinned and hasattr(self, 'pinned_section') and self.pinned_section:
- 454:                             self.pinned_section.update_window_title(window)
- 455:                 else:
- 456:                     self._window_titles[hwnd] = current_title
- 457:             
- 458:             # Clean up titles for closed windows
- 459:             closed_hwnds = set(self._window_titles.keys()) - current_hwnds
- 460:             for hwnd in closed_hwnds:
- 461:                 del self._window_titles[hwnd]
- 462:             
- 463:             # Refresh Windows menu if titles changed
- 464:             if title_changed:
- 465:                 self._refresh_windows_menu()
- 466:             
- 467:             # Update previous list for next check
- 468:             self._previous_hwnds = current_hwnds
- 469:         
- 470:         except Exception as e:
- 471:             print(f"Error checking window states: {e}")
- 472:         
- 473:         # Schedule next check (every 1 second for responsive updates)
- 474:         self.root.after(1000, self.check_window_states)
- 475: 
- 476:     def _refresh_windows_menu(self):
- 477:         """Helper method to refresh Windows menu if it's open"""
- 478:         if hasattr(self, 'windows_menu') and self.windows_menu:
- 479:             try:
- 480:                 if self.windows_menu.winfo_exists():
- 481:                     print("Refreshing Windows Manager...")
- 482:                     self.windows_menu.refresh_window_list()
- 483:             except:
- 484:                 pass
+ 270:         # Clean up snipping manager if it exists
+ 271:         if hasattr(self, 'snipping_manager'):
+ 272:             try:
+ 273:                 self.snipping_manager.cleanup_temp_directory()
+ 274:             except:
+ 275:                 pass
+ 276:         
+ 277:         # Force kill any open dialogs
+ 278:         for child in self.root.winfo_children():
+ 279:             if isinstance(child, tk.Toplevel):
+ 280:                 child.destroy()
+ 281:         
+ 282:         self.root.quit()
+ 283:         self.root.destroy()
+ 284:         sys.exit(0)
+ 285:     
+ 286:     def restore_work_area(self):
+ 287:         """Restore original work area"""
+ 288:         if self.original_work_area:
+ 289:             WindowsUtils.restore_work_area(self.original_work_area)
+ 290:     
+ 291:     def run(self):
+ 292:         """Start the application"""
+ 293:         """Start the application"""
+ 294:         # Verify setup before starting
+ 295:         #self.verify_setup()
+ 296:         
+ 297:         # Start the periodic topmost maintenance
+ 298:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 299:         
+ 300:         # Start window state monitoring
+ 301:         self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
+ 302: 
+ 303:         # Start the main event loop
+ 304:         self.root.mainloop()
+ 305:     
+ 306:     def maintain_topmost(self):
+ 307:         """Periodically ensure window stays on top"""
+ 308:         self.set_always_on_top()
+ 309: 
+ 310:         # # Update pinned window button states
+ 311:         # if self.pinned_section:
+ 312:         #     self.pinned_section.update_window_states()
+ 313: 
+ 314:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 315: 
+ 316:     def toggle_windows_menu(self):
+ 317:         """Toggle the windows management menu"""
+ 318:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 319:             try:
+ 320:                 if self.windows_menu.winfo_exists():
+ 321:                     # Store current geometry BEFORE closing
+ 322:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
+ 323:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
+ 324:                     self.windows_menu.close_window()
+ 325:                     self.windows_menu = None
+ 326:                     return
+ 327:             except:
+ 328:                 self.windows_menu = None
+ 329:         
+ 330:         # Create new windows menu
+ 331:         print(f"Class: {type(self).__name__}")  # Debug
+ 332:         self.windows_menu = WindowsMenu(self, self.window_manager, 
+ 333:                                     self.on_windows_pinned,
+ 334:                                     self.windows_menu_geometry)
+ 335:     
+ 336:     def on_windows_pinned(self):
+ 337:         """Callback when windows are pinned/unpinned"""
+ 338:         #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
+ 339:         #print(f"Pinned section: {self.pinned_section}")
+ 340:         
+ 341:         if self.pinned_section:
+ 342:             print(f"Refreshing pinned section...")
+ 343:             self.pinned_section.refresh()
+ 344:         else:
+ 345:             print(f"ERROR: pinned_section is None!")
+ 346:         
+ 347:         # Always refresh the Windows Manager if it's open to update the list
+ 348:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 349:             try:
+ 350:                 if self.windows_menu.winfo_exists():
+ 351:                     print(f"Refreshing Windows Manager...")
+ 352:                     self.windows_menu.refresh_window_list()
+ 353:                 else:
+ 354:                     print(f"Windows Manager exists but window is destroyed")
+ 355:             except Exception as e:
+ 356:                 print(f"Error refreshing Windows Manager: {e}")
+ 357:                 self.windows_menu = None
+ 358:         else:
+ 359:             print(f"Windows Manager is not open")
+ 360:             
+ 361:         #print(f"=== END ON_WINDOWS_PINNED ===\n")
+ 362: 
+ 363: 
+ 364:     def start_window_monitoring(self):
+ 365:         """Start monitoring for closed windows"""
+ 366:         self.check_window_states()
+ 367:         
+ 368:     def check_window_states(self):
+ 369:         """Periodically check if pinned windows still exist"""
+ 370:         try:
+ 371:             if hasattr(self, 'pinned_section') and self.pinned_section:
+ 372:                 # Get current pinned windows
+ 373:                 pinned_windows = self.window_manager.get_pinned_windows()
+ 374:                 windows_to_unpin = []
+ 375:                 
+ 376:                 for window in pinned_windows:
+ 377:                     # Check if window still exists
+ 378:                     if not window.is_valid():
+ 379:                         print(f"Window {window.display_name} no longer exists, unpinning...")
+ 380:                         windows_to_unpin.append(window)
+ 381:                 
+ 382:                 # Unpin any closed windows
+ 383:                 if windows_to_unpin:
+ 384:                     for window in windows_to_unpin:
+ 385:                         self.window_manager.unpin_window(window)
+ 386:                     
+ 387:                     # Refresh the pinned section
+ 388:                     self.pinned_section.refresh()
+ 389:                     
+ 390:                     # Also refresh Windows Manager if it's open
+ 391:                     if hasattr(self, 'windows_menu') and self.windows_menu:
+ 392:                         try:
+ 393:                             if self.windows_menu.winfo_exists():
+ 394:                                 self.windows_menu.refresh_window_list()
+ 395:                         except:
+ 396:                             pass
+ 397:         
+ 398:         except Exception as e:
+ 399:             print(f"Error checking window states: {e}")
+ 400:         
+ 401:         # Schedule next check (every 2 seconds)
+ 402:         self.root.after(2000, self.check_window_states)
+ 403: 
+ 404:     def verify_setup(self):
+ 405:         """Verify all components are properly initialized"""
+ 406:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
+ 407:         print(f"Window manager: {self.window_manager}")
+ 408:         print(f"Pinned section: {self.pinned_section}")
+ 409:         print(f"Pinned section type: {type(self.pinned_section)}")
+ 410:         if self.pinned_section:
+ 411:             print(f"Pinned section parent: {self.pinned_section.master}")
+ 412:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
+ 413:         print(f"=== END VERIFICATION ===\n")
+ 414:     
+ 415:     def check_window_states(self):
+ 416:         """Periodically check for closed windows, new windows, and title changes"""
+ 417:         try:
+ 418:             # Get current window list
+ 419:             current_windows = self.window_manager.get_relevant_windows()
+ 420:             current_hwnds = {w.hwnd for w in current_windows}
+ 421:             
+ 422:             # Check for closed pinned windows
+ 423:             if hasattr(self, 'pinned_section') and self.pinned_section:
+ 424:                 pinned_windows = self.window_manager.get_pinned_windows()
+ 425:                 windows_to_unpin = []
+ 426:                 
+ 427:                 for window in pinned_windows:
+ 428:                     if not window.is_valid():
+ 429:                         print(f"Window {window.display_name} no longer exists, unpinning...")
+ 430:                         windows_to_unpin.append(window)
+ 431:                 
+ 432:                 if windows_to_unpin:
+ 433:                     for window in windows_to_unpin:
+ 434:                         self.window_manager.unpin_window(window)
+ 435:                     self.pinned_section.refresh()
+ 436:             
+ 437:             # Initialize tracking dictionaries if they don't exist
+ 438:             if not hasattr(self, '_previous_hwnds'):
+ 439:                 self._previous_hwnds = current_hwnds
+ 440:                 self._window_titles = {}
+ 441:             
+ 442:             # Check for new windows
+ 443:             new_hwnds = current_hwnds - self._previous_hwnds
+ 444:             if new_hwnds:
+ 445:                 print(f"Detected {len(new_hwnds)} new window(s)")
+ 446:                 self._refresh_windows_menu()
+ 447:             
+ 448:             # Check for title changes in existing windows
+ 449:             title_changed = False
+ 450:             for window in current_windows:
+ 451:                 hwnd = window.hwnd
+ 452:                 current_title = window.title
+ 453:                 
+ 454:                 # Store or compare title
+ 455:                 if hwnd in self._window_titles:
+ 456:                     if self._window_titles[hwnd] != current_title:
+ 457:                         #print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
+ 458:                         title_changed = True
+ 459:                         self._window_titles[hwnd] = current_title
+ 460:                         
+ 461:                         # Update the window's display name
+ 462:                         window.display_name = window._create_display_name()
+ 463:                         
+ 464:                         # Update pinned button if this window is pinned
+ 465:                         if window.is_pinned and hasattr(self, 'pinned_section') and self.pinned_section:
+ 466:                             self.pinned_section.update_window_title(window)
+ 467:                 else:
+ 468:                     self._window_titles[hwnd] = current_title
+ 469:             
+ 470:             # Clean up titles for closed windows
+ 471:             closed_hwnds = set(self._window_titles.keys()) - current_hwnds
+ 472:             for hwnd in closed_hwnds:
+ 473:                 del self._window_titles[hwnd]
+ 474:             
+ 475:             # Refresh Windows menu if titles changed
+ 476:             if title_changed:
+ 477:                 self._refresh_windows_menu()
+ 478:             
+ 479:             # Update previous list for next check
+ 480:             self._previous_hwnds = current_hwnds
+ 481:         
+ 482:         except Exception as e:
+ 483:             print(f"Error checking window states: {e}")
+ 484:         
+ 485:         # Schedule next check (every 1 second for responsive updates)
+ 486:         self.root.after(1000, self.check_window_states)
+ 487: 
+ 488:     def _refresh_windows_menu(self):
+ 489:         """Helper method to refresh Windows menu if it's open"""
+ 490:         if hasattr(self, 'windows_menu') and self.windows_menu:
+ 491:             try:
+ 492:                 if self.windows_menu.winfo_exists():
+ 493:                     print("Refreshing Windows Manager...")
+ 494:                     self.windows_menu.refresh_window_list()
+ 495:             except:
+ 496:                 pass
+ 497:     
+ 498: 
+ 499:     def show_email_attachments_menu(self):
+ 500:         popup_menu = EmailMenu(self.root)
+ 501:         popup_menu.mainloop()
+ 502: 
+ 503: 
+ 504: 
+ 505: 
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: ui_components.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: ui_components.py
-Size: 28.7 KB
+Size: 29.4 KB
 Lines: 745 total, 615 non-empty
 Characters: 29,342
 Type: Reusable UI components and dialogs
@@ -7014,26 +7276,28 @@ comtypes
                            EXPORT SUMMARY
 ================================================================================
 
-Files Processed: 19
-Total Size: 270.3 KB
-Total Python Lines: 6,740
+Files Processed: 21
+Total Size: 280.8 KB
+Total Python Lines: 6,977
 
 File Breakdown:
     README.md                  718.0 B (  31 lines)
     browse_choice_dialog.py     7.0 KB ( 187 lines)
     config.py                   7.1 KB ( 175 lines)
+    email_manager.py           997.0 B (  22 lines)
+    email_menu.py               7.8 KB ( 197 lines)
     enhanced_folder_inventory.py  23.5 KB ( 569 lines)
     explorer_utils.py           8.9 KB ( 226 lines)
     folder_inventory.py        24.5 KB ( 593 lines)
     inventory_view_window.py   27.7 KB ( 655 lines)
-    links_manager.py           10.8 KB ( 306 lines)
+    links_manager.py           11.1 KB ( 306 lines)
     main.py                     1.1 KB (  42 lines)
     pinned_windows.py          13.3 KB ( 338 lines)
     quick_links.py             36.3 KB ( 867 lines)
     restore_deskop.py           1.5 KB (  41 lines)
     snip_feature.py            16.1 KB ( 410 lines)
-    taskbar.py                 19.9 KB ( 484 lines)
-    ui_components.py           28.7 KB ( 745 lines)
+    taskbar.py                 20.6 KB ( 505 lines)
+    ui_components.py           29.4 KB ( 745 lines)
     utils.py                    7.0 KB ( 211 lines)
     window_manager.py          13.6 KB ( 337 lines)
     windows_menu.py            22.5 KB ( 554 lines)

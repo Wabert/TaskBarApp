@@ -18,6 +18,9 @@ from folder_inventory import add_folder_inventory_to_taskbar  # UPDATED IMPORT
 from window_manager import WindowManager
 from windows_menu import WindowsMenu
 from pinned_windows import PinnedWindowsSection
+from email_manager import EmailManager
+
+
 
 class SuiteViewTaskbar:
     """Main taskbar application window"""
@@ -32,7 +35,6 @@ class SuiteViewTaskbar:
         self.windows_menu = None
         self.pinned_section = None  # Initialize to None
         self.windows_menu_geometry = None
-
 
         # Store original work area for restoration
         self.original_work_area = WindowsUtils.get_work_area()
@@ -167,6 +169,16 @@ class SuiteViewTaskbar:
                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
                             bd=0, padx=15, command=self.toggle_windows_menu)
         windows_btn.pack(side=tk.RIGHT, padx=5)
+
+        
+        # Add Email Attachments button
+        email_attachments_btn = tk.Button(self.main_frame, text="Email Attachments", 
+                        bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                        relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+                        cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+                        bd=0, padx=15, command=self.show_email_attachments_menu)
+        email_attachments_btn.pack(side=tk.LEFT, padx=5)
+
 
     def bind_events(self):
         """Bind event handlers"""
@@ -442,7 +454,7 @@ class SuiteViewTaskbar:
                 # Store or compare title
                 if hwnd in self._window_titles:
                     if self._window_titles[hwnd] != current_title:
-                        print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
+                        #print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
                         title_changed = True
                         self._window_titles[hwnd] = current_title
                         
@@ -482,3 +494,11 @@ class SuiteViewTaskbar:
                     self.windows_menu.refresh_window_list()
             except:
                 pass
+    
+
+    def show_email_attachments_menu(self):
+        popup_menu = EmailManager()
+        popup_menu.display_emails()
+
+
+

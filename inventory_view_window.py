@@ -13,13 +13,16 @@ from ui_components import CustomDialog
 class InventoryViewWindow(tk.Toplevel):
     """Interactive window for viewing inventory data with Excel-like filtering"""
     
-    def __init__(self, parent, inventory_data, error_data, scan_info):
+    def __init__(self, parent, inventory_data, error_data, scan_info, display_columns = None, display_column_widths = None):
         super().__init__(parent)
         self.parent = parent
         self.inventory_data = inventory_data.copy()  # Original data
         self.filtered_data = inventory_data.copy()   # Current filtered data
         self.error_data = error_data
         self.scan_info = scan_info
+                
+        self.columns = display_columns if display_columns else ['Name', 'Full Path', 'Type', 'Size', 'Modified Date']
+        self.column_widths  = display_column_widths if display_column_widths else {'Name': 200,'Full Path': 300,'Type': 80,'Size': 100,'Modified Date': 150}
         
         # Filter state tracking
         self.active_filters = {}  # column_name -> set of selected values
@@ -185,24 +188,24 @@ class InventoryViewWindow(tk.Toplevel):
         self.tree = ttk.Treeview(grid_frame, show='tree headings')
         
         # Define columns (excluding Size (Bytes) from display but keeping in data)
-        self.columns = ['Name', 'Full Path', 'Type', 'Size', 'Modified Date']
+        #self.columns = ['Name', 'Full Path', 'Type', 'Size', 'Modified Date']
         self.tree['columns'] = self.columns
         
         # Configure tree column (hidden)
         self.tree.column('#0', width=0, stretch=False)
         self.tree.heading('#0', text='')
         
-        # Configure data columns
-        column_widths = {
-            'Name': 200,
-            'Full Path': 300,
-            'Type': 80,
-            'Size': 100,
-            'Modified Date': 150
-        }
+        # # Configure data columns
+        # column_widths = {
+        #     'Name': 200,
+        #     'Full Path': 300,
+        #     'Type': 80,
+        #     'Size': 100,
+        #     'Modified Date': 150
+        # }
         
         for col in self.columns:
-            self.tree.column(col, width=column_widths.get(col, 100), anchor='w')
+            self.tree.column(col, width=self.column_widths.get(col, 100), anchor='w')
             # Create clickable headers for filtering - no arrow by default
             self.tree.heading(col, text=col, command=lambda c=col: self.show_filter_menu(c))
         

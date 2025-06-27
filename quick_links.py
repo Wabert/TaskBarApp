@@ -125,11 +125,11 @@ class QuickLinksMenu(tk.Toplevel):
                            command=self.add_new_link)
         add_btn.pack(side=tk.LEFT, padx=1)
         
-        # View button (placeholder for future features)
-        view_btn = tk.Button(button_frame, text="Vie", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                            relief=tk.RAISED, bd=1, cursor='hand2',
-                            font=Fonts.MENU_ITEM, width=4, height=1)
-        view_btn.pack(side=tk.LEFT, padx=1)
+        # # View button (placeholder for future features)
+        # view_btn = tk.Button(button_frame, text="Vie", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+        #                     relief=tk.RAISED, bd=1, cursor='hand2',
+        #                     font=Fonts.MENU_ITEM, width=4, height=1)
+        # view_btn.pack(side=tk.LEFT, padx=1)
         
         # Close button
         close_btn = tk.Button(button_frame, text="X", bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,

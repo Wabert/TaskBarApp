@@ -349,7 +349,7 @@ class WindowsMenu(tk.Toplevel):
         color_indicator.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind click to toggle visibility
-        name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
+        name_label.bind("<Button-1>", lambda e: self.show_window(window))
         
         # Bind double click to close window
         name_label.bind("<Double-Button-1>", lambda e: self.remove_window(window))
@@ -367,7 +367,25 @@ class WindowsMenu(tk.Toplevel):
         if self.window_manager.toggle_window_visibility(window):
             self.update_window_item(window)
     
-    # Close window and remove label button from windows_menu
+    def show_window(self, window: ManagedWindow):
+        """Show the window"""
+        window.show()
+        window.bring_to_front()
+        
+    
+    def update_window_item(self, window: ManagedWindow):
+        """Update the UI for a specific window item"""
+        if window.hwnd not in self.window_items:
+            return
+        
+        item = self.window_items[window.hwnd]
+        
+        # Update label color based on visibility
+        label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
+        label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
+        item['label'].configure(bg=label_bg, fg=label_fg)
+
+    # Close window and remove label button from windows_menu   
     def remove_window(self, window: ManagedWindow):
         """Close the window"""
         self.window_manager.close_managed_window(window)
@@ -403,18 +421,6 @@ class WindowsMenu(tk.Toplevel):
         for pw in pinned:
             print(f"  - {pw.display_name}")
         print("=== END DEBUG ===\n")
-    
-    def update_window_item(self, window: ManagedWindow):
-        """Update the UI for a specific window item"""
-        if window.hwnd not in self.window_items:
-            return
-        
-        item = self.window_items[window.hwnd]
-        
-        # Update label color based on visibility
-        label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
-        label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
-        item['label'].configure(bg=label_bg, fg=label_fg)
     
     def get_current_geometry(self):
         """Get current window geometry string"""

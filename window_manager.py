@@ -169,7 +169,6 @@ class ManagedWindow:
         """Check if window still exists"""
         return win32gui.IsWindow(self.hwnd)
 
-
 class WindowManager:
     """Manages window detection, filtering, and state"""
     

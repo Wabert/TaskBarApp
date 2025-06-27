@@ -64,24 +64,22 @@ class WindowsMenu(tk.Toplevel):
         # Apply stored geometry or default size and position
         if stored_geometry:
             self.geometry(stored_geometry)
-            #print(f"Applied stored geometry: {stored_geometry}")  # Debug
         else:
-            # Set default size and position (bottom-right)
-            default_width = 700
-            # Calculate height based on number of windows
+            # Set default size and position
+            default_width = 600  # Slightly narrower
             
-            window_count = len(self.window_manager.get_relevant_windows())
-            base_height = 100  # Minimum height for header and padding
-            item_height = 40   # Height per window item
-            max_height = 600   # Maximum height
+            # Calculate height based on number of windows with smaller item height
+            window_count = len([w for w in self.window_manager.get_relevant_windows() if not w.is_pinned])
+            base_height = 80   # Minimum height for header and padding
+            item_height = 32   # Smaller height per window item
+            max_height = 700   # Increased max height to show more items
             default_height = min(base_height + (window_count * item_height), max_height)
 
             screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight() - Dimensions.TASKBAR_HEIGHT 
+            screen_height = self.winfo_screenheight()
 
-            x = screen_width - default_width - 5  # 20px from right edge
-            # Position above taskbar (assuming taskbar height of 40)
-            y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
+            x = screen_width - default_width - 5
+            y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10
             
             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
         
@@ -263,12 +261,12 @@ class WindowsMenu(tk.Toplevel):
             #print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
     
     def create_content_area(self):
-        """Create scrollable content area"""
+        """Create scrollable content area with adjusted sizing"""
         # Create canvas and scrollbar for scrolling
         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
                                highlightthickness=0)
         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
-                                command=self.canvas.yview)
+                                command=self.canvas.yview, width=12)  # Narrower scrollbar
         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
         
         self.scrollable_frame.bind(
@@ -279,7 +277,7 @@ class WindowsMenu(tk.Toplevel):
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
-        self.canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
+        self.canvas.pack(side="left", fill="both", expand=True, padx=1, pady=1)
         scrollbar.pack(side="right", fill="y")
         
         # Bind mouse wheel
@@ -313,29 +311,42 @@ class WindowsMenu(tk.Toplevel):
             self.create_window_item(window)
     
     def create_window_item(self, window: ManagedWindow):
-        """Create a single window item in the list"""
-        # Item container
+        """Create a single window item with colored pin button"""
+        # Item container - make it more compact
         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
-                             relief=tk.RAISED, bd=1)
-        item_frame.pack(fill=tk.X, padx=5, pady=2)
+                             relief=tk.RAISED, bd=1, height=30)  # Fixed height
+        item_frame.pack(fill=tk.X, padx=3, pady=1)  # Reduced padding
+        #item_frame.pack_propagate(False)  # Prevent frame from resizing
         
-        # Pin button on the LEFT side
+        # # Pin button with app colors
         pin_btn = tk.Button(item_frame, text="Pin", 
-                           bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
+                           bg=window.colors['bg'], fg=window.colors['fg'],
                            relief=tk.RAISED, bd=1, cursor='hand2',
-                           font=Fonts.MENU_ITEM, width=4,
+                           font=('Arial', 8), width=4,  # Smaller font
                            command=lambda: self.toggle_pin(window))
-        pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
+        pin_btn.pack(side=tk.LEFT, padx=3, pady=2)
         
-        # Window name label (clickable to toggle visibility)
+        # Window name label (without app prefix)
         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
         
-        name_label = tk.Label(item_frame, text=window.display_name, 
+        # Use the display name which no longer has the app prefix
+        display_text = window.display_name
+        
+        # Truncate very long names
+        max_chars = 60
+        if len(display_text) > max_chars:
+            display_text = display_text[:max_chars-3] + "..."
+        
+        name_label = tk.Label(item_frame, text=display_text, 
                              bg=label_bg, fg=label_fg,
-                             font=Fonts.MENU_ITEM, anchor='w',
-                             cursor='hand2', padx=5, pady=3)
-        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Still LEFT but after pin button
+                             font=('Arial', 9), anchor='w',  # Smaller font
+                             cursor='hand2', padx=5, pady=2)  # Reduced padding
+        name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Add subtle border on right side with app color
+        color_indicator = tk.Frame(item_frame, bg=window.colors['bg'], width=3)
+        color_indicator.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind click to toggle visibility
         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))

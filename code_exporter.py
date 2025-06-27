@@ -162,6 +162,9 @@ ERROR: Could not read file - {str(e)}
             'utils.py': 'Utility functions and helper classes',
             'browse_choice_dialog.py': 'File/folder selection dialog',
             'restore_deskop.py': 'Desktop restoration utilities',
+            'window_manager.py': 'Window management and visibility controls',
+            'windows_menu.py': 'Windows menu UI and interaction handling',
+            'inventory_view_window.py': 'Inventory view window and filtering',
             'requirements.txt': 'Python package dependencies',
             'README.md': 'Project documentation and setup instructions'
         }

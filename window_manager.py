@@ -12,9 +12,10 @@ import win32process
 import psutil
 from typing import List, Dict, Optional
 import re
+from config import AppColors
 
 class ManagedWindow:
-    """Represents a managed window with its state"""
+    """Represents a managed window with its state and color coding"""
     
     def __init__(self, hwnd: int, title: str, process_name: str):
         self.hwnd = hwnd
@@ -25,6 +26,10 @@ class ManagedWindow:
         self.is_hidden = False
         self.is_pinned = False
         self.original_ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        
+        # Add color support
+        from config import AppColors
+        self.colors = self._get_window_colors()
     
     def _extract_app_name(self) -> str:
         """Extract application name from process name"""
@@ -45,17 +50,48 @@ class ManagedWindow:
             'devenv': 'Visual Studio',
             'acrobat': 'Acrobat',
             'acrord32': 'Acrobat Reader',
-            'explorer': 'File Explorer'
+            'explorer': 'File Explorer',
+            'cursor': 'Cursor'
         }
         
         return common_apps.get(app.lower(), app.title())
     
     def _create_display_name(self) -> str:
-        """Create display name in format 'AppName - WindowTitle'"""
-        if self.title.startswith(self.app_name):
-            # Avoid duplication if app name is already in title
-            return self.title
-        return f"{self.app_name} - {self.title}"
+        """Create display name WITHOUT app prefix"""
+        # Remove app name from title if it's at the beginning
+        if self.title.startswith(self.app_name + " - "):
+            return self.title[len(self.app_name) + 3:]  # Remove "AppName - "
+        elif self.title.startswith(self.app_name):
+            # Some apps don't use " - " separator
+            return self.title[len(self.app_name):].lstrip(" -")
+        
+        # For some apps, the title format might be different
+        # Remove common patterns
+        patterns_to_remove = [
+            f" - {self.app_name}",  # "Document - Word"
+            f" - {self.app_name}",  # Em dash variant
+            f" - {self.app_name}",  # Em dash variant
+        ]
+        
+        display_name = self.title
+        for pattern in patterns_to_remove:
+            if display_name.endswith(pattern):
+                display_name = display_name[:-len(pattern)]
+                break
+        
+        return display_name if display_name else self.title
+    
+    def _get_window_colors(self):
+        """Get appropriate colors for this window"""
+        from config import AppColors
+        
+        # First check if it's a file type that should override the app colors
+        file_colors = AppColors.get_colors_for_file_type(self.title)
+        if file_colors:
+            return file_colors
+        
+        # Otherwise use app colors
+        return AppColors.get_app_colors(self.process_name)
     
     def hide(self) -> bool:
         """Hide the window (remove from Alt+Tab and taskbar)"""
@@ -275,4 +311,6 @@ class WindowManager:
         """Close the window"""
         del self.managed_windows[window.hwnd] 
         win32gui.PostMessage(window.hwnd, win32con.WM_CLOSE, 0, 0)
+        
+        #Use PostMessage to actually close the window.  The line below will just minimize it
         # win32gui.CloseWindow(window.hwnd)

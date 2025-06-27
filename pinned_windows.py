@@ -13,7 +13,7 @@ import win32gui
 import win32con
 
 class PinnedWindowButton(tk.Frame):
-    """Individual pinned window button"""
+    """Individual pinned window button with app-specific colors"""
     
     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
                  on_unpin_callback):
@@ -29,40 +29,48 @@ class PinnedWindowButton(tk.Frame):
         self.button.bind("<Button-3>", self.show_unpin_menu)
     
     def create_button(self):
-        """Create the toggle button"""
-        print(f"\n=== CREATING PINNED BUTTON ===")
-        print(f"Window: {self.window.display_name}")
-        print(f"Parent: {self.master}")
+        """Create the toggle button with app-specific colors"""
+        # Get app colors
+        bg_color = self.window.colors['bg']
+        fg_color = self.window.colors['fg']
         
-        # Always use consistent colors for pinned buttons
-        bg_color = Colors.DARK_GREEN
-        fg_color = Colors.WHITE
+        # Use shortened display name (without app prefix)
+        display_text = self.window.display_name
         
-        # Use app name
-        display_text = self.window.app_name
-        
-        # Create button font
-        button_font = Fonts.TASKBAR_BUTTON
+        # Truncate if too long
+        max_chars = 12
+        if len(display_text) > max_chars:
+            display_text = display_text[:max_chars-2] + ".."
         
         self.button = tk.Button(self, text=display_text,
                                bg=bg_color, fg=fg_color,
                                relief=tk.RAISED, bd=2,
-                               width=6,
-                               font=('Arial', 7),
-                               padx=1,  # Internal padding for text
+                               width=6,  # Slightly wider for better text fit
+                               font=('Arial', 8),
+                               padx=0,
                                cursor='hand2',
-                               wraplength=40,
-                               activebackground=Colors.HOVER_GREEN,
+                               wraplength=40,  # Allow text wrapping
+                               activebackground=self._lighten_color(bg_color),
+                               activeforeground=fg_color,
                                command=self.bring_window_to_front)
-        self.button.pack(fill=tk.BOTH, expand=True)  # Fill entire frame
+        self.button.pack(fill=tk.BOTH, expand=True)
         
-        # Force visibility
-        self.button.update()
+        # Update visual state if window is hidden
+        if self.window.is_hidden:
+            self.button.configure(relief=tk.SUNKEN, bd=1)
+    
+    def _lighten_color(self, hex_color):
+        """Lighten a hex color for hover effect"""
+        # Convert hex to RGB
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
         
-        print(f"Button created: {self.button}")
-        print(f"Button visible: {self.button.winfo_viewable()}")
-        print(f"Button geometry: {self.button.winfo_geometry()}")
-        print(f"=== END CREATING PINNED BUTTON ===\n")
+        # Lighten by 20%
+        r = min(255, int(r * 1.2))
+        g = min(255, int(g * 1.2))
+        b = min(255, int(b * 1.2))
+        
+        return f'#{r:02x}{g:02x}{b:02x}'
     
     def bring_window_to_front(self):
         """Toggle window - hide if fully visible/on top, otherwise bring to front"""

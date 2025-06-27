@@ -5,7 +5,7 @@
 ================================================================================
 
 Export Information:
-    Generated on: 2025-06-25 13:59:30
+    Generated on: 2025-06-26 20:03:22
     Project Directory: C:\Users\rober\Documents\Code\TaskBarApp
     Export Tool: SuiteView Code Exporter v1.0
 
@@ -1786,10 +1786,10 @@ Type: .PY file
 FILE: inventory_view_window.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: inventory_view_window.py
-Size: 21.1 KB
-Lines: 498 total, 396 non-empty
-Characters: 21,071
-Type: .PY file
+Size: 27.7 KB
+Lines: 655 total, 521 non-empty
+Characters: 27,677
+Type: Inventory view window and filtering
 ────────────────────────────────────────────────────────────────────────────────
 
    1: # inventory_view_window.py
@@ -1819,485 +1819,642 @@ Type: .PY file
   25:         self.active_filters = {}  # column_name -> set of selected values
   26:         self.column_unique_values = {}  # column_name -> list of unique values
   27:         
-  28:         # Window setup
-  29:         self.title("Folder Inventory - Interactive View")
+  28:         # Window setup - remove default decorations for custom title bar
+  29:         self.overrideredirect(True)
   30:         self.configure(bg=Colors.DARK_GREEN)
   31:         self.attributes('-topmost', True)
   32:         self.geometry("1000x700")
   33:         
-  34:         # Make window resizable
-  35:         self.resizable(True, True)
-  36:         
-  37:         # Main container
-  38:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
-  39:         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-  40:         
-  41:         # Create header with scan information
-  42:         self.create_header()
-  43:         
-  44:         # Create the filterable data grid
-  45:         self.create_data_grid()
-  46:         
-  47:         # Create footer with action buttons
-  48:         self.create_footer()
+  34:         # Initialize drag variables for custom title bar
+  35:         self.is_dragging = False
+  36:         self.drag_start_x = 0
+  37:         self.drag_start_y = 0
+  38:         
+  39:         # Main container with dark green border (matching other windows)
+  40:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
+  41:         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
+  42:         
+  43:         # Create custom title bar (matching other windows style)
+  44:         self.create_custom_title_bar()
+  45:         
+  46:         # Content frame with light green background
+  47:         self.content_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN)
+  48:         self.content_frame.pack(fill=tk.BOTH, expand=True)
   49:         
-  50:         # Initialize data
-  51:         self.populate_grid()
-  52:         self.update_stats()
-  53:         
-  54:         # Bind window close event
-  55:         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-  56:         
-  57:         # Center the window
-  58:         self.center_window()
-  59:     
-  60:     def create_header(self):
-  61:         """Create header with scan information"""
-  62:         header_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
-  63:         header_frame.pack(fill=tk.X, padx=2, pady=2)
-  64:         
-  65:         # Title
-  66:         title_label = tk.Label(header_frame, text="📁 Folder Inventory Results", 
-  67:                               bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
-  68:                               font=('Arial', 14, 'bold'))
-  69:         title_label.pack(pady=5)
-  70:         
-  71:         # Scan information in a grid
-  72:         info_frame = tk.Frame(header_frame, bg=Colors.LIGHT_GREEN)
-  73:         info_frame.pack(pady=5)
+  50:         # Create header with scan information
+  51:         self.create_header()
+  52:         
+  53:         # Create the filterable data grid
+  54:         self.create_data_grid()
+  55:         
+  56:         # Create footer with action buttons
+  57:         self.create_footer()
+  58:         
+  59:         # Initialize data
+  60:         self.populate_grid()
+  61:         self.update_stats()
+  62:         
+  63:         # Bind window close event
+  64:         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+  65:         
+  66:         # Center the window
+  67:         self.center_window()
+  68:     
+  69:     def create_custom_title_bar(self):
+  70:         """Create custom title bar matching other windows' style"""
+  71:         self.title_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=25)
+  72:         self.title_frame.pack(fill=tk.X)
+  73:         self.title_frame.pack_propagate(False)
   74:         
-  75:         # Row 1: Folder and Date
-  76:         tk.Label(info_frame, text="Scanned Folder:", bg=Colors.LIGHT_GREEN, 
-  77:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).grid(row=0, column=0, sticky='w', padx=5)
-  78:         tk.Label(info_frame, text=self.scan_info['folder'], bg=Colors.LIGHT_GREEN, 
-  79:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=0, column=1, sticky='w', padx=5)
-  80:         
-  81:         tk.Label(info_frame, text="Generated:", bg=Colors.LIGHT_GREEN, 
-  82:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).grid(row=0, column=2, sticky='w', padx=20)
-  83:         tk.Label(info_frame, text=self.scan_info['generated'], bg=Colors.LIGHT_GREEN, 
-  84:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=0, column=3, sticky='w', padx=5)
+  75:         # Drag handle (left side)
+  76:         drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  77:                              font=('Arial', 8), cursor='fleur')
+  78:         drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
+  79:         
+  80:         # Title label
+  81:         title_label = tk.Label(self.title_frame, text="📁 Folder Inventory - Interactive View", 
+  82:                               bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  83:                               font=Fonts.DIALOG_TITLE, cursor='fleur')
+  84:         title_label.pack(side=tk.LEFT, padx=5, pady=3)
   85:         
-  86:         # Row 2: Total Items and Content Type
-  87:         self.stats_label = tk.Label(info_frame, text="", bg=Colors.LIGHT_GREEN, 
-  88:                                    fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
-  89:         self.stats_label.grid(row=1, column=0, columnspan=2, sticky='w', padx=5, pady=5)
-  90:         
-  91:         content_type_text = {
-  92:             'files': 'Files Only',
-  93:             'folders': 'Folders Only', 
-  94:             'both': 'Files and Folders'
-  95:         }.get(self.scan_info['content_type'], 'Unknown')
-  96:         
-  97:         tk.Label(info_frame, text=f"Content: {content_type_text}", bg=Colors.LIGHT_GREEN, 
-  98:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=1, column=2, columnspan=2, sticky='w', padx=20)
-  99:     
- 100:     def create_data_grid(self):
- 101:         """Create the main data grid with filtering"""
- 102:         # Grid container
- 103:         grid_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN, relief=tk.SUNKEN, bd=1)
- 104:         grid_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
- 105:         
- 106:         # Create Treeview for the data grid
- 107:         self.tree = ttk.Treeview(grid_frame, show='tree headings')
- 108:         
- 109:         # Define columns (excluding Size (Bytes) from display but keeping in data)
- 110:         self.columns = ['Name', 'Full Path', 'Type', 'Size', 'Modified Date']
- 111:         self.tree['columns'] = self.columns
- 112:         
- 113:         # Configure tree column (hidden)
- 114:         self.tree.column('#0', width=0, stretch=False)
- 115:         self.tree.heading('#0', text='')
- 116:         
- 117:         # Configure data columns
- 118:         column_widths = {
- 119:             'Name': 200,
- 120:             'Full Path': 300,
- 121:             'Type': 80,
- 122:             'Size': 100,
- 123:             'Modified Date': 150
- 124:         }
- 125:         
- 126:         for col in self.columns:
- 127:             self.tree.column(col, width=column_widths.get(col, 100), anchor='w')
- 128:             # Create clickable headers for filtering
- 129:             self.tree.heading(col, text=f"{col} ▼", command=lambda c=col: self.show_filter_menu(c))
- 130:         
- 131:         # Scrollbars
- 132:         v_scrollbar = ttk.Scrollbar(grid_frame, orient=tk.VERTICAL, command=self.tree.yview)
- 133:         h_scrollbar = ttk.Scrollbar(grid_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
- 134:         self.tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
- 135:         
- 136:         # Pack grid components
- 137:         self.tree.grid(row=0, column=0, sticky='nsew')
- 138:         v_scrollbar.grid(row=0, column=1, sticky='ns')
- 139:         h_scrollbar.grid(row=1, column=0, sticky='ew')
- 140:         
- 141:         # Configure grid weights
- 142:         grid_frame.grid_rowconfigure(0, weight=1)
- 143:         grid_frame.grid_columnconfigure(0, weight=1)
- 144:         
- 145:         # Style the treeview
- 146:         style = ttk.Style()
- 147:         style.configure('Treeview', background=Colors.LIGHT_GREEN, 
- 148:                        foreground=Colors.BLACK, fieldbackground=Colors.LIGHT_GREEN)
- 149:         style.configure('Treeview.Heading', background=Colors.MEDIUM_GREEN,
- 150:                        foreground=Colors.BLACK, font=Fonts.MENU_HEADER)
- 151:     
- 152:     def create_footer(self):
- 153:         """Create footer with action buttons and filter status"""
- 154:         footer_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=50)
- 155:         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
- 156:         footer_frame.pack_propagate(False)
- 157:         
- 158:         # Left side - filter status
- 159:         filter_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
- 160:         filter_frame.pack(side=tk.LEFT, fill=tk.Y)
- 161:         
- 162:         self.filter_status_label = tk.Label(filter_frame, text="No filters applied", 
- 163:                                            bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 164:                                            font=Fonts.MENU_ITEM)
- 165:         self.filter_status_label.pack(side=tk.LEFT, padx=10, pady=5)
- 166:         
- 167:         # Right side - action buttons
- 168:         button_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
- 169:         button_frame.pack(side=tk.RIGHT, fill=tk.Y)
- 170:         
- 171:         # Clear Filters button
- 172:         clear_btn = tk.Button(button_frame, text="Clear All Filters", 
- 173:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 174:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 175:                              font=Fonts.MENU_ITEM, padx=10,
- 176:                              command=self.clear_all_filters)
- 177:         clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 178:         
- 179:         # Export to Excel button
- 180:         export_btn = tk.Button(button_frame, text="Export to Excel", 
- 181:                               bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 182:                               relief=tk.RAISED, bd=1, cursor='hand2',
- 183:                               font=Fonts.MENU_ITEM, padx=10,
- 184:                               command=self.export_to_excel)
- 185:         export_btn.pack(side=tk.LEFT, padx=5, pady=5)
+  86:         # Close button
+  87:         close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  88:                            font=('Arial', 12, 'bold'), cursor='hand2')
+  89:         close_btn.pack(side=tk.RIGHT, padx=5)
+  90:         close_btn.bind("<Button-1>", lambda e: self.on_closing())
+  91:         
+  92:         # Bind drag events to title bar elements
+  93:         for widget in [self.title_frame, drag_handle, title_label]:
+  94:             widget.bind("<Button-1>", self.start_drag)
+  95:             widget.bind("<B1-Motion>", self.do_drag)
+  96:             widget.bind("<ButtonRelease-1>", self.end_drag)
+  97:     
+  98:     def start_drag(self, event):
+  99:         """Start dragging the window"""
+ 100:         self.is_dragging = True
+ 101:         self.drag_start_x = event.x_root
+ 102:         self.drag_start_y = event.y_root
+ 103:         
+ 104:         # Visual feedback
+ 105:         self.title_frame.configure(bg=Colors.HOVER_GREEN)
+ 106:     
+ 107:     def do_drag(self, event):
+ 108:         """Handle drag motion"""
+ 109:         if not self.is_dragging:
+ 110:             return
+ 111:         
+ 112:         # Calculate the distance moved
+ 113:         delta_x = event.x_root - self.drag_start_x
+ 114:         delta_y = event.y_root - self.drag_start_y
+ 115:         
+ 116:         # Get current position
+ 117:         current_x = self.winfo_x()
+ 118:         current_y = self.winfo_y()
+ 119:         
+ 120:         # Calculate new position
+ 121:         new_x = current_x + delta_x
+ 122:         new_y = current_y + delta_y
+ 123:         
+ 124:         # Move the window
+ 125:         self.geometry(f"+{new_x}+{new_y}")
+ 126:         
+ 127:         # Update start position for next move
+ 128:         self.drag_start_x = event.x_root
+ 129:         self.drag_start_y = event.y_root
+ 130:     
+ 131:     def end_drag(self, event):
+ 132:         """End dragging operation"""
+ 133:         self.is_dragging = False
+ 134:         
+ 135:         # Remove visual feedback
+ 136:         self.title_frame.configure(bg=Colors.DARK_GREEN)
+ 137:     
+ 138:     def create_header(self):
+ 139:         """Create header with scan information"""
+ 140:         header_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
+ 141:         header_frame.pack(fill=tk.X, padx=2, pady=2)
+ 142:         
+ 143:         # Title
+ 144:         title_label = tk.Label(header_frame, text="📁 Folder Inventory Results", 
+ 145:                               bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
+ 146:                               font=('Arial', 14, 'bold'))
+ 147:         title_label.pack(pady=5)
+ 148:         
+ 149:         # Scan information in a grid
+ 150:         info_frame = tk.Frame(header_frame, bg=Colors.LIGHT_GREEN)
+ 151:         info_frame.pack(pady=5)
+ 152:         
+ 153:         # Row 1: Folder and Date
+ 154:         tk.Label(info_frame, text="Scanned Folder:", bg=Colors.LIGHT_GREEN, 
+ 155:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).grid(row=0, column=0, sticky='w', padx=5)
+ 156:         tk.Label(info_frame, text=self.scan_info['folder'], bg=Colors.LIGHT_GREEN, 
+ 157:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=0, column=1, sticky='w', padx=5)
+ 158:         
+ 159:         tk.Label(info_frame, text="Generated:", bg=Colors.LIGHT_GREEN, 
+ 160:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).grid(row=0, column=2, sticky='w', padx=20)
+ 161:         tk.Label(info_frame, text=self.scan_info['generated'], bg=Colors.LIGHT_GREEN, 
+ 162:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=0, column=3, sticky='w', padx=5)
+ 163:         
+ 164:         # Row 2: Total Items and Content Type
+ 165:         self.stats_label = tk.Label(info_frame, text="", bg=Colors.LIGHT_GREEN, 
+ 166:                                    fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
+ 167:         self.stats_label.grid(row=1, column=0, columnspan=2, sticky='w', padx=5, pady=5)
+ 168:         
+ 169:         content_type_text = {
+ 170:             'files': 'Files Only',
+ 171:             'folders': 'Folders Only', 
+ 172:             'both': 'Files and Folders'
+ 173:         }.get(self.scan_info['content_type'], 'Unknown')
+ 174:         
+ 175:         tk.Label(info_frame, text=f"Content: {content_type_text}", bg=Colors.LIGHT_GREEN, 
+ 176:                 fg=Colors.DARK_GREEN, font=Fonts.DIALOG_LABEL).grid(row=1, column=2, columnspan=2, sticky='w', padx=20)
+ 177:     
+ 178:     def create_data_grid(self):
+ 179:         """Create the main data grid with filtering"""
+ 180:         # Grid container
+ 181:         grid_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.SUNKEN, bd=1)
+ 182:         grid_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+ 183:         
+ 184:         # Create Treeview for the data grid
+ 185:         self.tree = ttk.Treeview(grid_frame, show='tree headings')
  186:         
- 187:         # Close button
- 188:         close_btn = tk.Button(button_frame, text="Close", 
- 189:                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
- 190:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 191:                              font=Fonts.MENU_ITEM, padx=10,
- 192:                              command=self.on_closing)
- 193:         close_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 194:     
- 195:     def populate_grid(self):
- 196:         """Populate the grid with current filtered data"""
- 197:         # Clear existing items
- 198:         for item in self.tree.get_children():
- 199:             self.tree.delete(item)
- 200:         
- 201:         # Add filtered data
- 202:         for item in self.filtered_data:
- 203:             values = [item[col] for col in self.columns]
- 204:             self.tree.insert('', 'end', values=values)
- 205:         
- 206:         # Calculate unique values for each column (from original data for proper filtering)
- 207:         self.calculate_unique_values()
- 208:     
- 209:     def calculate_unique_values(self):
- 210:         """Calculate unique values for each column from original data"""
- 211:         self.column_unique_values = {}
- 212:         for col in self.columns:
- 213:             unique_vals = set()
- 214:             for item in self.inventory_data:
- 215:                 val = item.get(col, '')
- 216:                 if val != '':  # Don't include empty values
- 217:                     unique_vals.add(str(val))
- 218:             self.column_unique_values[col] = sorted(list(unique_vals))
- 219:     
- 220:     def show_filter_menu(self, column):
- 221:         """Show filter menu for a specific column"""
- 222:         FilterMenuDialog(self, column, self.column_unique_values[column], 
- 223:                         self.active_filters.get(column, set()), self.apply_filter)
- 224:     
- 225:     def apply_filter(self, column, selected_values):
- 226:         """Apply filter to a specific column"""
- 227:         if selected_values:
- 228:             self.active_filters[column] = set(selected_values)
- 229:         else:
- 230:             # Remove filter if no values selected
- 231:             if column in self.active_filters:
- 232:                 del self.active_filters[column]
- 233:         
- 234:         # Apply all filters
- 235:         self.filter_data()
- 236:         self.update_display()
- 237:         self.update_filter_status()
- 238:     
- 239:     def filter_data(self):
- 240:         """Apply all active filters to the data"""
- 241:         self.filtered_data = []
- 242:         
- 243:         for item in self.inventory_data:
- 244:             include_item = True
- 245:             
- 246:             # Check each active filter
- 247:             for filter_col, filter_values in self.active_filters.items():
- 248:                 item_value = str(item.get(filter_col, ''))
- 249:                 if item_value not in filter_values:
- 250:                     include_item = False
- 251:                     break
- 252:             
- 253:             if include_item:
- 254:                 self.filtered_data.append(item)
- 255:     
- 256:     def update_display(self):
- 257:         """Update the grid display with filtered data"""
- 258:         # Clear existing items
- 259:         for item in self.tree.get_children():
- 260:             self.tree.delete(item)
- 261:         
- 262:         # Add filtered data
- 263:         for item in self.filtered_data:
- 264:             values = [item[col] for col in self.columns]
- 265:             self.tree.insert('', 'end', values=values)
+ 187:         # Define columns (excluding Size (Bytes) from display but keeping in data)
+ 188:         self.columns = ['Name', 'Full Path', 'Type', 'Size', 'Modified Date']
+ 189:         self.tree['columns'] = self.columns
+ 190:         
+ 191:         # Configure tree column (hidden)
+ 192:         self.tree.column('#0', width=0, stretch=False)
+ 193:         self.tree.heading('#0', text='')
+ 194:         
+ 195:         # Configure data columns
+ 196:         column_widths = {
+ 197:             'Name': 200,
+ 198:             'Full Path': 300,
+ 199:             'Type': 80,
+ 200:             'Size': 100,
+ 201:             'Modified Date': 150
+ 202:         }
+ 203:         
+ 204:         for col in self.columns:
+ 205:             self.tree.column(col, width=column_widths.get(col, 100), anchor='w')
+ 206:             # Create clickable headers for filtering - no arrow by default
+ 207:             self.tree.heading(col, text=col, command=lambda c=col: self.show_filter_menu(c))
+ 208:         
+ 209:         # Scrollbars
+ 210:         v_scrollbar = ttk.Scrollbar(grid_frame, orient=tk.VERTICAL, command=self.tree.yview)
+ 211:         h_scrollbar = ttk.Scrollbar(grid_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
+ 212:         self.tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+ 213:         
+ 214:         # Pack grid components
+ 215:         self.tree.grid(row=0, column=0, sticky='nsew')
+ 216:         v_scrollbar.grid(row=0, column=1, sticky='ns')
+ 217:         h_scrollbar.grid(row=1, column=0, sticky='ew')
+ 218:         
+ 219:         # Configure grid weights
+ 220:         grid_frame.grid_rowconfigure(0, weight=1)
+ 221:         grid_frame.grid_columnconfigure(0, weight=1)
+ 222:         
+ 223:         # Style the treeview
+ 224:         style = ttk.Style()
+ 225:         style.configure('Treeview', background=Colors.LIGHT_GREEN, 
+ 226:                        foreground=Colors.BLACK, fieldbackground=Colors.LIGHT_GREEN)
+ 227:         style.configure('Treeview.Heading', background=Colors.MEDIUM_GREEN,
+ 228:                        foreground=Colors.BLACK, font=Fonts.MENU_HEADER)
+ 229:     
+ 230:     def update_column_headers(self):
+ 231:         """Update column headers to show/hide filter indicators"""
+ 232:         for col in self.columns:
+ 233:             if col in self.active_filters:
+ 234:                 # Show arrow if filter is active
+ 235:                 self.tree.heading(col, text=f"{col} ▼")
+ 236:             else:
+ 237:                 # No arrow if no filter
+ 238:                 self.tree.heading(col, text=col)
+ 239:     
+ 240:     def create_footer(self):
+ 241:         """Create footer with action buttons and filter status"""
+ 242:         footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
+ 243:         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
+ 244:         footer_frame.pack_propagate(False)
+ 245:         
+ 246:         # Left side - filter status
+ 247:         filter_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
+ 248:         filter_frame.pack(side=tk.LEFT, fill=tk.Y)
+ 249:         
+ 250:         self.filter_status_label = tk.Label(filter_frame, text="No filters applied", 
+ 251:                                            bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 252:                                            font=Fonts.MENU_ITEM)
+ 253:         self.filter_status_label.pack(side=tk.LEFT, padx=10, pady=5)
+ 254:         
+ 255:         # Right side - action buttons
+ 256:         button_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
+ 257:         button_frame.pack(side=tk.RIGHT, fill=tk.Y)
+ 258:         
+ 259:         # Clear Filters button
+ 260:         clear_btn = tk.Button(button_frame, text="Clear All Filters", 
+ 261:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 262:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 263:                              font=Fonts.MENU_ITEM, padx=10,
+ 264:                              command=self.clear_all_filters)
+ 265:         clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
  266:         
- 267:         # Update stats
- 268:         self.update_stats()
- 269:     
- 270:     def update_stats(self):
- 271:         """Update the statistics display"""
- 272:         total_original = len(self.inventory_data)
- 273:         total_filtered = len(self.filtered_data)
+ 267:         # Export to Excel button
+ 268:         export_btn = tk.Button(button_frame, text="Export to Excel", 
+ 269:                               bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 270:                               relief=tk.RAISED, bd=1, cursor='hand2',
+ 271:                               font=Fonts.MENU_ITEM, padx=10,
+ 272:                               command=self.export_to_excel)
+ 273:         export_btn.pack(side=tk.LEFT, padx=5, pady=5)
  274:         
- 275:         if total_filtered == total_original:
- 276:             stats_text = f"Total Items: {total_original:,}"
- 277:         else:
- 278:             stats_text = f"Showing: {total_filtered:,} of {total_original:,} items"
- 279:         
- 280:         self.stats_label.config(text=stats_text)
- 281:     
- 282:     def update_filter_status(self):
- 283:         """Update the filter status display"""
- 284:         if not self.active_filters:
- 285:             self.filter_status_label.config(text="No filters applied")
- 286:         else:
- 287:             filter_count = len(self.active_filters)
- 288:             filter_text = f"{filter_count} filter{'s' if filter_count > 1 else ''} applied: "
- 289:             filter_details = []
- 290:             for col, values in self.active_filters.items():
- 291:                 if len(values) == 1:
- 292:                     filter_details.append(f"{col}={list(values)[0]}")
- 293:                 else:
- 294:                     filter_details.append(f"{col}({len(values)} values)")
- 295:             filter_text += ", ".join(filter_details)
- 296:             
- 297:             # Truncate if too long
- 298:             if len(filter_text) > 80:
- 299:                 filter_text = filter_text[:77] + "..."
- 300:             
- 301:             self.filter_status_label.config(text=filter_text)
- 302:     
- 303:     def clear_all_filters(self):
- 304:         """Clear all active filters"""
- 305:         self.active_filters = {}
- 306:         self.filtered_data = self.inventory_data.copy()
- 307:         self.update_display()
- 308:         self.update_filter_status()
- 309:         
- 310:         # Update column headers to remove filter indicators
- 311:         for col in self.columns:
- 312:             self.tree.heading(col, text=f"{col} ▼")
- 313:     
- 314:     def export_to_excel(self):
- 315:         """Export the current filtered data to Excel"""
- 316:         from folder_inventory import ExcelInventoryCreator
- 317:         
- 318:         try:
- 319:             excel_creator = ExcelInventoryCreator()
- 320:             excel_creator.create_workbook(self.filtered_data, self.error_data, self.scan_info['folder'])
- 321:             messagebox.showinfo("Export Complete", "Filtered data has been exported to Excel.")
- 322:         except Exception as e:
- 323:             messagebox.showerror("Export Error", f"Failed to export to Excel:\n{str(e)}")
- 324:     
- 325:     def center_window(self):
- 326:         """Center the window on screen"""
- 327:         self.update_idletasks()
- 328:         width = self.winfo_width()
- 329:         height = self.winfo_height()
- 330:         x = (self.winfo_screenwidth() // 2) - (width // 2)
- 331:         y = (self.winfo_screenheight() // 2) - (height // 2)
- 332:         self.geometry(f"{width}x{height}+{x}+{y}")
- 333:     
- 334:     def on_closing(self):
- 335:         """Handle window closing"""
- 336:         self.destroy()
- 337: 
- 338: 
- 339: class FilterMenuDialog(CustomDialog):
- 340:     """Dialog for selecting filter values for a column (Excel-like)"""
- 341:     
- 342:     def __init__(self, parent, column_name, unique_values, current_selection, apply_callback):
- 343:         super().__init__(parent, f"Filter: {column_name}", width=350, height=400)
- 344:         
- 345:         self.column_name = column_name
- 346:         self.unique_values = unique_values
- 347:         self.current_selection = current_selection.copy()
- 348:         self.apply_callback = apply_callback
- 349:         
- 350:         # If no current selection, default to all selected
- 351:         if not self.current_selection:
- 352:             self.current_selection = set(unique_values)
+ 275:         # Close button
+ 276:         close_btn = tk.Button(button_frame, text="Close", 
+ 277:                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 278:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 279:                              font=Fonts.MENU_ITEM, padx=10,
+ 280:                              command=self.on_closing)
+ 281:         close_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 282:     
+ 283:     def populate_grid(self):
+ 284:         """Populate the grid with current filtered data"""
+ 285:         # Clear existing items
+ 286:         for item in self.tree.get_children():
+ 287:             self.tree.delete(item)
+ 288:         
+ 289:         # Add filtered data
+ 290:         for item in self.filtered_data:
+ 291:             values = [item[col] for col in self.columns]
+ 292:             self.tree.insert('', 'end', values=values)
+ 293:         
+ 294:         # Calculate unique values for each column (from FILTERED data)
+ 295:         self.calculate_unique_values()
+ 296:     
+ 297:     def calculate_unique_values(self):
+ 298:         """Calculate unique values for each column from currently FILTERED data"""
+ 299:         self.column_unique_values = {}
+ 300:         
+ 301:         # For each column, get unique values from the FILTERED data
+ 302:         for col in self.columns:
+ 303:             unique_vals = set()
+ 304:             for item in self.filtered_data:  # Use filtered_data instead of inventory_data
+ 305:                 val = item.get(col, '')
+ 306:                 if val != '':  # Don't include empty values
+ 307:                     unique_vals.add(str(val))
+ 308:             self.column_unique_values[col] = sorted(list(unique_vals))
+ 309:     
+ 310:     def get_available_values_for_column(self, column):
+ 311:         """Get all possible values for a column considering OTHER column filters"""
+ 312:         available_values = set()
+ 313:         
+ 314:         # Apply all filters EXCEPT the one for this column
+ 315:         temp_filters = self.active_filters.copy()
+ 316:         if column in temp_filters:
+ 317:             del temp_filters[column]
+ 318:         
+ 319:         # Filter data with all filters except this column's filter
+ 320:         for item in self.inventory_data:
+ 321:             include_item = True
+ 322:             
+ 323:             # Check each filter except this column's filter
+ 324:             for filter_col, filter_values in temp_filters.items():
+ 325:                 item_value = str(item.get(filter_col, ''))
+ 326:                 if item_value not in filter_values:
+ 327:                     include_item = False
+ 328:                     break
+ 329:             
+ 330:             if include_item:
+ 331:                 val = item.get(column, '')
+ 332:                 if val != '':
+ 333:                     available_values.add(str(val))
+ 334:         
+ 335:         return sorted(list(available_values))
+ 336:     
+ 337:     def show_filter_menu(self, column):
+ 338:         """Show filter menu for a specific column"""
+ 339:         # Get available values for this column (considering other filters but not this column's filter)
+ 340:         available_values = self.get_available_values_for_column(column)
+ 341:         
+ 342:         FilterMenuDialog(self, column, available_values, 
+ 343:                         self.active_filters.get(column, set()), self.apply_filter)
+ 344:     
+ 345:     def apply_filter(self, column, selected_values):
+ 346:         """Apply filter to a specific column"""
+ 347:         if selected_values:
+ 348:             self.active_filters[column] = set(selected_values)
+ 349:         else:
+ 350:             # Remove filter if no values selected
+ 351:             if column in self.active_filters:
+ 352:                 del self.active_filters[column]
  353:         
- 354:         self.create_filter_interface()
- 355:         self.create_action_buttons()
- 356:     
- 357:     def create_filter_interface(self):
- 358:         """Create the filter selection interface"""
- 359:         # Search box
- 360:         search_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
- 361:         search_frame.pack(fill=tk.X, pady=5)
- 362:         
- 363:         tk.Label(search_frame, text="Search:", bg=Colors.LIGHT_GREEN, 
- 364:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).pack(side=tk.LEFT)
- 365:         
- 366:         self.search_var = tk.StringVar()
- 367:         self.search_var.trace('w', self.filter_list)
- 368:         search_entry = tk.Entry(search_frame, textvariable=self.search_var, 
- 369:                                font=Fonts.DIALOG_LABEL)
- 370:         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
- 371:         
- 372:         # Select All / None buttons
- 373:         select_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
- 374:         select_frame.pack(fill=tk.X, pady=5)
- 375:         
- 376:         select_all_btn = tk.Button(select_frame, text="Select All", 
- 377:                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 378:                                   command=self.select_all, font=Fonts.DIALOG_LABEL)
- 379:         select_all_btn.pack(side=tk.LEFT, padx=5)
- 380:         
- 381:         select_none_btn = tk.Button(select_frame, text="Select None", 
- 382:                                    bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 383:                                    command=self.select_none, font=Fonts.DIALOG_LABEL)
- 384:         select_none_btn.pack(side=tk.LEFT, padx=5)
- 385:         
- 386:         # Listbox with checkboxes (simulated with Treeview)
- 387:         list_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
- 388:         list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
- 389:         
- 390:         # Create Treeview for checkbox list
- 391:         self.filter_tree = ttk.Treeview(list_frame, show='tree', height=12)
- 392:         self.filter_tree.column('#0', width=300)
- 393:         
- 394:         # Scrollbar for the list
- 395:         filter_scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, 
- 396:                                         command=self.filter_tree.yview)
- 397:         self.filter_tree.configure(yscrollcommand=filter_scrollbar.set)
+ 354:         # Apply all filters
+ 355:         self.filter_data()
+ 356:         self.update_display()
+ 357:         self.update_filter_status()
+ 358:         self.update_column_headers()
+ 359:     
+ 360:     def filter_data(self):
+ 361:         """Apply all active filters to the data"""
+ 362:         self.filtered_data = []
+ 363:         
+ 364:         for item in self.inventory_data:
+ 365:             include_item = True
+ 366:             
+ 367:             # Check each active filter
+ 368:             for filter_col, filter_values in self.active_filters.items():
+ 369:                 item_value = str(item.get(filter_col, ''))
+ 370:                 if item_value not in filter_values:
+ 371:                     include_item = False
+ 372:                     break
+ 373:             
+ 374:             if include_item:
+ 375:                 self.filtered_data.append(item)
+ 376:     
+ 377:     def update_display(self):
+ 378:         """Update the grid display with filtered data"""
+ 379:         # Clear existing items
+ 380:         for item in self.tree.get_children():
+ 381:             self.tree.delete(item)
+ 382:         
+ 383:         # Add filtered data
+ 384:         for item in self.filtered_data:
+ 385:             values = [item[col] for col in self.columns]
+ 386:             self.tree.insert('', 'end', values=values)
+ 387:         
+ 388:         # Update stats
+ 389:         self.update_stats()
+ 390:         
+ 391:         # Recalculate unique values for next filter operation
+ 392:         self.calculate_unique_values()
+ 393:     
+ 394:     def update_stats(self):
+ 395:         """Update the statistics display"""
+ 396:         total_original = len(self.inventory_data)
+ 397:         total_filtered = len(self.filtered_data)
  398:         
- 399:         self.filter_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
- 400:         filter_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
- 401:         
- 402:         # Populate the list
- 403:         self.populate_filter_list()
- 404:         
- 405:         # Bind double-click to toggle selection
- 406:         self.filter_tree.bind('<Double-1>', self.toggle_item)
- 407:         self.filter_tree.bind('<Return>', self.toggle_item)
- 408:     
- 409:     def populate_filter_list(self, search_text=""):
- 410:         """Populate the filter list with checkboxes"""
- 411:         # Clear existing items
- 412:         for item in self.filter_tree.get_children():
- 413:             self.filter_tree.delete(item)
- 414:         
- 415:         # Filter values based on search
- 416:         filtered_values = [val for val in self.unique_values 
- 417:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
- 418:         
- 419:         # Add items with checkbox indicators
- 420:         for value in filtered_values:
- 421:             checkbox = "☑" if value in self.current_selection else "☐"
- 422:             display_text = f"{checkbox} {value}"
- 423:             item_id = self.filter_tree.insert('', 'end', text=display_text, values=[value])
- 424:     
- 425:     def filter_list(self, *args):
- 426:         """Filter the list based on search text"""
- 427:         search_text = self.search_var.get()
- 428:         self.populate_filter_list(search_text)
- 429:     
- 430:     def toggle_item(self, event=None):
- 431:         """Toggle selection of an item"""
- 432:         selected_item = self.filter_tree.selection()
- 433:         if not selected_item:
- 434:             return
- 435:         
- 436:         item_id = selected_item[0]
- 437:         values = self.filter_tree.item(item_id, 'values')
- 438:         if values:
- 439:             value = values[0]
- 440:             
- 441:             if value in self.current_selection:
- 442:                 self.current_selection.remove(value)
- 443:             else:
- 444:                 self.current_selection.add(value)
- 445:             
- 446:             # Update display
- 447:             search_text = self.search_var.get()
- 448:             self.populate_filter_list(search_text)
- 449:     
- 450:     def select_all(self):
- 451:         """Select all visible items"""
- 452:         search_text = self.search_var.get()
- 453:         filtered_values = [val for val in self.unique_values 
- 454:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
- 455:         
- 456:         for value in filtered_values:
- 457:             self.current_selection.add(value)
- 458:         
- 459:         self.populate_filter_list(search_text)
- 460:     
- 461:     def select_none(self):
- 462:         """Deselect all visible items"""
- 463:         search_text = self.search_var.get()
- 464:         filtered_values = [val for val in self.unique_values 
- 465:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
- 466:         
- 467:         for value in filtered_values:
- 468:             self.current_selection.discard(value)
- 469:         
- 470:         self.populate_filter_list(search_text)
- 471:     
- 472:     def create_action_buttons(self):
- 473:         """Create OK and Cancel buttons"""
- 474:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
- 475:         button_container.pack(expand=True)
- 476:         
- 477:         ok_btn = tk.Button(button_container, text="OK", 
- 478:                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 479:                           command=self.apply_filter, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 480:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 481:         ok_btn.pack(side=tk.LEFT, padx=10)
+ 399:         if total_filtered == total_original:
+ 400:             stats_text = f"Total Items: {total_original:,}"
+ 401:         else:
+ 402:             stats_text = f"Showing: {total_filtered:,} of {total_original:,} items"
+ 403:         
+ 404:         self.stats_label.config(text=stats_text)
+ 405:     
+ 406:     def update_filter_status(self):
+ 407:         """Update the filter status display"""
+ 408:         if not self.active_filters:
+ 409:             self.filter_status_label.config(text="No filters applied")
+ 410:         else:
+ 411:             filter_count = len(self.active_filters)
+ 412:             filter_text = f"{filter_count} filter{'s' if filter_count > 1 else ''} applied: "
+ 413:             filter_details = []
+ 414:             for col, values in self.active_filters.items():
+ 415:                 if len(values) == 1:
+ 416:                     filter_details.append(f"{col}={list(values)[0]}")
+ 417:                 else:
+ 418:                     filter_details.append(f"{col}({len(values)} values)")
+ 419:             filter_text += ", ".join(filter_details)
+ 420:             
+ 421:             # Truncate if too long
+ 422:             if len(filter_text) > 80:
+ 423:                 filter_text = filter_text[:77] + "..."
+ 424:             
+ 425:             self.filter_status_label.config(text=filter_text)
+ 426:     
+ 427:     def clear_all_filters(self):
+ 428:         """Clear all active filters"""
+ 429:         self.active_filters = {}
+ 430:         self.filtered_data = self.inventory_data.copy()
+ 431:         self.update_display()
+ 432:         self.update_filter_status()
+ 433:         self.update_column_headers()
+ 434:     
+ 435:     def export_to_excel(self):
+ 436:         """Export the current filtered data to Excel"""
+ 437:         from folder_inventory import ExcelInventoryCreator
+ 438:         
+ 439:         try:
+ 440:             excel_creator = ExcelInventoryCreator()
+ 441:             excel_creator.create_workbook(self.filtered_data, self.error_data, self.scan_info['folder'])
+ 442:             messagebox.showinfo("Export Complete", "Filtered data has been exported to Excel.")
+ 443:         except Exception as e:
+ 444:             messagebox.showerror("Export Error", f"Failed to export to Excel:\n{str(e)}")
+ 445:     
+ 446:     def center_window(self):
+ 447:         """Center the window on screen"""
+ 448:         self.update_idletasks()
+ 449:         width = self.winfo_width()
+ 450:         height = self.winfo_height()
+ 451:         x = (self.winfo_screenwidth() // 2) - (width // 2)
+ 452:         y = (self.winfo_screenheight() // 2) - (height // 2)
+ 453:         self.geometry(f"{width}x{height}+{x}+{y}")
+ 454:     
+ 455:     def on_closing(self):
+ 456:         """Handle window closing"""
+ 457:         self.destroy()
+ 458: 
+ 459: 
+ 460: class FilterMenuDialog(CustomDialog):
+ 461:     """Dialog for selecting filter values for a column (Excel-like)"""
+ 462:     
+ 463:     def __init__(self, parent, column_name, unique_values, current_selection, apply_callback):
+ 464:         super().__init__(parent, f"Filter: {column_name}", width=350, height=400)
+ 465:         
+ 466:         self.column_name = column_name
+ 467:         self.unique_values = unique_values
+ 468:         self.current_selection = current_selection.copy()
+ 469:         self.apply_callback = apply_callback
+ 470:         self.parent_window = parent
+ 471:         
+ 472:         # Check if this column already has a filter applied
+ 473:         self.has_existing_filter = column_name in parent.active_filters
+ 474:         
+ 475:         # If no current selection, default to all selected
+ 476:         if not self.current_selection:
+ 477:             self.current_selection = set(unique_values)
+ 478:         
+ 479:         # If there's an existing filter, use that selection instead of all
+ 480:         if self.has_existing_filter and parent.active_filters.get(column_name):
+ 481:             self.current_selection = parent.active_filters[column_name].copy()
  482:         
- 483:         cancel_btn = tk.Button(button_container, text="Cancel", 
- 484:                               bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
- 485:                               command=self.cancel, width=Dimensions.DIALOG_BUTTON_WIDTH,
- 486:                               font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
- 487:         cancel_btn.pack(side=tk.LEFT, padx=10)
- 488:         
- 489:         ok_btn.focus_set()
- 490:     
- 491:     def apply_filter(self):
- 492:         """Apply the selected filter"""
- 493:         self.apply_callback(self.column_name, list(self.current_selection))
- 494:         self.destroy()
- 495:     
- 496:     def cancel(self):
- 497:         """Cancel without applying changes"""
- 498:         self.destroy()
+ 483:         self.create_filter_interface()
+ 484:         self.create_action_buttons()
+ 485:     
+ 486:     def create_filter_interface(self):
+ 487:         """Create the filter selection interface"""
+ 488:         # Clear Filter button - only show if filter exists
+ 489:         if self.has_existing_filter:
+ 490:             clear_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
+ 491:             clear_frame.pack(fill=tk.X, pady=(0, 10))
+ 492:             
+ 493:             clear_filter_btn = tk.Button(clear_frame, text="Clear Filter for This Column", 
+ 494:                                        bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 495:                                        command=self.clear_column_filter, 
+ 496:                                        font=Fonts.DIALOG_LABEL,
+ 497:                                        cursor='hand2', relief=tk.RAISED, bd=1)
+ 498:             clear_filter_btn.pack(pady=5)
+ 499:         
+ 500:         # Search box
+ 501:         search_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
+ 502:         search_frame.pack(fill=tk.X, pady=5)
+ 503:         
+ 504:         tk.Label(search_frame, text="Search:", bg=Colors.LIGHT_GREEN, 
+ 505:                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).pack(side=tk.LEFT)
+ 506:         
+ 507:         self.search_var = tk.StringVar()
+ 508:         self.search_var.trace('w', self.filter_list)
+ 509:         search_entry = tk.Entry(search_frame, textvariable=self.search_var, 
+ 510:                                font=Fonts.DIALOG_LABEL)
+ 511:         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+ 512:         
+ 513:         # Select All / None buttons
+ 514:         select_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
+ 515:         select_frame.pack(fill=tk.X, pady=5)
+ 516:         
+ 517:         select_all_btn = tk.Button(select_frame, text="Select All", 
+ 518:                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 519:                                   command=self.select_all, font=Fonts.DIALOG_LABEL)
+ 520:         select_all_btn.pack(side=tk.LEFT, padx=5)
+ 521:         
+ 522:         select_none_btn = tk.Button(select_frame, text="Select None", 
+ 523:                                    bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 524:                                    command=self.select_none, font=Fonts.DIALOG_LABEL)
+ 525:         select_none_btn.pack(side=tk.LEFT, padx=5)
+ 526:         
+ 527:         # Listbox with checkboxes (simulated with Treeview)
+ 528:         list_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
+ 529:         list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+ 530:         
+ 531:         # Create Treeview for checkbox list
+ 532:         self.filter_tree = ttk.Treeview(list_frame, show='tree', height=12)
+ 533:         self.filter_tree.column('#0', width=300)
+ 534:         
+ 535:         # Scrollbar for the list
+ 536:         filter_scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, 
+ 537:                                         command=self.filter_tree.yview)
+ 538:         self.filter_tree.configure(yscrollcommand=filter_scrollbar.set)
+ 539:         
+ 540:         self.filter_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+ 541:         filter_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+ 542:         
+ 543:         # Populate the list
+ 544:         self.populate_filter_list()
+ 545:         
+ 546:         # Bind SINGLE click to toggle selection (not double-click)
+ 547:         self.filter_tree.bind('<Button-1>', self.on_click)
+ 548:         self.filter_tree.bind('<Return>', self.toggle_item)
+ 549:     
+ 550:     def clear_column_filter(self):
+ 551:         """Clear the filter for this specific column"""
+ 552:         # Clear the filter by passing an empty list
+ 553:         self.apply_callback(self.column_name, [])
+ 554:         self.destroy()
+ 555:     
+ 556:     def on_click(self, event):
+ 557:         """Handle single click on items"""
+ 558:         # Get the item under the mouse
+ 559:         item = self.filter_tree.identify('item', event.x, event.y)
+ 560:         if item:
+ 561:             # Select the item
+ 562:             self.filter_tree.selection_set(item)
+ 563:             # Toggle it
+ 564:             self.toggle_item()
+ 565:     
+ 566:     def populate_filter_list(self, search_text=""):
+ 567:         """Populate the filter list with checkboxes"""
+ 568:         # Clear existing items
+ 569:         for item in self.filter_tree.get_children():
+ 570:             self.filter_tree.delete(item)
+ 571:         
+ 572:         # Filter values based on search
+ 573:         filtered_values = [val for val in self.unique_values 
+ 574:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
+ 575:         
+ 576:         # Add items with checkbox indicators
+ 577:         for value in filtered_values:
+ 578:             checkbox = "☑" if value in self.current_selection else "☐"
+ 579:             display_text = f"{checkbox} {value}"
+ 580:             item_id = self.filter_tree.insert('', 'end', text=display_text, values=[value])
+ 581:     
+ 582:     def filter_list(self, *args):
+ 583:         """Filter the list based on search text"""
+ 584:         search_text = self.search_var.get()
+ 585:         self.populate_filter_list(search_text)
+ 586:     
+ 587:     def toggle_item(self, event=None):
+ 588:         """Toggle selection of an item"""
+ 589:         selected_item = self.filter_tree.selection()
+ 590:         if not selected_item:
+ 591:             return
+ 592:         
+ 593:         item_id = selected_item[0]
+ 594:         values = self.filter_tree.item(item_id, 'values')
+ 595:         if values:
+ 596:             value = values[0]
+ 597:             
+ 598:             if value in self.current_selection:
+ 599:                 self.current_selection.remove(value)
+ 600:             else:
+ 601:                 self.current_selection.add(value)
+ 602:             
+ 603:             # Update display
+ 604:             search_text = self.search_var.get()
+ 605:             self.populate_filter_list(search_text)
+ 606:     
+ 607:     def select_all(self):
+ 608:         """Select all visible items"""
+ 609:         search_text = self.search_var.get()
+ 610:         filtered_values = [val for val in self.unique_values 
+ 611:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
+ 612:         
+ 613:         for value in filtered_values:
+ 614:             self.current_selection.add(value)
+ 615:         
+ 616:         self.populate_filter_list(search_text)
+ 617:     
+ 618:     def select_none(self):
+ 619:         """Deselect all visible items"""
+ 620:         search_text = self.search_var.get()
+ 621:         filtered_values = [val for val in self.unique_values 
+ 622:                           if search_text.lower() in val.lower()] if search_text else self.unique_values
+ 623:         
+ 624:         for value in filtered_values:
+ 625:             self.current_selection.discard(value)
+ 626:         
+ 627:         self.populate_filter_list(search_text)
+ 628:     
+ 629:     def create_action_buttons(self):
+ 630:         """Create OK and Cancel buttons"""
+ 631:         button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
+ 632:         button_container.pack(expand=True)
+ 633:         
+ 634:         ok_btn = tk.Button(button_container, text="OK", 
+ 635:                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 636:                           command=self.apply_filter, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 637:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 638:         ok_btn.pack(side=tk.LEFT, padx=10)
+ 639:         
+ 640:         cancel_btn = tk.Button(button_container, text="Cancel", 
+ 641:                               bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 642:                               command=self.cancel, width=Dimensions.DIALOG_BUTTON_WIDTH,
+ 643:                               font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 644:         cancel_btn.pack(side=tk.LEFT, padx=10)
+ 645:         
+ 646:         ok_btn.focus_set()
+ 647:     
+ 648:     def apply_filter(self):
+ 649:         """Apply the selected filter"""
+ 650:         self.apply_callback(self.column_name, list(self.current_selection))
+ 651:         self.destroy()
+ 652:     
+ 653:     def cancel(self):
+ 654:         """Cancel without applying changes"""
+ 655:         self.destroy()
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: links_manager.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: links_manager.py
-Size: 11.1 KB
+Size: 10.8 KB
 Lines: 306 total, 253 non-empty
-Characters: 11,075
+Characters: 11,087
 Type: Data management for links and categories
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -2339,9 +2496,9 @@ Type: Data management for links and categories
   36:             else:
   37:                 return self._create_default_config()
   38:         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
-  39:             print(f"Error loading links: {e}. Creating new config.")
-  40:             return self._create_default_config()
-  41:     
+  39:                 print(f"Error loading links: {e}. Creating new config.")
+  40:                 return self._create_default_config()
+  41:         
   42:     def _fix_path_separators(self, data):
   43:         """Fix forward slash path separators in existing links"""
   44:         for link in data.get("links", []):
@@ -2665,9 +2822,9 @@ Type: Main application entry point
 FILE: pinned_windows.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: pinned_windows.py
-Size: 7.3 KB
-Lines: 177 total, 143 non-empty
-Characters: 7,291
+Size: 12.3 KB
+Lines: 314 total, 247 non-empty
+Characters: 12,255
 Type: .PY file
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -2682,172 +2839,309 @@ Type: .PY file
    9: from config import Colors, Fonts, Settings
   10: from window_manager import ManagedWindow, WindowManager
   11: from ui_components import ConfirmationDialog
-  12: 
-  13: class PinnedWindowButton(tk.Frame):
-  14:     """Individual pinned window button"""
-  15:     
-  16:     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
-  17:                  on_unpin_callback):
-  18:         super().__init__(parent, bg=Colors.DARK_GREEN)
-  19:         self.window = window
-  20:         self.window_manager = window_manager
-  21:         self.on_unpin_callback = on_unpin_callback
-  22:         
-  23:         # Create button
-  24:         self.create_button()
-  25:         
-  26:         # Bind right-click for unpin
-  27:         self.button.bind("<Button-3>", self.show_unpin_menu)
-  28:     
-  29:     def create_button(self):
-  30:         """Create the toggle button"""
-  31:         print(f"\n=== CREATING PINNED BUTTON ===")
-  32:         print(f"Window: {self.window.display_name}")
-  33:         print(f"Parent: {self.master}")
-  34:         
-  35:         # Determine colors based on visibility
-  36:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-  37:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
-  38:         
-  39:         # Use app name with word wrapping instead of truncating
-  40:         display_text = self.window.app_name
-  41:         
-  42:         # Create smaller font for button text
-  43:         button_font = (Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1] - 2)
-  44:         
-  45:         self.button = tk.Button(self, text=display_text,
-  46:                                bg=bg_color, fg=fg_color,
-  47:                                relief=tk.RAISED, bd=2,
-  48:                                font=button_font,
-  49:                                width=6, height=2,  # More square: 6 chars wide, 2 lines high
-  50:                                cursor='hand2',
-  51:                                activebackground=Colors.HOVER_GREEN,
-  52:                                command=self.toggle_window,
-  53:                                wraplength=45,  # Enable word wrapping at ~45 pixels
-  54:                                justify=tk.CENTER)  # Center the wrapped text
-  55:         self.button.pack(padx=2, pady=2)
-  56:         
-  57:         # Force visibility
-  58:         self.button.update()
-  59:         
-  60:         print(f"Button created: {self.button}")
-  61:         print(f"Button visible: {self.button.winfo_viewable()}")
-  62:         print(f"Button geometry: {self.button.winfo_geometry()}")
-  63:         print(f"=== END CREATING PINNED BUTTON ===\n")
-  64:     
-  65:     def toggle_window(self):
-  66:         """Toggle window visibility"""
-  67:         self.window.bring_to_front()
-  68:         self.update_appearance()
-  69:     
-  70:     def update_appearance(self):
-  71:         """Update button appearance based on window state"""
-  72:         bg_color = Colors.WINDOW_VISIBLE if not self.window.is_hidden else Colors.WINDOW_HIDDEN
-  73:         fg_color = Colors.BLACK if not self.window.is_hidden else Colors.WHITE
-  74:         self.button.configure(bg=bg_color, fg=fg_color)
-  75:     
-  76:     def show_unpin_menu(self, event):
-  77:         """Show right-click menu for unpinning"""
-  78:         result = ConfirmationDialog.ask(
-  79:             self.winfo_toplevel(),
-  80:             "Unpin Window",
-  81:             f"Unpin '{self.window.app_name}' from taskbar?",
-  82:             icon="📌"
-  83:         )
-  84:         
-  85:         if result:
-  86:             self.window_manager.unpin_window(self.window)
-  87:             self.on_unpin_callback()
-  88:             
-  89:         # Prevent event from propagating to parent widgets (taskbar)
-  90:         return 'break'
-  91: 
-  92: class PinnedWindowsSection(tk.Frame):
-  93:     """Section in taskbar for pinned windows - now blends with taskbar"""
-  94:     
-  95:     def __init__(self, parent, window_manager: WindowManager, on_pin_changed_callback=None):
-  96:         # Use same background as taskbar, no border
-  97:         super().__init__(parent, bg=Colors.DARK_GREEN, relief=tk.FLAT, bd=0)
-  98:         self.window_manager = window_manager
-  99:         self.pinned_buttons = {}
- 100:         self.on_pin_changed_callback = on_pin_changed_callback
- 101:         
- 102:         # Debug output
- 103:         print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
- 104:         print(f"Parent: {parent}")
- 105:         print(f"Window manager: {window_manager}")
- 106: 
- 107:         # Set minimum and fixed size
- 108:         self.configure(width=Settings.PINNED_SECTION_WIDTH, height=35)
- 109:         self.pack_propagate(False)  # Maintain fixed size
- 110:         
- 111:         # Remove any visible border
- 112:         self.configure(highlightbackground=Colors.DARK_GREEN, highlightthickness=0)
- 113:         
- 114:         # Create container for buttons with no special background
- 115:         self.button_container = tk.Frame(self, bg=Colors.DARK_GREEN)
- 116:         self.button_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
- 117:         
- 118:         # No empty state label - just leave it blank
- 119:         
- 120:         print(f"PinnedWindowsSection created successfully: {self}")
- 121:         print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
- 122:     
- 123:     def refresh(self):
- 124:         """Refresh the pinned windows display"""
- 125:         print(f"\n=== PINNED SECTION REFRESH ===")
- 126:         print(f"Current button count: {len(self.pinned_buttons)}")
- 127:         
- 128:         # Clear existing buttons
- 129:         for hwnd in list(self.pinned_buttons.keys()):
- 130:             print(f"Destroying old button for hwnd: {hwnd}")
- 131:             self.pinned_buttons[hwnd].destroy()
- 132:             del self.pinned_buttons[hwnd]
- 133:         
- 134:         # Get pinned windows
- 135:         pinned_windows = self.window_manager.get_pinned_windows()
- 136:         print(f"Found {len(pinned_windows)} pinned windows")
- 137:         
- 138:         if pinned_windows:
- 139:             # Create buttons for pinned windows
- 140:             for i, window in enumerate(pinned_windows):
- 141:                 print(f"{i}. Creating button for: {window.display_name} (hwnd: {window.hwnd})")
- 142:                 if window.is_valid():
- 143:                     button = PinnedWindowButton(
- 144:                         self.button_container, 
- 145:                         window, 
- 146:                         self.window_manager,
- 147:                         self.on_pin_changed
- 148:                     )
- 149:                     button.pack(side=tk.LEFT, padx=2)
- 150:                     self.pinned_buttons[window.hwnd] = button
- 151:                     print(f"   Button created and packed")
- 152:                     
- 153:                     # Force update to ensure visibility
- 154:                     button.update()
- 155:                     self.button_container.update()
- 156:                 else:
- 157:                     print(f"   Window is not valid!")
- 158:         
- 159:         # Force the section to update
- 160:         self.update_idletasks()
- 161:         print(f"Button container visible: {self.button_container.winfo_viewable()}")
- 162:         print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
- 163:         print("=== END REFRESH ===\n")
- 164:     
- 165:     def update_window_states(self):
- 166:         """Update appearance of all pinned window buttons"""
- 167:         for button in self.pinned_buttons.values():
- 168:             button.update_appearance()
- 169:     
- 170:     def on_pin_changed(self):
- 171:         """Called when a window is pinned/unpinned from the button"""
- 172:         # Refresh the pinned section
- 173:         self.refresh()
- 174:         
- 175:         # Also call the taskbar callback if it exists
- 176:         if self.on_pin_changed_callback:
- 177:             self.on_pin_changed_callback()
+  12: import win32gui
+  13: import win32con
+  14: 
+  15: class PinnedWindowButton(tk.Frame):
+  16:     """Individual pinned window button"""
+  17:     
+  18:     def __init__(self, parent, window: ManagedWindow, window_manager: WindowManager, 
+  19:                  on_unpin_callback):
+  20:         super().__init__(parent, bg=Colors.DARK_GREEN, bd=0, highlightthickness=0)
+  21:         self.window = window
+  22:         self.window_manager = window_manager
+  23:         self.on_unpin_callback = on_unpin_callback
+  24:         
+  25:         # Create button
+  26:         self.create_button()
+  27:         
+  28:         # Bind right-click for unpin
+  29:         self.button.bind("<Button-3>", self.show_unpin_menu)
+  30:     
+  31:     def create_button(self):
+  32:         """Create the toggle button"""
+  33:         print(f"\n=== CREATING PINNED BUTTON ===")
+  34:         print(f"Window: {self.window.display_name}")
+  35:         print(f"Parent: {self.master}")
+  36:         
+  37:         # Always use consistent colors for pinned buttons
+  38:         bg_color = Colors.DARK_GREEN
+  39:         fg_color = Colors.WHITE
+  40:         
+  41:         # Use app name
+  42:         display_text = self.window.app_name
+  43:         
+  44:         # Create button font
+  45:         button_font = Fonts.TASKBAR_BUTTON
+  46:         
+  47:         self.button = tk.Button(self, text=display_text,
+  48:                                bg=bg_color, fg=fg_color,
+  49:                                relief=tk.RAISED, bd=2,
+  50:                                width=6,
+  51:                                font=('Arial', 7),
+  52:                                padx=1,  # Internal padding for text
+  53:                                cursor='hand2',
+  54:                                wraplength=40,
+  55:                                activebackground=Colors.HOVER_GREEN,
+  56:                                command=self.bring_window_to_front)
+  57:         self.button.pack(fill=tk.BOTH, expand=True)  # Fill entire frame
+  58:         
+  59:         # Force visibility
+  60:         self.button.update()
+  61:         
+  62:         print(f"Button created: {self.button}")
+  63:         print(f"Button visible: {self.button.winfo_viewable()}")
+  64:         print(f"Button geometry: {self.button.winfo_geometry()}")
+  65:         print(f"=== END CREATING PINNED BUTTON ===\n")
+  66:     
+  67:     def bring_window_to_front(self):
+  68:         """Toggle window - hide if fully visible/on top, otherwise bring to front"""
+  69:         
+  70:         try:
+  71:             import win32gui
+  72:             
+  73:             if self.window.is_hidden:
+  74:                 self.window_manager.toggle_window_visibility(self.window)
+  75: 
+  76:             self.window.bring_to_front()
+  77: 
+  78:                 
+  79:                 
+  80:                 # Window is visible - check if it's the foreground window
+  81:                 # current_foreground = win32gui.GetForegroundWindow()
+  82:                 
+  83:                 # # Check if window is minimized
+  84:                 # if win32gui.IsIconic(self.window.hwnd):
+  85:                 #     print(f"Window {self.window.display_name} is minimized - restoring")
+  86:                 #     self.window.bring_to_front()
+  87:                 # elif current_foreground == self.window.hwnd:
+  88:                 #     # Window is the foreground window - hide it
+  89:                 #     print(f"Window {self.window.display_name} is foreground - hiding")
+  90:                 #     self.window_manager.toggle_window_visibility(self.window)
+  91:                 # else:
+  92:                 #     # Window is visible but not foreground - bring it to front
+  93:                 #     print(f"Window {self.window.display_name} is not foreground - bringing to front")
+  94:                 #     self.window.bring_to_front()
+  95:                 
+  96:         except Exception as e:
+  97:             print(f"Error in bring_window_to_front: {e}")
+  98:             import traceback
+  99:             traceback.print_exc()
+ 100:             # Fallback to just bringing to front
+ 101:             self.window.bring_to_front()
+ 102:             
+ 103:         # Don't update appearance - keep button color consistent
+ 104:     
+ 105:     def show_unpin_menu(self, event):
+ 106:         """Show right-click menu for unpinning"""
+ 107:         # Get taskbar position for proper dialog placement
+ 108:         taskbar = self.winfo_toplevel()
+ 109:         taskbar_x = taskbar.winfo_x()
+ 110:         taskbar_y = taskbar.winfo_y()
+ 111:         
+ 112:         # Get button position relative to taskbar
+ 113:         button_x = self.winfo_rootx()
+ 114:         
+ 115:         # Create custom confirmation dialog positioned above taskbar
+ 116:         dialog = UnpinConfirmationDialog(
+ 117:             taskbar,
+ 118:             self.window.app_name,
+ 119:             button_x,
+ 120:             taskbar_y
+ 121:         )
+ 122:         
+ 123:         # Wait for dialog result
+ 124:         taskbar.wait_window(dialog)
+ 125:         
+ 126:         if dialog.result:
+ 127:             self.window_manager.unpin_window(self.window)
+ 128:             self.on_unpin_callback()
+ 129:             
+ 130:         # Prevent event from propagating to parent widgets (taskbar)
+ 131:         return 'break'
+ 132: 
+ 133: class PinnedWindowsSection(tk.Frame):
+ 134:     """Section in taskbar for pinned windows - now blends with taskbar"""
+ 135:     
+ 136:     def __init__(self, parent, window_manager: WindowManager, on_pin_changed_callback=None):
+ 137:         # Use same background as taskbar, no border
+ 138:         super().__init__(parent, bg=Colors.DARK_GREEN, relief=tk.FLAT, bd=0)
+ 139:         self.window_manager = window_manager
+ 140:         self.pinned_buttons = {}
+ 141:         self.on_pin_changed_callback = on_pin_changed_callback
+ 142:         
+ 143:         # Debug output
+ 144:         # print(f"\n=== CREATING PINNED WINDOWS SECTION ===")
+ 145:         # print(f"Parent: {parent}")
+ 146:         # print(f"Window manager: {window_manager}")
+ 147: 
+ 148:         # Don't set a fixed width - let it expand based on content
+ 149:         self.configure(height=40)  # Match taskbar height
+ 150:         
+ 151:         # Remove any visible border
+ 152:         self.configure(highlightbackground=Colors.DARK_GREEN, highlightthickness=0)
+ 153:         
+ 154:         # Create container for buttons with no padding
+ 155:         self.button_container = tk.Frame(self, bg=Colors.DARK_GREEN)
+ 156:         self.button_container.pack(fill=tk.BOTH, expand=True)  # No padding
+ 157:         
+ 158:         # No empty state label - just leave it blank
+ 159:         
+ 160:         # print(f"PinnedWindowsSection created successfully: {self}")
+ 161:         # print(f"=== END CREATING PINNED WINDOWS SECTION ===\n")
+ 162:     
+ 163:     def refresh(self):
+ 164:         """Refresh the pinned windows display"""
+ 165:         # print(f"\n=== PINNED SECTION REFRESH ===")
+ 166:         # print(f"Current button count: {len(self.pinned_buttons)}")
+ 167:         
+ 168:         # Clear existing buttons
+ 169:         for hwnd in list(self.pinned_buttons.keys()):
+ 170:             print(f"Destroying old button for hwnd: {hwnd}")
+ 171:             self.pinned_buttons[hwnd].destroy()
+ 172:             del self.pinned_buttons[hwnd]
+ 173:         
+ 174:         # Get pinned windows
+ 175:         pinned_windows = self.window_manager.get_pinned_windows()
+ 176:         print(f"Found {len(pinned_windows)} pinned windows")
+ 177:         
+ 178:         if pinned_windows:
+ 179:             # Create buttons for pinned windows
+ 180:             for i, window in enumerate(pinned_windows):
+ 181:                 print(f"{i}. Creating button for: {window.display_name} (hwnd: {window.hwnd})")
+ 182:                 if window.is_valid():
+ 183:                     button = PinnedWindowButton(
+ 184:                         self.button_container, 
+ 185:                         window, 
+ 186:                         self.window_manager,
+ 187:                         self.on_pin_changed
+ 188:                     )
+ 189:                     button.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)  # No padding, fill height
+ 190:                     self.pinned_buttons[window.hwnd] = button
+ 191:                     print(f"   Button created and packed")
+ 192:                     
+ 193:                     # Force update to ensure visibility
+ 194:                     button.update()
+ 195:                     self.button_container.update()
+ 196:                 else:
+ 197:                     print(f"   Window is not valid!")
+ 198:         
+ 199:         # Force the section to update
+ 200:         self.update_idletasks()
+ 201:         # print(f"Button container visible: {self.button_container.winfo_viewable()}")
+ 202:         # print(f"Section geometry: {self.winfo_width()}x{self.winfo_height()}")
+ 203:         # print("=== END REFRESH ===\n")
+ 204:     
+ 205:     def on_pin_changed(self):
+ 206:         """Called when a window is pinned/unpinned from the button"""
+ 207:         # Refresh the pinned section
+ 208:         self.refresh()
+ 209:         
+ 210:         # Also call the taskbar callback if it exists
+ 211:         if self.on_pin_changed_callback:
+ 212:             self.on_pin_changed_callback()
+ 213: 
+ 214: 
+ 215: class UnpinConfirmationDialog(tk.Toplevel):
+ 216:     """Custom unpin confirmation dialog positioned above taskbar"""
+ 217:     
+ 218:     def __init__(self, parent, app_name, button_x, taskbar_y):
+ 219:         super().__init__(parent)
+ 220:         self.result = False
+ 221:         
+ 222:         # Window setup
+ 223:         self.overrideredirect(True)
+ 224:         self.configure(bg=Colors.DARK_GREEN)
+ 225:         self.attributes('-topmost', True)
+ 226:         
+ 227:         # Create main frame with border
+ 228:         main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
+ 229:         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+ 230:         
+ 231:         # Create header
+ 232:         header = tk.Frame(main_frame, bg=Colors.DARK_GREEN, height=25)
+ 233:         header.pack(fill=tk.X)
+ 234:         header.pack_propagate(False)
+ 235:         
+ 236:         # Title with icon
+ 237:         title_label = tk.Label(header, text="📌 Unpin Window", 
+ 238:                              bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 239:                              font=Fonts.DIALOG_TITLE)
+ 240:         title_label.pack(side=tk.LEFT, padx=10, pady=3)
+ 241:         
+ 242:         # Close button
+ 243:         close_btn = tk.Label(header, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 244:                            font=('Arial', 12, 'bold'), cursor='hand2')
+ 245:         close_btn.pack(side=tk.RIGHT, padx=5)
+ 246:         close_btn.bind("<Button-1>", lambda e: self.cancel())
+ 247:         
+ 248:         # Content area
+ 249:         content = tk.Frame(main_frame, bg=Colors.LIGHT_GREEN)
+ 250:         content.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+ 251:         
+ 252:         # Pin icon
+ 253:         icon_label = tk.Label(content, text="📌", bg=Colors.LIGHT_GREEN,
+ 254:                             font=('Arial', 24))
+ 255:         icon_label.pack(pady=5)
+ 256:         
+ 257:         # Message
+ 258:         msg = f"Unpin '{app_name}' from taskbar?"
+ 259:         msg_label = tk.Label(content, text=msg, bg=Colors.LIGHT_GREEN,
+ 260:                            fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
+ 261:         msg_label.pack(pady=5)
+ 262:         
+ 263:         # Buttons
+ 264:         button_frame = tk.Frame(content, bg=Colors.LIGHT_GREEN)
+ 265:         button_frame.pack(pady=10)
+ 266:         
+ 267:         yes_btn = tk.Button(button_frame, text="Yes", 
+ 268:                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 269:                           command=self.yes, width=8,
+ 270:                           font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 271:         yes_btn.pack(side=tk.LEFT, padx=5)
+ 272:         
+ 273:         no_btn = tk.Button(button_frame, text="No", 
+ 274:                          bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 275:                          command=self.cancel, width=8,
+ 276:                          font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
+ 277:         no_btn.pack(side=tk.LEFT, padx=5)
+ 278:         
+ 279:         # Set dialog size
+ 280:         dialog_width = 350
+ 281:         dialog_height = 200
+ 282:         
+ 283:         # Position dialog above taskbar, centered on button
+ 284:         x = button_x - dialog_width // 2
+ 285:         y = taskbar_y - dialog_height - 5  # 5px gap above taskbar
+ 286:         
+ 287:         # Ensure dialog stays on screen
+ 288:         screen_width = self.winfo_screenwidth()
+ 289:         if x < 0:
+ 290:             x = 0
+ 291:         elif x + dialog_width > screen_width:
+ 292:             x = screen_width - dialog_width
+ 293:         
+ 294:         self.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+ 295:         
+ 296:         # Focus on No button (safer default)
+ 297:         no_btn.focus_set()
+ 298:         
+ 299:         # Bind keys
+ 300:         self.bind('<Return>', lambda e: self.yes())
+ 301:         self.bind('<Escape>', lambda e: self.cancel())
+ 302:         
+ 303:         # Make modal
+ 304:         self.grab_set()
+ 305:     
+ 306:     def yes(self):
+ 307:         """Yes button clicked"""
+ 308:         self.result = True
+ 309:         self.destroy()
+ 310:     
+ 311:     def cancel(self):
+ 312:         """No button clicked or dialog cancelled"""
+ 313:         self.result = False
+ 314:         self.destroy()
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: quick_links.py
@@ -4204,9 +4498,9 @@ Type: .PY file
 FILE: taskbar.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: taskbar.py
-Size: 16.1 KB
-Lines: 398 total, 317 non-empty
-Characters: 16,060
+Size: 14.3 KB
+Lines: 357 total, 286 non-empty
+Characters: 14,301
 Type: Core taskbar functionality and UI
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -4270,344 +4564,303 @@ Type: Core taskbar functionality and UI
   58:         # Apply Windows API modifications
   59:         self.setup_windows_integration()
   60:         
-  61: 
-  62:     def toggle_windows_menu(self):
-  63:         """Toggle the windows management menu"""
-  64:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
-  65:             try:
-  66:                 if self.windows_menu.winfo_exists():
-  67:                     # Store current geometry before closing
-  68:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
-  69:                     self.windows_menu.close_window()
-  70:                     self.windows_menu = None
-  71:                     return
-  72:             except:
-  73:                 self.windows_menu = None
-  74:         
-  75:         # Create new windows menu
-  76:         self.windows_menu = WindowsMenu(self.root, self.window_manager, 
-  77:                                       self.on_windows_pinned,
-  78:                                       self.windows_menu_geometry)
-  79:         
-  80:         # If no stored geometry, position it properly
-  81:         if not self.windows_menu_geometry:
-  82:             # Update the window to get its actual size
-  83:             self.windows_menu.update_idletasks()
-  84:             
-  85:             # Calculate position - above taskbar, right side
-  86:             window_width = self.windows_menu.winfo_reqwidth()
-  87:             window_height = self.windows_menu.winfo_reqheight()
-  88:             
-  89:             x = self.root.winfo_screenwidth() - window_width - 20  # 20px from right edge
-  90:             y = self.y_position - window_height - 5  # 5px above taskbar
-  91:             
-  92:             # Ensure it doesn't go off-screen
-  93:             x = max(0, x)
-  94:             y = max(0, y)
-  95:             
-  96:             self.windows_menu.geometry(f"{window_width}x{window_height}+{x}+{y}")
-  97:     
-  98:     def setup_window(self):
-  99:         """Configure the main window properties"""
- 100:         # Remove window decorations
- 101:         self.root.overrideredirect(True)
- 102:         
- 103:         # Set window attributes
- 104:         self.root.attributes('-topmost', True)
- 105:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
- 106:         
- 107:         # Configure window geometry
- 108:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
- 109:         
- 110:         # Set background color to dark green
- 111:         self.root.configure(bg=Colors.DARK_GREEN)
- 112:     
- 113:     def create_taskbar_content(self):
- 114:         """Create the taskbar UI elements"""
- 115:         # Create main frame
- 116:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
- 117:         self.main_frame.pack(fill=tk.BOTH, expand=True)
- 118:         
- 119:         # SuiteView Logo/Title
- 120:         self.create_logo_section()
- 121:         
- 122:         # Separator
- 123:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 124:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 125:         
- 126:         # Main buttons
- 127:         self.create_main_buttons()
- 128:         
- 129:         # Right side elements
- 130:         self.create_right_side_elements()
- 131:     
- 132:     def create_logo_section(self):
- 133:         """Create the SuiteView logo/title section"""
- 134:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
- 135:         logo_frame.pack(side=tk.LEFT, padx=10)
+  61:     def setup_window(self):
+  62:         """Configure the main window properties"""
+  63:         # Remove window decorations
+  64:         self.root.overrideredirect(True)
+  65:         
+  66:         # Set window attributes
+  67:         self.root.attributes('-topmost', True)
+  68:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
+  69:         
+  70:         # Configure window geometry
+  71:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
+  72:         
+  73:         # Set background color to dark green
+  74:         self.root.configure(bg=Colors.DARK_GREEN)
+  75:     
+  76:     def create_taskbar_content(self):
+  77:         """Create the taskbar UI elements"""
+  78:         # Create main frame
+  79:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
+  80:         self.main_frame.pack(fill=tk.BOTH, expand=True)
+  81:         
+  82:         # SuiteView Logo/Title
+  83:         self.create_logo_section()
+  84:         
+  85:         # Separator
+  86:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+  87:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+  88:         
+  89:         # Main buttons
+  90:         self.create_main_buttons()
+  91:         
+  92:         # Right side elements
+  93:         self.create_right_side_elements()
+  94:     
+  95:     def create_logo_section(self):
+  96:         """Create the SuiteView logo/title section"""
+  97:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
+  98:         logo_frame.pack(side=tk.LEFT, padx=10)
+  99:         
+ 100:         # Logo text with styling
+ 101:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
+ 102:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
+ 103:         logo_label.pack()
+ 104:         logo_label.bind("<Button-3>", self.show_links_menu)
+ 105:     
+ 106:     def create_main_buttons(self):
+ 107:         """Create the main taskbar buttons"""
+ 108:         # Existing buttons
+ 109:         buttons_data = [
+ 110:             ("Get Policy", None),
+ 111:             ("Cyber", None),
+ 112:             ("TAI", None)
+ 113:         ]
+ 114:         
+ 115:         for text, command in buttons_data:
+ 116:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 117:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
+ 118:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
+ 119:             btn.pack(side=tk.LEFT, padx=5)
+ 120:             btn.bind("<Button-3>", self.show_links_menu)
+ 121:             if command:
+ 122:                 btn.configure(command=command)
+ 123:         
+ 124:         # Add separator before new features
+ 125:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 126:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 127:         
+ 128:         # Add Inventory feature
+ 129:         inventory_btn = add_folder_inventory_to_taskbar(self)
+ 130:         inventory_btn.pack(side=tk.LEFT, padx=5)
+ 131:         inventory_btn.bind("<Button-3>", self.show_links_menu)
+ 132:         
+ 133:         # Add separator before Snip feature
+ 134:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 135:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
  136:         
- 137:         # Logo text with styling
- 138:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
- 139:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
- 140:         logo_label.pack()
- 141:         logo_label.bind("<Button-3>", self.show_links_menu)
- 142:     
- 143:     def create_main_buttons(self):
- 144:         """Create the main taskbar buttons"""
- 145:         # Existing buttons
- 146:         buttons_data = [
- 147:             ("Get Policy", None),
- 148:             ("Cyber", None),
- 149:             ("TAI", None)
- 150:         ]
- 151:         
- 152:         for text, command in buttons_data:
- 153:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 154:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
- 155:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
- 156:             btn.pack(side=tk.LEFT, padx=5)
- 157:             btn.bind("<Button-3>", self.show_links_menu)
- 158:             if command:
- 159:                 btn.configure(command=command)
- 160:         
- 161:         # Add separator before new features
- 162:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 163:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 164:         
- 165:         # Add Inventory feature
- 166:         inventory_btn = add_folder_inventory_to_taskbar(self)
- 167:         inventory_btn.pack(side=tk.LEFT, padx=5)
- 168:         inventory_btn.bind("<Button-3>", self.show_links_menu)
- 169:         
- 170:         # Add separator before Snip feature
- 171:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 172:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 173:         
- 174:         # Add Snip feature
- 175:         self.snipping_manager = add_snip_feature_to_taskbar(self)
+ 137:         # Add Snip feature
+ 138:         self.snipping_manager = add_snip_feature_to_taskbar(self)
+ 139:         
+ 140:         # Add separator before pinned windows section
+ 141:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 142:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 143:         
+ 144:         # Create and store pinned windows section
+ 145:         print(f"Creating pinned section...")
+ 146:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
+ 147:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
+ 148:         
+ 149:         # Debug to confirm it's created and assigned
+ 150:         #print(f"Pinned section created and assigned: {self.pinned_section}")
+ 151:         #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
+ 152:     
+ 153:     def create_right_side_elements(self):
+ 154:         """Create the right side elements of the taskbar"""
+ 155:         
+ 156:         # X close button
+ 157:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 158:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
+ 159:                             cursor='hand2')
+ 160:         close_btn.pack(side=tk.RIGHT, padx=5)
+ 161:         close_btn.bind("<Button-1>", self.close_app)
+ 162:     
+ 163:         #Windows button
+ 164:         windows_btn = tk.Button(self.main_frame, text="Windows", 
+ 165:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 166:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+ 167:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+ 168:                             bd=0, padx=15, command=self.toggle_windows_menu)
+ 169:         windows_btn.pack(side=tk.RIGHT, padx=5)
+ 170: 
+ 171:     def bind_events(self):
+ 172:         """Bind event handlers"""
+ 173:         # Main window events
+ 174:         self.root.bind("<Button-3>", self.show_links_menu)
+ 175:         self.main_frame.bind("<Button-3>", self.show_links_menu)
  176:         
- 177:         # Add separator before pinned windows section
- 178:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 179:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 180:         
- 181:         # Create and store pinned windows section - THIS IS THE KEY FIX
- 182:         print(f"Creating pinned section...")
- 183:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
- 184:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y, padx=5)
- 185:         
- 186:         # Set minimum width for the section
- 187:         self.pinned_section.configure(width=Settings.PINNED_SECTION_WIDTH)
- 188:         
- 189:         # Debug to confirm it's created and assigned
- 190:         print(f"Pinned section created and assigned: {self.pinned_section}")
- 191:         print(f"self.pinned_section is not None: {self.pinned_section is not None}")
- 192:     
- 193:     def create_right_side_elements(self):
- 194:         """Create the right side elements of the taskbar"""
+ 177:         # Emergency exit keys
+ 178:         self.root.bind("<Escape>", self.close_app)
+ 179:         self.root.bind("<Control-q>", self.close_app)
+ 180:         self.root.bind("<Control-Q>", self.close_app)
+ 181:         self.root.bind("<Alt-F4>", self.close_app)
+ 182:     
+ 183:     def setup_windows_integration(self):
+ 184:         """Setup Windows API integration"""
+ 185:         # Keep window on top using Windows API
+ 186:         self.set_always_on_top()
+ 187:         
+ 188:         # Adjust desktop working area
+ 189:         self.adjust_work_area()
+ 190:         
+ 191:     def show_links_menu(self, event):
+ 192:         """Show the right-click links menu positioned above the taskbar"""
+ 193:         if self.links_menu:
+ 194:             self.links_menu.destroy()
  195:         
- 196:         # X close button
- 197:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 198:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
- 199:                             cursor='hand2')
- 200:         close_btn.pack(side=tk.RIGHT, padx=5)
- 201:         close_btn.bind("<Button-1>", self.close_app)
- 202:     
- 203:         #Windows button
- 204:         windows_btn = tk.Button(self.main_frame, text="Windows", 
- 205:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 206:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
- 207:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
- 208:                             bd=0, padx=15, command=self.toggle_windows_menu)
- 209:         windows_btn.pack(side=tk.RIGHT, padx=5)
- 210: 
- 211:     def bind_events(self):
- 212:         """Bind event handlers"""
- 213:         # Main window events
- 214:         self.root.bind("<Button-3>", self.show_links_menu)
- 215:         self.main_frame.bind("<Button-3>", self.show_links_menu)
- 216:         
- 217:         # Emergency exit keys
- 218:         self.root.bind("<Escape>", self.close_app)
- 219:         self.root.bind("<Control-q>", self.close_app)
- 220:         self.root.bind("<Control-Q>", self.close_app)
- 221:         self.root.bind("<Alt-F4>", self.close_app)
- 222:     
- 223:     def setup_windows_integration(self):
- 224:         """Setup Windows API integration"""
- 225:         # Keep window on top using Windows API
- 226:         self.set_always_on_top()
- 227:         
- 228:         # Adjust desktop working area
- 229:         self.adjust_work_area()
- 230:         
- 231:     def show_links_menu(self, event):
- 232:         """Show the right-click links menu positioned above the taskbar"""
- 233:         if self.links_menu:
- 234:             self.links_menu.destroy()
- 235:         
- 236:         # Create the menu at a temporary position first
- 237:         temp_x, temp_y = 0, 0
- 238:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
- 239:         
- 240:         # Get cursor position or use center position
- 241:         if event:
- 242:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
- 243:         else:
- 244:             x = self.screen_width // 2 - 200  # Center horizontally
- 245:         
- 246:         # Calculate proper position above YOUR custom taskbar
- 247:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
- 248:         final_x = x
- 249:         
- 250:         # Reposition the menu to the correct location
- 251:         self.links_menu.geometry(f"+{final_x}+{final_y}")
- 252:         
- 253:         # Debug output
- 254:         print(f"Estimated height: {self.links_menu.menu_height}")
- 255:         print(f"Positioned menu at: {final_x}, {final_y}")
- 256:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
- 257:        
- 258:     def show_windows_menu(self, event=None):
- 259:         """Show the windows management menu - toggle if already open"""
- 260:         if self.windows_menu and self.windows_menu.winfo_exists():
- 261:             # If menu exists and is open, close it
- 262:             self.windows_menu.close_window()
- 263:             self.windows_menu = None
- 264:         else:
- 265:             # Otherwise, create and show it
- 266:             # Get screen dimensions
- 267:             screen_width = self.root.winfo_screenwidth()
- 268:             
- 269:             # Position the menu above the taskbar, centered on screen
- 270:             x = (screen_width - 700) // 2  # Center a 700px wide menu
- 271:             y = self.y_position - 600  # Default height assumption
- 272:             
- 273:     def set_always_on_top(self):
- 274:         """Force window to stay on top using Windows API"""
- 275:         WindowsUtils.set_window_topmost(self.root.winfo_id())
- 276:     
- 277:     def adjust_work_area(self):
- 278:         """Adjust desktop work area to make room for taskbar"""
- 279:         if self.original_work_area:
- 280:             work_area = wintypes.RECT()
- 281:             work_area.left = self.original_work_area.left
- 282:             work_area.top = self.original_work_area.top
- 283:             work_area.right = self.original_work_area.right
- 284:             work_area.bottom = self.y_position
- 285:             
- 286:             success = WindowsUtils.set_work_area(work_area)
- 287:             if not success:
- 288:                 print("Could not adjust work area. May require admin privileges.")
- 289:     
- 290:     def close_app(self, event=None):
- 291:         """Close the application"""
- 292:         try:
- 293:             self.window_manager.unhide_all_windows()
- 294:             self.restore_work_area()
- 295:         except:
- 296:             pass  # Don't fail if restore doesn't work
- 297:         
- 298:         # Clean up snipping manager if it exists
- 299:         if hasattr(self, 'snipping_manager'):
- 300:             try:
- 301:                 self.snipping_manager.cleanup_temp_directory()
- 302:             except:
- 303:                 pass
- 304:         
- 305:         # Force kill any open dialogs
- 306:         for child in self.root.winfo_children():
- 307:             if isinstance(child, tk.Toplevel):
- 308:                 child.destroy()
- 309:         
- 310:         self.root.quit()
- 311:         self.root.destroy()
- 312:         sys.exit(0)
- 313:     
- 314:     def restore_work_area(self):
- 315:         """Restore original work area"""
- 316:         if self.original_work_area:
- 317:             WindowsUtils.restore_work_area(self.original_work_area)
- 318:     
- 319:     def run(self):
- 320:         """Start the application"""
- 321:         """Start the application"""
- 322:         # Verify setup before starting
- 323:         self.verify_setup()
- 324:         
- 325:         # Start the periodic topmost maintenance
- 326:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
- 327:         
- 328:         # Start the main event loop
- 329:         self.root.mainloop()
- 330:     
- 331:     def maintain_topmost(self):
- 332:         """Periodically ensure window stays on top"""
- 333:         self.set_always_on_top()
- 334: 
- 335:         # Update pinned window button states
- 336:         if self.pinned_section:
- 337:             self.pinned_section.update_window_states()
- 338: 
- 339:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
- 340: 
- 341:     def toggle_windows_menu(self):
- 342:         """Toggle the windows management menu"""
- 343:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 344:             try:
- 345:                 if self.windows_menu.winfo_exists():
- 346:                     # Store current geometry BEFORE closing
- 347:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
- 348:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
- 349:                     self.windows_menu.close_window()
- 350:                     self.windows_menu = None
- 351:                     return
- 352:             except:
- 353:                 self.windows_menu = None
- 354:         
- 355:         # Create new windows menu
- 356:         print(f"Creating menu with stored geometry: {self.windows_menu_geometry}")  # Debug
- 357:         self.windows_menu = WindowsMenu(self.root, self.window_manager, 
- 358:                                     self.on_windows_pinned,
- 359:                                     self.windows_menu_geometry)
- 360:     
- 361: 
- 362:     def on_windows_pinned(self):
- 363:         """Callback when windows are pinned/unpinned"""
- 364:         print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
- 365:         print(f"Pinned section: {self.pinned_section}")
- 366:         
- 367:         if self.pinned_section:
- 368:             print(f"Refreshing pinned section...")
- 369:             self.pinned_section.refresh()
- 370:         else:
- 371:             print(f"ERROR: pinned_section is None!")
- 372:         
- 373:         # Always refresh the Windows Manager if it's open to update the list
- 374:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 375:             try:
- 376:                 if self.windows_menu.winfo_exists():
- 377:                     print(f"Refreshing Windows Manager...")
- 378:                     self.windows_menu.refresh_window_list()
- 379:                 else:
- 380:                     print(f"Windows Manager exists but window is destroyed")
- 381:             except Exception as e:
- 382:                 print(f"Error refreshing Windows Manager: {e}")
- 383:                 self.windows_menu = None
- 384:         else:
- 385:             print(f"Windows Manager is not open")
- 386:             
- 387:         print(f"=== END ON_WINDOWS_PINNED ===\n")
- 388: 
- 389:     def verify_setup(self):
- 390:         """Verify all components are properly initialized"""
- 391:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
- 392:         print(f"Window manager: {self.window_manager}")
- 393:         print(f"Pinned section: {self.pinned_section}")
- 394:         print(f"Pinned section type: {type(self.pinned_section)}")
- 395:         if self.pinned_section:
- 396:             print(f"Pinned section parent: {self.pinned_section.master}")
- 397:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
- 398:         print(f"=== END VERIFICATION ===\n")
+ 196:         # Create the menu at a temporary position first
+ 197:         temp_x, temp_y = 0, 0
+ 198:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
+ 199:         
+ 200:         # Get cursor position or use center position
+ 201:         if event:
+ 202:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
+ 203:         else:
+ 204:             x = self.screen_width // 2 - 200  # Center horizontally
+ 205:         
+ 206:         # Calculate proper position above YOUR custom taskbar
+ 207:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
+ 208:         final_x = x
+ 209:         
+ 210:         # Reposition the menu to the correct location
+ 211:         self.links_menu.geometry(f"+{final_x}+{final_y}")
+ 212:         
+ 213:         # Debug output
+ 214:         print(f"Estimated height: {self.links_menu.menu_height}")
+ 215:         print(f"Positioned menu at: {final_x}, {final_y}")
+ 216:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
+ 217:        
+ 218:     def show_windows_menu(self, event=None):
+ 219:         """Show the windows management menu - toggle if already open"""
+ 220:         if self.windows_menu and self.windows_menu.winfo_exists():
+ 221:             # If menu exists and is open, close it
+ 222:             self.windows_menu.close_window()
+ 223:             self.windows_menu = None
+ 224:         else:
+ 225:             # Otherwise, create and show it
+ 226:             # Get screen dimensions
+ 227:             screen_width = self.root.winfo_screenwidth()
+ 228:             
+ 229:             # Position the menu above the taskbar, centered on screen
+ 230:             x = (screen_width - 700) // 2  # Center a 700px wide menu
+ 231:             y = self.y_position - 600  # Default height assumption
+ 232:             
+ 233:     def set_always_on_top(self):
+ 234:         """Force window to stay on top using Windows API"""
+ 235:         WindowsUtils.set_window_topmost(self.root.winfo_id())
+ 236:     
+ 237:     def adjust_work_area(self):
+ 238:         """Adjust desktop work area to make room for taskbar"""
+ 239:         if self.original_work_area:
+ 240:             work_area = wintypes.RECT()
+ 241:             work_area.left = self.original_work_area.left
+ 242:             work_area.top = self.original_work_area.top
+ 243:             work_area.right = self.original_work_area.right
+ 244:             work_area.bottom = self.y_position
+ 245:             
+ 246:             success = WindowsUtils.set_work_area(work_area)
+ 247:             if not success:
+ 248:                 print("Could not adjust work area. May require admin privileges.")
+ 249:     
+ 250:     def close_app(self, event=None):
+ 251:         """Close the application"""
+ 252:         try:
+ 253:             self.window_manager.unhide_all_windows()
+ 254:             self.restore_work_area()
+ 255:         except:
+ 256:             pass  # Don't fail if restore doesn't work
+ 257:         
+ 258:         # Clean up snipping manager if it exists
+ 259:         if hasattr(self, 'snipping_manager'):
+ 260:             try:
+ 261:                 self.snipping_manager.cleanup_temp_directory()
+ 262:             except:
+ 263:                 pass
+ 264:         
+ 265:         # Force kill any open dialogs
+ 266:         for child in self.root.winfo_children():
+ 267:             if isinstance(child, tk.Toplevel):
+ 268:                 child.destroy()
+ 269:         
+ 270:         self.root.quit()
+ 271:         self.root.destroy()
+ 272:         sys.exit(0)
+ 273:     
+ 274:     def restore_work_area(self):
+ 275:         """Restore original work area"""
+ 276:         if self.original_work_area:
+ 277:             WindowsUtils.restore_work_area(self.original_work_area)
+ 278:     
+ 279:     def run(self):
+ 280:         """Start the application"""
+ 281:         """Start the application"""
+ 282:         # Verify setup before starting
+ 283:         #self.verify_setup()
+ 284:         
+ 285:         # Start the periodic topmost maintenance
+ 286:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 287:         
+ 288:         # Start the main event loop
+ 289:         self.root.mainloop()
+ 290:     
+ 291:     def maintain_topmost(self):
+ 292:         """Periodically ensure window stays on top"""
+ 293:         self.set_always_on_top()
+ 294: 
+ 295:         # # Update pinned window button states
+ 296:         # if self.pinned_section:
+ 297:         #     self.pinned_section.update_window_states()
+ 298: 
+ 299:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 300: 
+ 301:     def toggle_windows_menu(self):
+ 302:         """Toggle the windows management menu"""
+ 303:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 304:             try:
+ 305:                 if self.windows_menu.winfo_exists():
+ 306:                     # Store current geometry BEFORE closing
+ 307:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
+ 308:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
+ 309:                     self.windows_menu.close_window()
+ 310:                     self.windows_menu = None
+ 311:                     return
+ 312:             except:
+ 313:                 self.windows_menu = None
+ 314:         
+ 315:         # Create new windows menu
+ 316:         print(f"Class: {type(self).__name__}")  # Debug
+ 317:         self.windows_menu = WindowsMenu(self, self.window_manager, 
+ 318:                                     self.on_windows_pinned,
+ 319:                                     self.windows_menu_geometry)
+ 320:     
+ 321:     def on_windows_pinned(self):
+ 322:         """Callback when windows are pinned/unpinned"""
+ 323:         #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
+ 324:         #print(f"Pinned section: {self.pinned_section}")
+ 325:         
+ 326:         if self.pinned_section:
+ 327:             print(f"Refreshing pinned section...")
+ 328:             self.pinned_section.refresh()
+ 329:         else:
+ 330:             print(f"ERROR: pinned_section is None!")
+ 331:         
+ 332:         # Always refresh the Windows Manager if it's open to update the list
+ 333:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 334:             try:
+ 335:                 if self.windows_menu.winfo_exists():
+ 336:                     print(f"Refreshing Windows Manager...")
+ 337:                     self.windows_menu.refresh_window_list()
+ 338:                 else:
+ 339:                     print(f"Windows Manager exists but window is destroyed")
+ 340:             except Exception as e:
+ 341:                 print(f"Error refreshing Windows Manager: {e}")
+ 342:                 self.windows_menu = None
+ 343:         else:
+ 344:             print(f"Windows Manager is not open")
+ 345:             
+ 346:         #print(f"=== END ON_WINDOWS_PINNED ===\n")
+ 347: 
+ 348:     def verify_setup(self):
+ 349:         """Verify all components are properly initialized"""
+ 350:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
+ 351:         print(f"Window manager: {self.window_manager}")
+ 352:         print(f"Pinned section: {self.pinned_section}")
+ 353:         print(f"Pinned section type: {type(self.pinned_section)}")
+ 354:         if self.pinned_section:
+ 355:             print(f"Pinned section parent: {self.pinned_section.master}")
+ 356:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
+ 357:         print(f"=== END VERIFICATION ===\n")
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: ui_components.py
@@ -5591,265 +5844,299 @@ Type: Utility functions and helper classes
 FILE: window_manager.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: window_manager.py
-Size: 9.4 KB
-Lines: 244 total, 200 non-empty
-Characters: 9,413
-Type: .PY file
+Size: 11.2 KB
+Lines: 278 total, 229 non-empty
+Characters: 11,156
+Type: Window management and visibility controls
 ────────────────────────────────────────────────────────────────────────────────
 
-   1: # window_manager.py
+   1: # window_manager.py (fixed)
    2: """
    3: Windows detection and management functionality for SuiteView Taskbar
    4: Handles window enumeration, filtering, hiding/showing, and pinning
-   5: """
-   6: 
-   7: import win32gui
-   8: import win32api
-   9: import win32con
-  10: import win32process
-  11: import psutil
-  12: from typing import List, Dict, Optional
-  13: import re
-  14: 
-  15: class ManagedWindow:
-  16:     """Represents a managed window with its state"""
-  17:     
-  18:     def __init__(self, hwnd: int, title: str, process_name: str):
-  19:         self.hwnd = hwnd
-  20:         self.title = title
-  21:         self.process_name = process_name
-  22:         self.app_name = self._extract_app_name()
-  23:         self.display_name = self._create_display_name()
-  24:         self.is_hidden = False
-  25:         self.is_pinned = False
-  26:         self.original_ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-  27:     
-  28:     def _extract_app_name(self) -> str:
-  29:         """Extract application name from process name"""
-  30:         # Remove .exe extension
-  31:         app = self.process_name.replace('.exe', '')
-  32:         
-  33:         # Capitalize common apps
-  34:         common_apps = {
-  35:             'chrome': 'Chrome',
-  36:             'firefox': 'Firefox',
-  37:             'winword': 'Word',
-  38:             'excel': 'Excel',
-  39:             'powerpnt': 'PowerPoint',
-  40:             'outlook': 'Outlook',
-  41:             'notepad': 'Notepad',
-  42:             'notepad++': 'Notepad++',
-  43:             'code': 'VS Code',
-  44:             'devenv': 'Visual Studio',
-  45:             'acrobat': 'Acrobat',
-  46:             'acrord32': 'Acrobat Reader'
-  47:         }
-  48:         
-  49:         return common_apps.get(app.lower(), app.title())
-  50:     
-  51:     def _create_display_name(self) -> str:
-  52:         """Create display name in format 'AppName - WindowTitle'"""
-  53:         if self.title.startswith(self.app_name):
-  54:             # Avoid duplication if app name is already in title
-  55:             return self.title
-  56:         return f"{self.app_name} - {self.title}"
-  57:     
-  58:     def hide(self) -> bool:
-  59:         """Hide the window (remove from Alt+Tab and taskbar)"""
-  60:         try:
-  61:             # Get current extended style
-  62:             ex_style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_EXSTYLE)
-  63:             
-  64:             # Add WS_EX_TOOLWINDOW to hide from Alt+Tab and taskbar
-  65:             new_ex_style = ex_style | win32con.WS_EX_TOOLWINDOW
-  66:             
-  67:             # Remove WS_EX_APPWINDOW to ensure it's hidden from taskbar
-  68:             new_ex_style = new_ex_style & ~win32con.WS_EX_APPWINDOW
-  69:             
-  70:             # Apply new style
-  71:             win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, new_ex_style)
-  72:             
-  73:             # Hide the window
-  74:             win32gui.ShowWindow(self.hwnd, win32con.SW_HIDE)
-  75:             
-  76:             self.is_hidden = True
-  77:             return True
-  78:         except Exception as e:
-  79:             print(f"Error hiding window {self.display_name}: {e}")
-  80:             return False
-  81:     
-  82:     def show(self) -> bool:
-  83:         """Show the window (restore to Alt+Tab and taskbar)"""
-  84:         try:
-  85:             # Restore original extended style
-  86:             win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, self.original_ex_style)
-  87:             
-  88:             # Show the window
-  89:             win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
-  90:             
-  91:             self.is_hidden = False
-  92:             return True
-  93:         except Exception as e:
-  94:             print(f"Error showing window {self.display_name}: {e}")
-  95:             return False
-  96:     
-  97:     def bring_to_front(self) -> bool:
-  98:         """Bring window to front and give it focus without changing size"""
-  99:         try:
- 100:             if self.is_hidden:
- 101:                 self.show()
- 102:             
- 103:             # Bring to front without changing window state (no resizing)
- 104:             win32gui.SetForegroundWindow(self.hwnd)
- 105:             # Only show if it's actually hidden, don't restore from minimized/maximized
- 106:             if not win32gui.IsWindowVisible(self.hwnd):
- 107:                 win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
- 108:             return True
- 109:         except Exception as e:
- 110:             print(f"Error bringing window to front {self.display_name}: {e}")
- 111:             return False
- 112:     
- 113:     def is_valid(self) -> bool:
- 114:         """Check if window still exists"""
- 115:         return win32gui.IsWindow(self.hwnd)
- 116: 
- 117: class WindowManager:
- 118:     """Manages window detection, filtering, and state"""
- 119:     
- 120:     def __init__(self):
- 121:         self.managed_windows: Dict[int, ManagedWindow] = {}
- 122:         self.excluded_processes = {
- 123:             'explorer.exe', 'searchui.exe', 'shellexperiencehost.exe',
- 124:             'applicationframehost.exe', 'systemsettings.exe', 'textinputhost.exe',
- 125:             'lockapp.exe', 'searchapp.exe', 'startmenuexperiencehost.exe',
- 126:             'runtimebroker.exe', 'svchost.exe', 'system', 'registry',
- 127:             'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe',
- 128:             'lsass.exe', 'winlogon.exe', 'dwm.exe', 'taskhostw.exe',
- 129:             'searchindexer.exe', 'backgroundtaskhost.exe'
- 130:         }
+   5: Fixed to properly restore minimized windows
+   6: """
+   7: 
+   8: import win32gui
+   9: import win32api
+  10: import win32con
+  11: import win32process
+  12: import psutil
+  13: from typing import List, Dict, Optional
+  14: import re
+  15: 
+  16: class ManagedWindow:
+  17:     """Represents a managed window with its state"""
+  18:     
+  19:     def __init__(self, hwnd: int, title: str, process_name: str):
+  20:         self.hwnd = hwnd
+  21:         self.title = title
+  22:         self.process_name = process_name
+  23:         self.app_name = self._extract_app_name()
+  24:         self.display_name = self._create_display_name()
+  25:         self.is_hidden = False
+  26:         self.is_pinned = False
+  27:         self.original_ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+  28:     
+  29:     def _extract_app_name(self) -> str:
+  30:         """Extract application name from process name"""
+  31:         # Remove .exe extension
+  32:         app = self.process_name.replace('.exe', '')
+  33:         
+  34:         # Capitalize common apps
+  35:         common_apps = {
+  36:             'chrome': 'Chrome',
+  37:             'firefox': 'Firefox',
+  38:             'winword': 'Word',
+  39:             'excel': 'Excel',
+  40:             'powerpnt': 'PowerPoint',
+  41:             'outlook': 'Outlook',
+  42:             'notepad': 'Notepad',
+  43:             'notepad++': 'Notepad++',
+  44:             'code': 'VS Code',
+  45:             'devenv': 'Visual Studio',
+  46:             'acrobat': 'Acrobat',
+  47:             'acrord32': 'Acrobat Reader',
+  48:             'explorer': 'File Explorer'
+  49:         }
+  50:         
+  51:         return common_apps.get(app.lower(), app.title())
+  52:     
+  53:     def _create_display_name(self) -> str:
+  54:         """Create display name in format 'AppName - WindowTitle'"""
+  55:         if self.title.startswith(self.app_name):
+  56:             # Avoid duplication if app name is already in title
+  57:             return self.title
+  58:         return f"{self.app_name} - {self.title}"
+  59:     
+  60:     def hide(self) -> bool:
+  61:         """Hide the window (remove from Alt+Tab and taskbar)"""
+  62:         try:
+  63:             # Get current extended style
+  64:             ex_style = win32gui.GetWindowLong(self.hwnd, win32con.GWL_EXSTYLE)
+  65:             
+  66:             # Add WS_EX_TOOLWINDOW to hide from Alt+Tab and taskbar
+  67:             new_ex_style = ex_style | win32con.WS_EX_TOOLWINDOW
+  68:             
+  69:             # Remove WS_EX_APPWINDOW to ensure it's hidden from taskbar
+  70:             new_ex_style = new_ex_style & ~win32con.WS_EX_APPWINDOW
+  71:             
+  72:             # Apply new style
+  73:             win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, new_ex_style)
+  74:             
+  75:             # Hide the window
+  76:             win32gui.ShowWindow(self.hwnd, win32con.SW_HIDE)
+  77:             
+  78:             self.is_hidden = True
+  79:             return True
+  80:         except Exception as e:
+  81:             print(f"Error hiding window {self.display_name}: {e}")
+  82:             return False
+  83:     
+  84:     def show(self) -> bool:
+  85:         """Show the window (restore to Alt+Tab and taskbar)"""
+  86:         try:
+  87:             # Restore original extended style
+  88:             win32gui.SetWindowLong(self.hwnd, win32con.GWL_EXSTYLE, self.original_ex_style)
+  89:             
+  90:             # Show the window
+  91:             win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+  92:             
+  93:             self.is_hidden = False
+  94:             return True
+  95:         except Exception as e:
+  96:             print(f"Error showing window {self.display_name}: {e}")
+  97:             return False
+  98:     
+  99:     def bring_to_front(self) -> bool:
+ 100:         """Bring window to front and give it focus, restoring from minimized if needed"""
+ 101:         try:
+ 102:             if self.is_hidden:
+ 103:                 self.show()
+ 104:             
+ 105:             # Check if window is minimized (iconic)
+ 106:             if win32gui.IsIconic(self.hwnd):
+ 107:                 print(f"Window {self.display_name} is minimized, restoring...")
+ 108:                 # Restore the window from minimized state
+ 109:                 win32gui.ShowWindow(self.hwnd, win32con.SW_RESTORE)
+ 110:             elif not win32gui.IsWindowVisible(self.hwnd):
+ 111:                 # Window is hidden but not minimized
+ 112:                 win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+ 113:             
+ 114:             # Bring window to foreground
+ 115:             # Sometimes SetForegroundWindow fails, so we try a few methods
+ 116:             try:
+ 117:                 win32gui.SetForegroundWindow(self.hwnd)
+ 118:             except:
+ 119:                 # Alternative method: simulate alt key to allow focus change
+ 120:                 win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+ 121:                 win32gui.SetForegroundWindow(self.hwnd)
+ 122:                 win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+ 123:             
+ 124:             # Ensure window is active
+ 125:             win32gui.SetActiveWindow(self.hwnd)
+ 126:             
+ 127:             return True
+ 128:         except Exception as e:
+ 129:             print(f"Error bringing window to front {self.display_name}: {e}")
+ 130:             return False
  131:     
- 132:     def get_relevant_windows(self) -> List[ManagedWindow]:
- 133:         """Get all relevant open windows on current desktop"""
- 134:         windows = []
- 135:         
- 136:         def enum_callback(hwnd, _):
- 137:             if self._is_relevant_window(hwnd):
- 138:                 try:
- 139:                     title = win32gui.GetWindowText(hwnd)
- 140:                     if title:  # Skip windows with no title
- 141:                         _, pid = win32process.GetWindowThreadProcessId(hwnd)
- 142:                         process = psutil.Process(pid)
- 143:                         process_name = process.name()
- 144:                         
- 145:                         # Check if we already manage this window
- 146:                         if hwnd in self.managed_windows:
- 147:                             window = self.managed_windows[hwnd]
- 148:                             # Update title in case it changed
- 149:                             window.title = title
- 150:                             window.display_name = window._create_display_name()
- 151:                         else:
- 152:                             window = ManagedWindow(hwnd, title, process_name)
- 153:                             self.managed_windows[hwnd] = window
- 154:                         
- 155:                         windows.append(window)
- 156:                 except Exception as e:
- 157:                     print(f"Error processing window {hwnd}: {e}")
- 158:             return True
- 159:         
- 160:         win32gui.EnumWindows(enum_callback, None)
- 161:         
- 162:         # Clean up managed windows that no longer exist
- 163:         self._cleanup_invalid_windows()
- 164:         
- 165:         return sorted(windows, key=lambda w: w.display_name.lower())
- 166:     
- 167:     def _is_relevant_window(self, hwnd: int) -> bool:
- 168:         """Check if window is relevant (user-facing, not system)"""
- 169:         try:
- 170:             # Window must be visible
- 171:             if not win32gui.IsWindowVisible(hwnd):
- 172:                 return False
- 173:             
- 174:             # Get window info
- 175:             _, pid = win32process.GetWindowThreadProcessId(hwnd)
- 176:             process = psutil.Process(pid)
- 177:             process_name = process.name().lower()
- 178:             
- 179:             # Exclude system processes
- 180:             if process_name in self.excluded_processes:
- 181:                 return False
- 182:             
- 183:             # Get window style
- 184:             style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
- 185:             ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
- 186:             
- 187:             # Must be a normal window (not a tool window, unless we made it one)
- 188:             if hwnd not in self.managed_windows:
- 189:                 if ex_style & win32con.WS_EX_TOOLWINDOW:
- 190:                     return False
- 191:             
- 192:             # Should have a title bar or be a notable window
- 193:             if not (style & win32con.WS_CAPTION):
- 194:                 # Some apps like Chrome have windows without WS_CAPTION
- 195:                 # Check if it's a main window by other criteria
- 196:                 if not (ex_style & win32con.WS_EX_APPWINDOW):
- 197:                     return False
+ 132:     def is_valid(self) -> bool:
+ 133:         """Check if window still exists"""
+ 134:         return win32gui.IsWindow(self.hwnd)
+ 135: 
+ 136: 
+ 137: class WindowManager:
+ 138:     """Manages window detection, filtering, and state"""
+ 139:     
+ 140:     def __init__(self):
+ 141:         self.managed_windows: Dict[int, ManagedWindow] = {}
+ 142:         self.excluded_processes = {
+ 143:             'searchui.exe', 'shellexperiencehost.exe',
+ 144:             'applicationframehost.exe', 'systemsettings.exe', 'textinputhost.exe',
+ 145:             'lockapp.exe', 'searchapp.exe', 'startmenuexperiencehost.exe',
+ 146:             'runtimebroker.exe', 'svchost.exe', 'system', 'registry',
+ 147:             'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe',
+ 148:             'lsass.exe', 'winlogon.exe', 'dwm.exe', 'taskhostw.exe',
+ 149:             'searchindexer.exe', 'backgroundtaskhost.exe'
+ 150:         }
+ 151:     
+ 152:     def get_relevant_windows(self) -> List[ManagedWindow]:
+ 153:         """Get all relevant open windows on current desktop"""
+ 154:         windows = []
+ 155:         
+ 156:         def enum_callback(hwnd, _):
+ 157:             if self._is_relevant_window(hwnd):
+ 158:                 try:
+ 159:                     title = win32gui.GetWindowText(hwnd)
+ 160:                     if title:  # Skip windows with no title
+ 161:                         _, pid = win32process.GetWindowThreadProcessId(hwnd)
+ 162:                         process = psutil.Process(pid)
+ 163:                         process_name = process.name()
+ 164:                         
+ 165:                         # Check if we already manage this window
+ 166:                         if hwnd in self.managed_windows:
+ 167:                             window = self.managed_windows[hwnd]
+ 168:                             # Update title in case it changed
+ 169:                             window.title = title
+ 170:                             window.display_name = window._create_display_name()
+ 171:                         else:
+ 172:                             window = ManagedWindow(hwnd, title, process_name)
+ 173:                             self.managed_windows[hwnd] = window
+ 174:                         
+ 175:                         windows.append(window)
+ 176:                 except Exception as e:
+ 177:                     print(f"Error processing window {hwnd}: {e}")
+ 178:             return True
+ 179:         
+ 180:         win32gui.EnumWindows(enum_callback, None)
+ 181:         
+ 182:         # Clean up managed windows that no longer exist
+ 183:         self._cleanup_invalid_windows()
+ 184:         
+ 185:         return sorted(windows, key=lambda w: w.display_name.lower())
+ 186:     
+ 187:     def _is_relevant_window(self, hwnd: int) -> bool:
+ 188:         """Check if window is relevant (user-facing, not system)"""
+ 189:         try:
+ 190:             # Window must be visible or minimized (but not completely hidden)
+ 191:             if not win32gui.IsWindowVisible(hwnd) and not win32gui.IsIconic(hwnd):
+ 192:                 return False
+ 193:             
+ 194:             # Get window info
+ 195:             _, pid = win32process.GetWindowThreadProcessId(hwnd)
+ 196:             process = psutil.Process(pid)
+ 197:             process_name = process.name().lower()
  198:             
- 199:             # Check if it's a main window (not a dialog or popup)
- 200:             owner = win32gui.GetWindow(hwnd, win32con.GW_OWNER)
- 201:             if owner:
- 202:                 return False
- 203:             
- 204:             return True
- 205:             
- 206:         except Exception:
- 207:             return False
- 208:     
- 209:     def _cleanup_invalid_windows(self):
- 210:         """Remove windows that no longer exist from managed windows"""
- 211:         invalid_hwnds = []
- 212:         for hwnd, window in self.managed_windows.items():
- 213:             if not window.is_valid():
- 214:                 invalid_hwnds.append(hwnd)
- 215:         
- 216:         for hwnd in invalid_hwnds:
- 217:             del self.managed_windows[hwnd]
- 218:     
- 219:     def toggle_window_visibility(self, window: ManagedWindow) -> bool:
- 220:         """Toggle window visibility"""
- 221:         if window.is_hidden:
- 222:             return window.show()
- 223:         else:
- 224:             return window.hide()
- 225:     
- 226:     def pin_window(self, window: ManagedWindow):
- 227:         """Mark window as pinned"""
- 228:         window.is_pinned = True
- 229:     
- 230:     def unpin_window(self, window: ManagedWindow):
- 231:         """Unpin window and ensure it's visible"""
- 232:         window.is_pinned = False
- 233:         if window.is_hidden:
- 234:             window.show()
+ 199:             # Special handling for explorer.exe - we want File Explorer windows but not the desktop/taskbar
+ 200:             if process_name == 'explorer.exe':
+ 201:                 # Get window class name to distinguish File Explorer from desktop/taskbar
+ 202:                 class_name = win32gui.GetClassName(hwnd)
+ 203:                 # File Explorer windows have these class names
+ 204:                 if class_name not in ['CabinetWClass', 'ExploreWClass']:
+ 205:                     return False
+ 206:             elif process_name in self.excluded_processes:
+ 207:                 # Exclude other system processes
+ 208:                 return False
+ 209:             
+ 210:             # Get window style
+ 211:             style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
+ 212:             ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+ 213:             
+ 214:             # Must be a normal window (not a tool window, unless we made it one)
+ 215:             if hwnd not in self.managed_windows:
+ 216:                 if ex_style & win32con.WS_EX_TOOLWINDOW:
+ 217:                     return False
+ 218:             
+ 219:             # Should have a title bar or be a notable window
+ 220:             if not (style & win32con.WS_CAPTION):
+ 221:                 # Some apps like Chrome have windows without WS_CAPTION
+ 222:                 # Check if it's a main window by other criteria
+ 223:                 if not (ex_style & win32con.WS_EX_APPWINDOW):
+ 224:                     return False
+ 225:             
+ 226:             # Check if it's a main window (not a dialog or popup)
+ 227:             owner = win32gui.GetWindow(hwnd, win32con.GW_OWNER)
+ 228:             if owner:
+ 229:                 return False
+ 230:             
+ 231:             return True
+ 232:             
+ 233:         except Exception:
+ 234:             return False
  235:     
- 236:     def unhide_all_windows(self):
- 237:         """Unhide all hidden windows (for app cleanup)"""
- 238:         for window in self.managed_windows.values():
- 239:             if window.is_hidden:
- 240:                 window.show()
- 241:     
- 242:     def get_pinned_windows(self) -> List[ManagedWindow]:
- 243:         """Get all currently pinned windows"""
- 244:         return [w for w in self.managed_windows.values() if w.is_pinned]
+ 236:     def _cleanup_invalid_windows(self):
+ 237:         """Remove windows that no longer exist from managed windows"""
+ 238:         invalid_hwnds = []
+ 239:         for hwnd, window in self.managed_windows.items():
+ 240:             if not window.is_valid():
+ 241:                 invalid_hwnds.append(hwnd)
+ 242:         
+ 243:         for hwnd in invalid_hwnds:
+ 244:             del self.managed_windows[hwnd]
+ 245:     
+ 246:     def toggle_window_visibility(self, window: ManagedWindow) -> bool:
+ 247:         """Toggle window visibility"""
+ 248:         if window.is_hidden:
+ 249:             return window.show()
+ 250:         else:
+ 251:             return window.hide()
+ 252:     
+ 253:     def pin_window(self, window: ManagedWindow):
+ 254:         """Mark window as pinned"""
+ 255:         window.is_pinned = True
+ 256:     
+ 257:     def unpin_window(self, window: ManagedWindow):
+ 258:         """Unpin window and ensure it's visible"""
+ 259:         window.is_pinned = False
+ 260:         if window.is_hidden:
+ 261:             window.show()
+ 262:     
+ 263:     def unhide_all_windows(self):
+ 264:         """Unhide all hidden windows (for app cleanup)"""
+ 265:         for window in self.managed_windows.values():
+ 266:             if window.is_hidden:
+ 267:                 window.show()
+ 268:     
+ 269:     def get_pinned_windows(self) -> List[ManagedWindow]:
+ 270:         """Get all currently pinned windows"""
+ 271:         return [w for w in self.managed_windows.values() if w.is_pinned]
+ 272:     
+ 273:     # Close a managed window and remove it from the managed_windows dictionary
+ 274:     def close_managed_window(self, window: ManagedWindow):
+ 275:         """Close the window"""
+ 276:         del self.managed_windows[window.hwnd] 
+ 277:         win32gui.PostMessage(window.hwnd, win32con.WM_CLOSE, 0, 0)
+ 278:         # win32gui.CloseWindow(window.hwnd)
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: windows_menu.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: windows_menu.py
-Size: 16.2 KB
-Lines: 402 total, 323 non-empty
-Characters: 16,175
-Type: .PY file
+Size: 16.9 KB
+Lines: 421 total, 335 non-empty
+Characters: 16,931
+Type: Windows menu UI and interaction handling
 ────────────────────────────────────────────────────────────────────────────────
 
    1: # windows_menu.py (modified)
@@ -5867,393 +6154,412 @@ Type: .PY file
   13: class WindowsMenu(tk.Toplevel):
   14:     """Windows management menu"""
   15:     
-  16:     def __init__(self, parent, window_manager: WindowManager, on_pin_callback: Callable, 
+  16:     def __init__(self, taskbar, window_manager: WindowManager, on_pin_callback: Callable, 
   17:                  stored_geometry: Optional[str] = None):
-  18:         super().__init__(parent)
-  19:         self.parent = parent
-  20:         self.window_manager = window_manager
-  21:         self.on_pin_callback = on_pin_callback
-  22:         self.stored_geometry = stored_geometry
-  23:         
-  24:         # Window setup
-  25:         self.title("")  # No title for custom window
-  26:         self.configure(bg=Colors.DARK_GREEN)
-  27:         self.attributes('-topmost', True)
-  28:         self.attributes('-alpha', 0.98)
-  29:         
-  30:         # Important: Make window resizable
-  31:         self.resizable(True, True)
-  32:         
-  33:         # Remove default window decorations for custom look
-  34:         self.overrideredirect(True)
-  35:         
-  36:         # Track window items for updates
-  37:         self.window_items = {}
-  38:         
-  39:         # Resize variables
-  40:         self.is_resizing = False
-  41:         self.resize_edge = None
-  42:         self.resize_start_x = 0
-  43:         self.resize_start_y = 0
-  44:         self.original_geometry = None
-  45:         
-  46:         # Main container with visible border
-  47:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=3)
-  48:         self.main_frame.pack(fill=tk.BOTH, expand=True)
-  49:         
-  50:         # Create header
-  51:         self.create_header()
-  52:         
-  53:         # Create scrollable content area
-  54:         self.create_content_area()
-  55:         
-  56:         # Create resize handles
-  57:         self.create_resize_handles()
-  58:         
-  59:         # Populate with windows
-  60:         self.refresh_window_list()
-  61:         
-  62:         # Apply stored geometry or default size and position
-  63:         if stored_geometry:
-  64:             self.geometry(stored_geometry)
-  65:             print(f"Applied stored geometry: {stored_geometry}")  # Debug
-  66:         else:
-  67:             # Set default size and position (bottom-right)
-  68:             default_width = 700
-  69:             default_height = 600
-  70:             screen_width = self.winfo_screenwidth()
-  71:             screen_height = self.winfo_screenheight() - Dimensions.TASKBAR_HEIGHT 
-  72:             x = screen_width - default_width - 5  # 20px from right edge
-  73:             # Position above taskbar (assuming taskbar height of 40)
-  74:             y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
-  75:             
-  76:             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
-  77:         
-  78:         # Bind window close event
-  79:         self.protocol("WM_DELETE_WINDOW", self.close_window)
-  80:         
-  81:         # Ensure window is visible
-  82:         self.deiconify()
-  83:         self.lift()
-  84:     
-  85:     def create_header(self):
-  86:         """Create menu header"""
-  87:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=30)
-  88:         header_frame.pack(fill=tk.X, padx=1, pady=1)
-  89:         header_frame.pack_propagate(False)
+  18:         super().__init__(taskbar.root)
+  19:         self.parent = taskbar
+  20: 
+  21: 
+  22:         self.window_manager = window_manager
+  23:         self.on_pin_callback = on_pin_callback
+  24:         self.stored_geometry = stored_geometry
+  25:                 
+  26:         # Window setup
+  27:         self.title("")  # No title for custom window
+  28:         self.configure(bg=Colors.DARK_GREEN)
+  29:         self.attributes('-topmost', True)
+  30:         self.attributes('-alpha', 0.98)
+  31:         
+  32:         # Important: Make window resizable
+  33:         self.resizable(True, True)
+  34:         
+  35:         # Remove default window decorations for custom look
+  36:         self.overrideredirect(True)
+  37:         
+  38:         # Track window items for updates
+  39:         self.window_items = {}
+  40:         
+  41:         # Resize variables
+  42:         self.is_resizing = False
+  43:         self.resize_edge = None
+  44:         self.resize_start_x = 0
+  45:         self.resize_start_y = 0
+  46:         self.original_geometry = None
+  47:         
+  48:         # Main container with visible border
+  49:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=3)
+  50:         self.main_frame.pack(fill=tk.BOTH, expand=True)
+  51:         
+  52:         # Create header
+  53:         self.create_header()
+  54:         
+  55:         # Create scrollable content area
+  56:         self.create_content_area()
+  57:         
+  58:         # Create resize handles
+  59:         self.create_resize_handles()
+  60:         
+  61:         # Populate with windows
+  62:         self.refresh_window_list()
+  63:         
+  64:         # Apply stored geometry or default size and position
+  65:         if stored_geometry:
+  66:             self.geometry(stored_geometry)
+  67:             #print(f"Applied stored geometry: {stored_geometry}")  # Debug
+  68:         else:
+  69:             # Set default size and position (bottom-right)
+  70:             default_width = 700
+  71:             # Calculate height based on number of windows
+  72:             
+  73:             window_count = len(self.window_manager.get_relevant_windows())
+  74:             base_height = 100  # Minimum height for header and padding
+  75:             item_height = 40   # Height per window item
+  76:             max_height = 600   # Maximum height
+  77:             default_height = min(base_height + (window_count * item_height), max_height)
+  78: 
+  79:             screen_width = self.winfo_screenwidth()
+  80:             screen_height = self.winfo_screenheight() - Dimensions.TASKBAR_HEIGHT 
+  81: 
+  82:             x = screen_width - default_width - 5  # 20px from right edge
+  83:             # Position above taskbar (assuming taskbar height of 40)
+  84:             y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10  # 5px above taskbar
+  85:             
+  86:             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
+  87:         
+  88:         # Bind window close event
+  89:         self.protocol("WM_DELETE_WINDOW", self.close_window)
   90:         
-  91:         # Make header draggable
-  92:         header_frame.bind("<Button-1>", self.start_drag)
-  93:         header_frame.bind("<B1-Motion>", self.do_drag)
-  94:         
-  95:         # Title
-  96:         title = tk.Label(header_frame, text="🪟 Windows Manager", 
-  97:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-  98:                         font=Fonts.MENU_HEADER, cursor='fleur')
-  99:         title.pack(side=tk.LEFT, padx=10, pady=5)
- 100:         title.bind("<Button-1>", self.start_drag)
- 101:         title.bind("<B1-Motion>", self.do_drag)
- 102:         
- 103:         # Refresh button
- 104:         refresh_btn = tk.Button(header_frame, text="↻ Refresh", 
- 105:                                bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 106:                                relief=tk.RAISED, bd=1, cursor='hand2',
- 107:                                font=Fonts.MENU_ITEM, command=self.refresh_window_list)
- 108:         refresh_btn.pack(side=tk.RIGHT, padx=10, pady=5)
- 109:         
- 110:         # Close button
- 111:         close_btn = tk.Button(header_frame, text="X", 
- 112:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 113:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 114:                              font=Fonts.MENU_ITEM, width=3,
- 115:                              command=self.close_window)
- 116:         close_btn.pack(side=tk.RIGHT, padx=5, pady=5)
- 117:     
- 118:     def create_resize_handles(self):
- 119:         """Create resize handles for top, left, and right edges"""
- 120:         # Top resize handle
- 121:         top_handle = tk.Frame(self, cursor='size_ns', height=5)
- 122:         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
- 123:         top_handle.configure(bg=Colors.DARK_GREEN)
- 124:         
- 125:         # Bind resize events for top
- 126:         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
- 127:         top_handle.bind("<B1-Motion>", self.do_resize)
- 128:         top_handle.bind("<ButtonRelease-1>", self.end_resize)
- 129:         
- 130:         # Left resize handle
- 131:         left_handle = tk.Frame(self, cursor='size_we', width=5)
- 132:         left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
- 133:         left_handle.configure(bg=Colors.DARK_GREEN)
+  91:         # Ensure window is visible
+  92:         self.deiconify()
+  93:         self.lift()
+  94:     
+  95:     def create_header(self):
+  96:         """Create menu header"""
+  97:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=30)
+  98:         header_frame.pack(fill=tk.X, padx=1, pady=1)
+  99:         header_frame.pack_propagate(False)
+ 100:         
+ 101:         # Make header draggable
+ 102:         header_frame.bind("<Button-1>", self.start_drag)
+ 103:         header_frame.bind("<B1-Motion>", self.do_drag)
+ 104:         
+ 105:         # Title
+ 106:         title = tk.Label(header_frame, text="🪟 Windows Manager", 
+ 107:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 108:                         font=Fonts.MENU_HEADER, cursor='fleur')
+ 109:         title.pack(side=tk.LEFT, padx=10, pady=5)
+ 110:         title.bind("<Button-1>", self.start_drag)
+ 111:         title.bind("<B1-Motion>", self.do_drag)
+ 112:         
+ 113:         # Refresh button
+ 114:         refresh_btn = tk.Button(header_frame, text="↻ Refresh", 
+ 115:                                bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 116:                                relief=tk.RAISED, bd=1, cursor='hand2',
+ 117:                                font=Fonts.MENU_ITEM, command=self.refresh_window_list)
+ 118:         refresh_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+ 119:         
+ 120:         # Close button
+ 121:         close_btn = tk.Button(header_frame, text="X", 
+ 122:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 123:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 124:                              font=Fonts.MENU_ITEM, width=3,
+ 125:                              command=self.close_window)
+ 126:         close_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+ 127:     
+ 128:     def create_resize_handles(self):
+ 129:         """Create resize handles for top, left, and right edges"""
+ 130:         # Top resize handle
+ 131:         top_handle = tk.Frame(self, cursor='size_ns', height=5)
+ 132:         top_handle.place(relx=0.0, rely=0.0, relwidth=1.0, anchor='nw')
+ 133:         top_handle.configure(bg=Colors.DARK_GREEN)
  134:         
- 135:         # Bind resize events for left
- 136:         left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
- 137:         left_handle.bind("<B1-Motion>", self.do_resize)
- 138:         left_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 135:         # Bind resize events for top
+ 136:         top_handle.bind("<Button-1>", lambda e: self.start_resize(e, 't'))
+ 137:         top_handle.bind("<B1-Motion>", self.do_resize)
+ 138:         top_handle.bind("<ButtonRelease-1>", self.end_resize)
  139:         
- 140:         # Right resize handle
- 141:         right_handle = tk.Frame(self, cursor='size_we', width=5)
- 142:         right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
- 143:         right_handle.configure(bg=Colors.DARK_GREEN)
+ 140:         # Left resize handle
+ 141:         left_handle = tk.Frame(self, cursor='size_we', width=5)
+ 142:         left_handle.place(relx=0.0, rely=0.0, relheight=1.0, anchor='nw')
+ 143:         left_handle.configure(bg=Colors.DARK_GREEN)
  144:         
- 145:         # Bind resize events for right
- 146:         right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
- 147:         right_handle.bind("<B1-Motion>", self.do_resize)
- 148:         right_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 145:         # Bind resize events for left
+ 146:         left_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'l'))
+ 147:         left_handle.bind("<B1-Motion>", self.do_resize)
+ 148:         left_handle.bind("<ButtonRelease-1>", self.end_resize)
  149:         
- 150:         # Visual feedback on hover
- 151:         top_handle.bind("<Enter>", lambda e: self.configure(cursor='size_ns'))
- 152:         top_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 153:         left_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
- 154:         left_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 155:         right_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
- 156:         right_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
- 157: 
- 158:     def start_drag(self, event):
- 159:         """Start dragging the window"""
- 160:         self.drag_start_x = event.x_root
- 161:         self.drag_start_y = event.y_root
- 162:         self.original_x = self.winfo_x()
- 163:         self.original_y = self.winfo_y()
- 164: 
- 165:     def do_drag(self, event):
- 166:         """Handle window dragging"""
- 167:         dx = event.x_root - self.drag_start_x
- 168:         dy = event.y_root - self.drag_start_y
- 169:         
- 170:         new_x = self.original_x + dx
- 171:         new_y = self.original_y + dy
- 172:         
- 173:         # Keep window on screen
- 174:         screen_width = self.winfo_screenwidth()
- 175:         screen_height = self.winfo_screenheight()
- 176:         window_width = self.winfo_width()
- 177:         window_height = self.winfo_height()
- 178:         
- 179:         new_x = max(0, min(new_x, screen_width - window_width))
- 180:         new_y = max(0, min(new_y, screen_height - window_height))
- 181:         
- 182:         self.geometry(f"+{int(new_x)}+{int(new_y)}")
- 183:         
- 184:         # Update stored geometry in parent
- 185:         if hasattr(self.parent, 'windows_menu_geometry'):
- 186:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 187:     
- 188:     def start_resize(self, event, edge):
- 189:         """Start resizing operation"""
- 190:         self.is_resizing = True
- 191:         self.resize_edge = edge
- 192:         self.resize_start_x = event.x_root
- 193:         self.resize_start_y = event.y_root
- 194:         
- 195:         # Store original geometry
- 196:         self.original_geometry = {
- 197:             'x': self.winfo_x(),
- 198:             'y': self.winfo_y(),
- 199:             'width': self.winfo_width(),
- 200:             'height': self.winfo_height()
- 201:         }
- 202:         
- 203:         # Visual feedback
- 204:         self.main_frame.configure(relief=tk.SUNKEN)
- 205: 
- 206:     def do_resize(self, event):
- 207:         """Handle resize drag for all edges"""
- 208:         if not self.is_resizing or not self.resize_edge:
- 209:             return
- 210:         
- 211:         dx = event.x_root - self.resize_start_x
- 212:         dy = event.y_root - self.resize_start_y
- 213:         
- 214:         x = self.original_geometry['x']
- 215:         y = self.original_geometry['y']
- 216:         width = self.original_geometry['width']
- 217:         height = self.original_geometry['height']
- 218:         
- 219:         min_width = 400
- 220:         min_height = 300
- 221:         
- 222:         # Handle different edges
- 223:         if self.resize_edge == 't':  # Top edge
- 224:             new_height = max(min_height, height - dy)
- 225:             if new_height != height:
- 226:                 y = y + (height - new_height)
- 227:                 height = new_height
- 228:                 
- 229:         elif self.resize_edge == 'l':  # Left edge
- 230:             new_width = max(min_width, width - dx)
- 231:             if new_width != width:
- 232:                 x = x + (width - new_width)
- 233:                 width = new_width
- 234:                 
- 235:         elif self.resize_edge == 'r':  # Right edge
- 236:             new_width = max(min_width, width + dx)
- 237:             width = new_width
- 238:         
- 239:         # Apply new geometry
- 240:         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
- 241: 
- 242:     def end_resize(self, event):
- 243:         """End resizing operation"""
- 244:         self.is_resizing = False
- 245:         self.resize_edge = None
- 246:         
- 247:         # Remove visual feedback
- 248:         self.main_frame.configure(relief=tk.RAISED)
- 249:         
- 250:         # Update stored geometry in parent
- 251:         if hasattr(self.parent, 'windows_menu_geometry'):
- 252:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 253:             print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
- 254:     
- 255:     def create_content_area(self):
- 256:         """Create scrollable content area"""
- 257:         # Create canvas and scrollbar for scrolling
- 258:         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
- 259:                                highlightthickness=0)
- 260:         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
- 261:                                 command=self.canvas.yview)
- 262:         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
- 263:         
- 264:         self.scrollable_frame.bind(
- 265:             "<Configure>",
- 266:             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
- 267:         )
- 268:         
- 269:         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
- 270:         self.canvas.configure(yscrollcommand=scrollbar.set)
- 271:         
- 272:         self.canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
- 273:         scrollbar.pack(side="right", fill="y")
- 274:         
- 275:         # Bind mouse wheel
- 276:         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
- 277:     
- 278:     def _on_mousewheel(self, event):
- 279:         """Handle mouse wheel scrolling"""
- 280:         if self.canvas.winfo_exists():
- 281:             self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
- 282:     
- 283:     def refresh_window_list(self):
- 284:         """Refresh the list of windows"""
- 285:         # Clear existing items
- 286:         for widget in self.scrollable_frame.winfo_children():
- 287:             widget.destroy()
- 288:         self.window_items.clear()
- 289:         
- 290:         # Get current windows and filter out pinned ones
- 291:         all_windows = self.window_manager.get_relevant_windows()
- 292:         windows = [w for w in all_windows if not w.is_pinned]  # Exclude pinned windows
- 293:         
- 294:         if not windows:
- 295:             label = tk.Label(self.scrollable_frame, text="No unpinned windows found", 
- 296:                            bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
- 297:                            font=Fonts.MENU_ITEM)
- 298:             label.pack(pady=20)
- 299:             return
- 300:         
- 301:         # Create item for each window
- 302:         for window in windows:
- 303:             self.create_window_item(window)
- 304:     
- 305:     def create_window_item(self, window: ManagedWindow):
- 306:         """Create a single window item in the list"""
- 307:         # Item container
- 308:         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
- 309:                              relief=tk.RAISED, bd=1)
- 310:         item_frame.pack(fill=tk.X, padx=5, pady=2)
- 311:         
- 312:         # Pin button on the LEFT side
- 313:         pin_btn = tk.Button(item_frame, text="Pin", 
- 314:                            bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
- 315:                            relief=tk.RAISED, bd=1, cursor='hand2',
- 316:                            font=Fonts.MENU_ITEM, width=6,
- 317:                            command=lambda: self.toggle_pin(window))
- 318:         pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
- 319:         
- 320:         # Window name label (clickable to toggle visibility)
- 321:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
- 322:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
- 323:         
- 324:         name_label = tk.Label(item_frame, text=window.display_name, 
- 325:                              bg=label_bg, fg=label_fg,
- 326:                              font=Fonts.MENU_ITEM, anchor='w',
- 327:                              cursor='hand2', padx=5, pady=3)
- 328:         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Still LEFT but after pin button
+ 150:         # Right resize handle
+ 151:         right_handle = tk.Frame(self, cursor='size_we', width=5)
+ 152:         right_handle.place(relx=1.0, rely=0.0, relheight=1.0, anchor='ne')
+ 153:         right_handle.configure(bg=Colors.DARK_GREEN)
+ 154:         
+ 155:         # Bind resize events for right
+ 156:         right_handle.bind("<Button-1>", lambda e: self.start_resize(e, 'r'))
+ 157:         right_handle.bind("<B1-Motion>", self.do_resize)
+ 158:         right_handle.bind("<ButtonRelease-1>", self.end_resize)
+ 159:         
+ 160:         # Visual feedback on hover
+ 161:         top_handle.bind("<Enter>", lambda e: self.configure(cursor='size_ns'))
+ 162:         top_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 163:         left_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+ 164:         left_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 165:         right_handle.bind("<Enter>", lambda e: self.configure(cursor='size_we'))
+ 166:         right_handle.bind("<Leave>", lambda e: self.configure(cursor=''))
+ 167: 
+ 168:     def start_drag(self, event):
+ 169:         """Start dragging the window"""
+ 170:         self.drag_start_x = event.x_root
+ 171:         self.drag_start_y = event.y_root
+ 172:         self.original_x = self.winfo_x()
+ 173:         self.original_y = self.winfo_y()
+ 174: 
+ 175:     def do_drag(self, event):
+ 176:         """Handle window dragging"""
+ 177:         dx = event.x_root - self.drag_start_x
+ 178:         dy = event.y_root - self.drag_start_y
+ 179:         
+ 180:         new_x = self.original_x + dx
+ 181:         new_y = self.original_y + dy
+ 182:         
+ 183:         # Keep window on screen
+ 184:         screen_width = self.winfo_screenwidth()
+ 185:         screen_height = self.winfo_screenheight()
+ 186:         window_width = self.winfo_width()
+ 187:         window_height = self.winfo_height()
+ 188:         
+ 189:         new_x = max(0, min(new_x, screen_width - window_width))
+ 190:         new_y = max(0, min(new_y, screen_height - window_height))
+ 191:         
+ 192:         self.geometry(f"+{int(new_x)}+{int(new_y)}")
+ 193:         
+ 194:         # Update stored geometry in parent
+ 195:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 196:             self.parent.windows_menu_geometry = self.get_current_geometry()
+ 197:     
+ 198:     def start_resize(self, event, edge):
+ 199:         """Start resizing operation"""
+ 200:         self.is_resizing = True
+ 201:         self.resize_edge = edge
+ 202:         self.resize_start_x = event.x_root
+ 203:         self.resize_start_y = event.y_root
+ 204:         
+ 205:         # Store original geometry
+ 206:         self.original_geometry = {
+ 207:             'x': self.winfo_x(),
+ 208:             'y': self.winfo_y(),
+ 209:             'width': self.winfo_width(),
+ 210:             'height': self.winfo_height()
+ 211:         }
+ 212:         
+ 213:         # Visual feedback
+ 214:         self.main_frame.configure(relief=tk.SUNKEN)
+ 215: 
+ 216:     def do_resize(self, event):
+ 217:         """Handle resize drag for all edges"""
+ 218:         if not self.is_resizing or not self.resize_edge:
+ 219:             return
+ 220:         
+ 221:         dx = event.x_root - self.resize_start_x
+ 222:         dy = event.y_root - self.resize_start_y
+ 223:         
+ 224:         x = self.original_geometry['x']
+ 225:         y = self.original_geometry['y']
+ 226:         width = self.original_geometry['width']
+ 227:         height = self.original_geometry['height']
+ 228:         
+ 229:         min_width = 400
+ 230:         min_height = 300
+ 231:         
+ 232:         # Handle different edges
+ 233:         if self.resize_edge == 't':  # Top edge
+ 234:             new_height = max(min_height, height - dy)
+ 235:             if new_height != height:
+ 236:                 y = y + (height - new_height)
+ 237:                 height = new_height
+ 238:                 
+ 239:         elif self.resize_edge == 'l':  # Left edge
+ 240:             new_width = max(min_width, width - dx)
+ 241:             if new_width != width:
+ 242:                 x = x + (width - new_width)
+ 243:                 width = new_width
+ 244:                 
+ 245:         elif self.resize_edge == 'r':  # Right edge
+ 246:             new_width = max(min_width, width + dx)
+ 247:             width = new_width
+ 248:         
+ 249:         # Apply new geometry
+ 250:         self.geometry(f"{int(width)}x{int(height)}+{int(x)}+{int(y)}")
+ 251: 
+ 252:     def end_resize(self, event):
+ 253:         """End resizing operation"""
+ 254:         self.is_resizing = False
+ 255:         self.resize_edge = None
+ 256:         
+ 257:         # Remove visual feedback
+ 258:         self.main_frame.configure(relief=tk.RAISED)
+ 259:         
+ 260:         # Update stored geometry in parent
+ 261:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 262:             self.parent.windows_menu_geometry = self.get_current_geometry()
+ 263:             #print(f"Stored geometry after resize: {self.parent.windows_menu_geometry}")  # Debug
+ 264:     
+ 265:     def create_content_area(self):
+ 266:         """Create scrollable content area"""
+ 267:         # Create canvas and scrollbar for scrolling
+ 268:         self.canvas = tk.Canvas(self.main_frame, bg=Colors.LIGHT_GREEN, 
+ 269:                                highlightthickness=0)
+ 270:         scrollbar = tk.Scrollbar(self.main_frame, orient="vertical", 
+ 271:                                 command=self.canvas.yview)
+ 272:         self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.LIGHT_GREEN)
+ 273:         
+ 274:         self.scrollable_frame.bind(
+ 275:             "<Configure>",
+ 276:             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+ 277:         )
+ 278:         
+ 279:         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+ 280:         self.canvas.configure(yscrollcommand=scrollbar.set)
+ 281:         
+ 282:         self.canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
+ 283:         scrollbar.pack(side="right", fill="y")
+ 284:         
+ 285:         # Bind mouse wheel
+ 286:         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+ 287:     
+ 288:     def _on_mousewheel(self, event):
+ 289:         """Handle mouse wheel scrolling"""
+ 290:         if self.canvas.winfo_exists():
+ 291:             self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+ 292:     
+ 293:     def refresh_window_list(self):
+ 294:         """Refresh the list of windows"""
+ 295:         # Clear existing items
+ 296:         for widget in self.scrollable_frame.winfo_children():
+ 297:             widget.destroy()
+ 298:         self.window_items.clear()
+ 299:         
+ 300:         # Get current windows and filter out pinned ones
+ 301:         all_windows = self.window_manager.get_relevant_windows()
+ 302:         windows = [w for w in all_windows if not w.is_pinned]  # Exclude pinned windows
+ 303:         
+ 304:         if not windows:
+ 305:             label = tk.Label(self.scrollable_frame, text="No unpinned windows found", 
+ 306:                            bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
+ 307:                            font=Fonts.MENU_ITEM)
+ 308:             label.pack(pady=20)
+ 309:             return
+ 310:         
+ 311:         # Create item for each window
+ 312:         for window in windows:
+ 313:             self.create_window_item(window)
+ 314:     
+ 315:     def create_window_item(self, window: ManagedWindow):
+ 316:         """Create a single window item in the list"""
+ 317:         # Item container
+ 318:         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
+ 319:                              relief=tk.RAISED, bd=1)
+ 320:         item_frame.pack(fill=tk.X, padx=5, pady=2)
+ 321:         
+ 322:         # Pin button on the LEFT side
+ 323:         pin_btn = tk.Button(item_frame, text="Pin", 
+ 324:                            bg=Colors.PIN_BUTTON_COLOR, fg=Colors.BLACK,
+ 325:                            relief=tk.RAISED, bd=1, cursor='hand2',
+ 326:                            font=Fonts.MENU_ITEM, width=4,
+ 327:                            command=lambda: self.toggle_pin(window))
+ 328:         pin_btn.pack(side=tk.LEFT, padx=5, pady=2)  # Changed to LEFT
  329:         
- 330:         # Bind click to toggle visibility
- 331:         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
- 332:         
- 333:         # Store references for updating
- 334:         self.window_items[window.hwnd] = {
- 335:             'frame': item_frame,
- 336:             'label': name_label,
- 337:             'pin_btn': pin_btn,
- 338:             'window': window
- 339:         }
- 340:     
- 341:     def toggle_window_visibility(self, window: ManagedWindow):
- 342:         """Toggle window visibility and update UI"""
- 343:         if self.window_manager.toggle_window_visibility(window):
- 344:             self.update_window_item(window)
- 345:     
- 346:     def toggle_pin(self, window: ManagedWindow):
- 347:         """Toggle window pin state"""
- 348:         print(f"\n=== TOGGLE PIN DEBUG ===")
- 349:         print(f"Window: {window.display_name}")
- 350:         print(f"Was pinned: {window.is_pinned}")
- 351:         
- 352:         if window.is_pinned:
- 353:             self.window_manager.unpin_window(window)
- 354:         else:
- 355:             self.window_manager.pin_window(window)
- 356:         
- 357:         print(f"Now pinned: {window.is_pinned}")
- 358:         
- 359:         # Notify callback to update taskbar
- 360:         if self.on_pin_callback:
- 361:             print(f"Calling on_pin_callback: {self.on_pin_callback}")
- 362:             self.on_pin_callback()
- 363:         else:
- 364:             print("ERROR: on_pin_callback is None!")
- 365:         
- 366:         # Remove this window from the list since it's now pinned
- 367:         if window.is_pinned:
- 368:             self.refresh_window_list()
- 369:         
- 370:         # List all pinned windows
- 371:         pinned = self.window_manager.get_pinned_windows()
- 372:         print(f"Total pinned windows: {len(pinned)}")
- 373:         for pw in pinned:
- 374:             print(f"  - {pw.display_name}")
- 375:         print("=== END DEBUG ===\n")
- 376:     
- 377:     def update_window_item(self, window: ManagedWindow):
- 378:         """Update the UI for a specific window item"""
- 379:         if window.hwnd not in self.window_items:
- 380:             return
- 381:         
- 382:         item = self.window_items[window.hwnd]
- 383:         
- 384:         # Update label color based on visibility
- 385:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
- 386:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
- 387:         item['label'].configure(bg=label_bg, fg=label_fg)
- 388:     
- 389:     def get_current_geometry(self):
- 390:         """Get current window geometry string"""
- 391:         return self.geometry()
- 392:     
- 393:     def close_window(self):
- 394:         """Close the windows menu"""
- 395:         # Store geometry in parent before closing
- 396:         if hasattr(self.parent, 'windows_menu_geometry'):
- 397:             self.parent.windows_menu_geometry = self.get_current_geometry()
- 398:             print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
- 399:         
- 400:         # Unbind mousewheel to prevent errors
- 401:         self.canvas.unbind_all("<MouseWheel>")
- 402:         self.destroy()
+ 330:         # Window name label (clickable to toggle visibility)
+ 331:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
+ 332:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
+ 333:         
+ 334:         name_label = tk.Label(item_frame, text=window.display_name, 
+ 335:                              bg=label_bg, fg=label_fg,
+ 336:                              font=Fonts.MENU_ITEM, anchor='w',
+ 337:                              cursor='hand2', padx=5, pady=3)
+ 338:         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Still LEFT but after pin button
+ 339:         
+ 340:         # Bind click to toggle visibility
+ 341:         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
+ 342:         
+ 343:         # Bind double click to close window
+ 344:         name_label.bind("<Double-Button-1>", lambda e: self.remove_window(window))
+ 345:         
+ 346:         # Store references for updating
+ 347:         self.window_items[window.hwnd] = {
+ 348:             'frame': item_frame,
+ 349:             'label': name_label,
+ 350:             'pin_btn': pin_btn,
+ 351:             'window': window
+ 352:         }
+ 353:     
+ 354:     def toggle_window_visibility(self, window: ManagedWindow):
+ 355:         """Toggle window visibility and update UI"""
+ 356:         if self.window_manager.toggle_window_visibility(window):
+ 357:             self.update_window_item(window)
+ 358:     
+ 359:     # Close window and remove label button from windows_menu
+ 360:     def remove_window(self, window: ManagedWindow):
+ 361:         """Close the window"""
+ 362:         self.window_manager.close_managed_window(window)
+ 363:         self.refresh_window_list()
+ 364: 
+ 365:     def toggle_pin(self, window: ManagedWindow):
+ 366:         """Toggle window pin state"""
+ 367:         print(f"\n=== TOGGLE PIN DEBUG ===")
+ 368:         print(f"Window: {window.display_name}")
+ 369:         print(f"Was pinned: {window.is_pinned}")
+ 370:         
+ 371:         if window.is_pinned:
+ 372:             self.window_manager.unpin_window(window)
+ 373:         else:
+ 374:             self.window_manager.pin_window(window)
+ 375:         
+ 376:         print(f"Now pinned: {window.is_pinned}")
+ 377:         
+ 378:         # Notify callback to update taskbar
+ 379:         if self.on_pin_callback:
+ 380:             print(f"Calling on_pin_callback: {self.on_pin_callback}")
+ 381:             self.on_pin_callback()
+ 382:         else:
+ 383:             print("ERROR: on_pin_callback is None!")
+ 384:         
+ 385:         # Remove this window from the list since it's now pinned
+ 386:         if window.is_pinned:
+ 387:             self.refresh_window_list()
+ 388:         
+ 389:         # List all pinned windows
+ 390:         pinned = self.window_manager.get_pinned_windows()
+ 391:         print(f"Total pinned windows: {len(pinned)}")
+ 392:         for pw in pinned:
+ 393:             print(f"  - {pw.display_name}")
+ 394:         print("=== END DEBUG ===\n")
+ 395:     
+ 396:     def update_window_item(self, window: ManagedWindow):
+ 397:         """Update the UI for a specific window item"""
+ 398:         if window.hwnd not in self.window_items:
+ 399:             return
+ 400:         
+ 401:         item = self.window_items[window.hwnd]
+ 402:         
+ 403:         # Update label color based on visibility
+ 404:         label_bg = Colors.WINDOW_HIDDEN if window.is_hidden else Colors.WINDOW_VISIBLE
+ 405:         label_fg = Colors.WHITE if window.is_hidden else Colors.BLACK
+ 406:         item['label'].configure(bg=label_bg, fg=label_fg)
+ 407:     
+ 408:     def get_current_geometry(self):
+ 409:         """Get current window geometry string"""
+ 410:         return self.geometry()
+ 411:     
+ 412:     def close_window(self):
+ 413:         """Close the windows menu"""
+ 414:         # Store geometry before closing
+ 415:         if hasattr(self.parent, 'windows_menu_geometry'):
+ 416:             self.parent.stored_geometry = self.get_current_geometry()
+ 417:             print(f"Storing geometry on close: {self.parent.windows_menu_geometry}")  # Debug
+ 418:         
+ 419:         # Unbind mousewheel to prevent errors
+ 420:         self.canvas.unbind_all("<MouseWheel>")
+ 421:         self.destroy()
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: requirements.txt
@@ -6277,8 +6583,8 @@ comtypes
 ================================================================================
 
 Files Processed: 19
-Total Size: 239.2 KB
-Total Python Lines: 6,002
+Total Size: 251.2 KB
+Total Python Lines: 6,308
 
 File Breakdown:
     README.md                  718.0 B (  31 lines)
@@ -6287,18 +6593,18 @@ File Breakdown:
     enhanced_folder_inventory.py  23.5 KB ( 569 lines)
     explorer_utils.py           8.9 KB ( 226 lines)
     folder_inventory.py        24.5 KB ( 593 lines)
-    inventory_view_window.py   21.1 KB ( 498 lines)
-    links_manager.py           11.1 KB ( 306 lines)
+    inventory_view_window.py   27.7 KB ( 655 lines)
+    links_manager.py           10.8 KB ( 306 lines)
     main.py                     1.1 KB (  42 lines)
-    pinned_windows.py           7.3 KB ( 177 lines)
+    pinned_windows.py          12.3 KB ( 314 lines)
     quick_links.py             36.3 KB ( 867 lines)
     restore_deskop.py           1.5 KB (  41 lines)
     snip_feature.py            16.1 KB ( 410 lines)
-    taskbar.py                 16.1 KB ( 398 lines)
+    taskbar.py                 14.3 KB ( 357 lines)
     ui_components.py           28.7 KB ( 745 lines)
     utils.py                    7.0 KB ( 211 lines)
-    window_manager.py           9.4 KB ( 244 lines)
-    windows_menu.py            16.2 KB ( 402 lines)
+    window_manager.py          11.2 KB ( 278 lines)
+    windows_menu.py            16.9 KB ( 421 lines)
     requirements.txt            42.0 B (   5 lines)
 
 ================================================================================

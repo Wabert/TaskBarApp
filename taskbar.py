@@ -285,6 +285,9 @@ class SuiteViewTaskbar:
         # Start the periodic topmost maintenance
         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
         
+        # Start window state monitoring
+        self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
+
         # Start the main event loop
         self.root.mainloop()
     
@@ -344,6 +347,47 @@ class SuiteViewTaskbar:
             print(f"Windows Manager is not open")
             
         #print(f"=== END ON_WINDOWS_PINNED ===\n")
+
+
+    def start_window_monitoring(self):
+        """Start monitoring for closed windows"""
+        self.check_window_states()
+        
+    def check_window_states(self):
+        """Periodically check if pinned windows still exist"""
+        try:
+            if hasattr(self, 'pinned_section') and self.pinned_section:
+                # Get current pinned windows
+                pinned_windows = self.window_manager.get_pinned_windows()
+                windows_to_unpin = []
+                
+                for window in pinned_windows:
+                    # Check if window still exists
+                    if not window.is_valid():
+                        print(f"Window {window.display_name} no longer exists, unpinning...")
+                        windows_to_unpin.append(window)
+                
+                # Unpin any closed windows
+                if windows_to_unpin:
+                    for window in windows_to_unpin:
+                        self.window_manager.unpin_window(window)
+                    
+                    # Refresh the pinned section
+                    self.pinned_section.refresh()
+                    
+                    # Also refresh Windows Manager if it's open
+                    if hasattr(self, 'windows_menu') and self.windows_menu:
+                        try:
+                            if self.windows_menu.winfo_exists():
+                                self.windows_menu.refresh_window_list()
+                        except:
+                            pass
+        
+        except Exception as e:
+            print(f"Error checking window states: {e}")
+        
+        # Schedule next check (every 2 seconds)
+        self.root.after(2000, self.check_window_states)
 
     def verify_setup(self):
         """Verify all components are properly initialized"""

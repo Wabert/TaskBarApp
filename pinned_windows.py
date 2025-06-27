@@ -53,7 +53,7 @@ class PinnedWindowButton(tk.Frame):
                                cursor='hand2',
                                wraplength=40,
                                activebackground=Colors.HOVER_GREEN,
-                               command=self.toggle_window)
+                               command=self.bring_window_to_front)
         self.button.pack(fill=tk.BOTH, expand=True)  # Fill entire frame
         
         # Force visibility
@@ -64,35 +64,37 @@ class PinnedWindowButton(tk.Frame):
         print(f"Button geometry: {self.button.winfo_geometry()}")
         print(f"=== END CREATING PINNED BUTTON ===\n")
     
-    def toggle_window(self):
+    def bring_window_to_front(self):
         """Toggle window - hide if fully visible/on top, otherwise bring to front"""
+        
         try:
             import win32gui
             
             if self.window.is_hidden:
-                # Window is hidden - show and bring to front
-                print(f"Window {self.window.display_name} is hidden - showing")
                 self.window_manager.toggle_window_visibility(self.window)
-                self.window.bring_to_front()
-            else:
-                # Window is visible - check if it's the foreground window
-                current_foreground = win32gui.GetForegroundWindow()
+
+            self.window.bring_to_front()
+
                 
-                # Check if window is minimized
-                if win32gui.IsIconic(self.window.hwnd):
-                    print(f"Window {self.window.display_name} is minimized - restoring")
-                    self.window.bring_to_front()
-                elif current_foreground == self.window.hwnd:
-                    # Window is the foreground window - hide it
-                    print(f"Window {self.window.display_name} is foreground - hiding")
-                    self.window_manager.toggle_window_visibility(self.window)
-                else:
-                    # Window is visible but not foreground - bring it to front
-                    print(f"Window {self.window.display_name} is not foreground - bringing to front")
-                    self.window.bring_to_front()
+                
+                # Window is visible - check if it's the foreground window
+                # current_foreground = win32gui.GetForegroundWindow()
+                
+                # # Check if window is minimized
+                # if win32gui.IsIconic(self.window.hwnd):
+                #     print(f"Window {self.window.display_name} is minimized - restoring")
+                #     self.window.bring_to_front()
+                # elif current_foreground == self.window.hwnd:
+                #     # Window is the foreground window - hide it
+                #     print(f"Window {self.window.display_name} is foreground - hiding")
+                #     self.window_manager.toggle_window_visibility(self.window)
+                # else:
+                #     # Window is visible but not foreground - bring it to front
+                #     print(f"Window {self.window.display_name} is not foreground - bringing to front")
+                #     self.window.bring_to_front()
                 
         except Exception as e:
-            print(f"Error in toggle_window: {e}")
+            print(f"Error in bring_window_to_front: {e}")
             import traceback
             traceback.print_exc()
             # Fallback to just bringing to front

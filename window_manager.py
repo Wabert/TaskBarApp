@@ -133,6 +133,7 @@ class ManagedWindow:
         """Check if window still exists"""
         return win32gui.IsWindow(self.hwnd)
 
+
 class WindowManager:
     """Manages window detection, filtering, and state"""
     
@@ -268,3 +269,10 @@ class WindowManager:
     def get_pinned_windows(self) -> List[ManagedWindow]:
         """Get all currently pinned windows"""
         return [w for w in self.managed_windows.values() if w.is_pinned]
+    
+    # Close a managed window and remove it from the managed_windows dictionary
+    def close_managed_window(self, window: ManagedWindow):
+        """Close the window"""
+        del self.managed_windows[window.hwnd] 
+        win32gui.PostMessage(window.hwnd, win32con.WM_CLOSE, 0, 0)
+        # win32gui.CloseWindow(window.hwnd)

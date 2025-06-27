@@ -340,6 +340,9 @@ class WindowsMenu(tk.Toplevel):
         # Bind click to toggle visibility
         name_label.bind("<Button-1>", lambda e: self.toggle_window_visibility(window))
         
+        # Bind double click to close window
+        name_label.bind("<Double-Button-1>", lambda e: self.remove_window(window))
+        
         # Store references for updating
         self.window_items[window.hwnd] = {
             'frame': item_frame,
@@ -353,6 +356,12 @@ class WindowsMenu(tk.Toplevel):
         if self.window_manager.toggle_window_visibility(window):
             self.update_window_item(window)
     
+    # Close window and remove label button from windows_menu
+    def remove_window(self, window: ManagedWindow):
+        """Close the window"""
+        self.window_manager.close_managed_window(window)
+        self.refresh_window_list()
+
     def toggle_pin(self, window: ManagedWindow):
         """Toggle window pin state"""
         print(f"\n=== TOGGLE PIN DEBUG ===")

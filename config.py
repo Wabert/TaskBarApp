@@ -36,7 +36,7 @@ class Fonts:
 # Window Dimensions
 class Dimensions:
     TASKBAR_HEIGHT = 40
-    MENU_MIN_WIDTH = 400
+    MENU_MIN_WIDTH = 200
     MENU_MIN_HEIGHT = 100
     DIALOG_BUTTON_WIDTH = 8
     DIALOG_PADDING = 10

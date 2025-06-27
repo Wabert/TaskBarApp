@@ -8,6 +8,7 @@ Now excludes pinned windows from the list
 import tkinter as tk
 from config import Colors, Fonts, Dimensions
 from window_manager import WindowManager, ManagedWindow
+from utils import WindowsUtils
 from typing import Callable, Optional
 
 class WindowsMenu(tk.Toplevel):
@@ -76,10 +77,12 @@ class WindowsMenu(tk.Toplevel):
             default_height = min(base_height + (window_count * item_height), max_height)
 
             screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
+            screen_height = self.winfo_screenheight() 
+
+            print(f"Windows taskbar height: {WindowsUtils.get_windows_taskbar_height()}")
 
             x = screen_width - default_width - 5
-            y = screen_height - default_height - Dimensions.TASKBAR_HEIGHT - 10
+            y = screen_height - default_height -  WindowsUtils.get_windows_taskbar_height()
             
             self.geometry(f"{default_width}x{default_height}+{x}+{y}")
         
@@ -314,7 +317,7 @@ class WindowsMenu(tk.Toplevel):
         """Create a single window item with colored pin button"""
         # Item container - make it more compact
         item_frame = tk.Frame(self.scrollable_frame, bg=Colors.LIGHT_GREEN, 
-                             relief=tk.RAISED, bd=1, height=30)  # Fixed height
+                             relief=tk.RAISED, bd=1, height=20)  # Fixed height
         item_frame.pack(fill=tk.X, padx=3, pady=1)  # Reduced padding
         #item_frame.pack_propagate(False)  # Prevent frame from resizing
         
@@ -340,7 +343,7 @@ class WindowsMenu(tk.Toplevel):
         
         name_label = tk.Label(item_frame, text=display_text, 
                              bg=label_bg, fg=label_fg,
-                             font=('Arial', 9), anchor='w',  # Smaller font
+                             font=('Arial', 8), anchor='w',  # Smaller font
                              cursor='hand2', padx=5, pady=2)  # Reduced padding
         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
@@ -371,7 +374,7 @@ class WindowsMenu(tk.Toplevel):
         """Show the window"""
         window.show()
         window.bring_to_front()
-        
+
     
     def update_window_item(self, window: ManagedWindow):
         """Update the UI for a specific window item"""

@@ -165,10 +165,20 @@ ERROR: Could not read file - {str(e)}
             'window_manager.py': 'Window management and visibility controls',
             'windows_menu.py': 'Windows menu UI and interaction handling',
             'inventory_view_window.py': 'Inventory view window and filtering',
+            'code_exporter.py': 'Code export utility for documentation',
             'requirements.txt': 'Python package dependencies',
-            'README.md': 'Project documentation and setup instructions'
+            'README.md': 'Project documentation and setup instructions',
+            '.gitignore': 'Git ignore rules for version control',
+            'setup.py': 'Package installation and distribution setup',
+            'LICENSE': 'Project license information',
+            'CHANGELOG.md': 'Version history and change log',
+            'docs/': 'Documentation directory',
+            'tests/': 'Test files and test suite',
+            'assets/': 'Application assets and resources',
+            'logs/': 'Application log files',
+            'data/': 'Application data storage',
+            'backup/': 'Backup files and configurations'
         }
-        
         return descriptions.get(file_path.name, f'{file_path.suffix.upper()} file')
     
     def create_summary(self, files_processed):

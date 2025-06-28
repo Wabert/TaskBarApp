@@ -496,9 +496,23 @@ class SuiteViewTaskbar:
                 pass
     
 
+
     def show_email_attachments_menu(self):
-        popup_menu = EmailManager()
-        popup_menu.display_emails()
+        """Show the email attachments menu using the inventory view with caching"""
+        from email_menu import EmailAttachmentsMenu
+        
+        # Create email menu instance if it doesn't exist
+        if not hasattr(self, 'email_menu'):
+            self.email_menu = EmailAttachmentsMenu(self.root)
+        
+        # Show the email attachments (will use cache if available)
+        self.email_menu.show_email_attachments()
+
+    # Optional: Add a method to force refresh emails (could be bound to a keyboard shortcut)
+    def refresh_email_attachments(self):
+        """Force refresh email attachments"""
+        if hasattr(self, 'email_menu'):
+            self.email_menu.show_email_attachments(force_refresh=True)
 
 
 

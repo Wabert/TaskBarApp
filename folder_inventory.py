@@ -1,7 +1,7 @@
-# enhanced_folder_inventory.py
+# folder_inventory.py (FIXED)
 """
 Enhanced Folder Inventory feature for SuiteView Taskbar
-Adds View option with Excel-like filtering capabilities
+Updated to work with new InventoryViewWindow pattern
 """
 
 import os
@@ -41,8 +41,6 @@ class FolderInventoryDialog(CustomDialog):
         
         # Set focus on folder field
         self.folder_field.widget.focus_set()
-    
-    
     
     def auto_populate_folder(self):
         """Auto-populate the folder field with the topmost open File Explorer folder"""
@@ -246,6 +244,7 @@ class FolderInventoryDialog(CustomDialog):
         """Perform the actual folder scan (runs in background thread)"""
         try:
             scanner = FolderScanner(folder, max_depth, content_type, self.update_progress)
+            scanner.cancel_scan = self.cancel_scan  # Pass cancel flag
             inventory_data, error_data = scanner.scan()
             
             if not self.cancel_scan:
@@ -254,15 +253,8 @@ class FolderInventoryDialog(CustomDialog):
                     excel_creator = ExcelInventoryCreator()
                     excel_creator.create_workbook(inventory_data, error_data, folder)
                 else:
-                    # Show in interactive view (NEW)
-                    scan_info = {
-                        'folder': folder,
-                        'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'total_items': len(inventory_data),
-                        'max_depth': max_depth,
-                        'content_type': content_type
-                    }
-                    self.show_inventory_view(inventory_data, error_data, scan_info)
+                    # Show in interactive view (UPDATED)
+                    self.show_inventory_view(inventory_data, error_data, folder, max_depth, content_type)
                 
                 # Close progress window
                 if self.progress_window:
@@ -273,11 +265,45 @@ class FolderInventoryDialog(CustomDialog):
             if self.progress_window:
                 self.progress_window.after(0, lambda: self.show_scan_error(str(e)))
     
-    def show_inventory_view(self, inventory_data, error_data, scan_info):
-        """Show the inventory data in an interactive view"""
+    def show_inventory_view(self, inventory_data, error_data, scanned_folder, max_depth, content_type):
+        """Show the inventory data in an interactive view (UPDATED FOR NEW PATTERN)"""
+        # Create configuration for the new InventoryViewWindow
+        window_config = {
+            'title': 'Folder Inventory Results',
+            'columns': [
+                {'key': 'Name', 'header': 'Name', 'width': 200, 'type': 'text'},
+                {'key': 'Full Path', 'header': 'Full Path', 'width': 300, 'type': 'text'},
+                {'key': 'Type', 'header': 'Type', 'width': 80, 'type': 'text'},
+                {'key': 'Size', 'header': 'Size', 'width': 100, 'type': 'text'},
+                {'key': 'Modified Date', 'header': 'Modified Date', 'width': 150, 'type': 'date'}
+            ],
+            'on_item_double_click': self._open_file_or_folder,
+            'show_stats': True,
+            'allow_export': True,
+            'window_width': 1000,
+            'window_height': 700,
+            'additional_info': {
+                'Scanned Folder': scanned_folder,
+                'Generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'Max Depth': max_depth if max_depth else 'Unlimited',
+                'Content Type': content_type.title(),
+                'Errors': len(error_data) if error_data else 0
+            }
+        }
+        
+        # Show the inventory view in the main thread
         if self.progress_window:
             self.progress_window.after(0, lambda: InventoryViewWindow(
-                self.parent, inventory_data, error_data, scan_info))
+                self.parent, inventory_data, window_config))
+    
+    def _open_file_or_folder(self, item):
+        """Handle double-click to open file or folder"""
+        try:
+            path = item.get('Full Path')
+            if path and os.path.exists(path):
+                os.startfile(path)
+        except Exception as e:
+            print(f"Error opening {path}: {e}")
     
     def update_progress(self, count, current_path):
         """Update progress display (called from background thread)"""

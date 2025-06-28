@@ -10,7 +10,6 @@ import win32api
 import win32con
 import win32process
 import psutil
-from typing import List, Dict, Optional
 import re
 from config import AppColors
 
@@ -195,7 +194,7 @@ class WindowManager:
     """Manages window detection, filtering, and state"""
     
     def __init__(self):
-        self.managed_windows: Dict[int, ManagedWindow] = {}
+        self.managed_windows: dict[int, ManagedWindow] = {}
         self.excluded_processes = {
             'searchui.exe', 'shellexperiencehost.exe',
             'applicationframehost.exe', 'systemsettings.exe', 'textinputhost.exe',
@@ -206,7 +205,7 @@ class WindowManager:
             'searchindexer.exe', 'backgroundtaskhost.exe'
         }
     
-    def get_relevant_windows(self) -> List[ManagedWindow]:
+    def get_relevant_windows(self) -> list[ManagedWindow]:
         """Get all relevant open windows on current desktop"""
         windows = []
         
@@ -323,7 +322,7 @@ class WindowManager:
             if window.is_hidden:
                 window.show()
     
-    def get_pinned_windows(self) -> List[ManagedWindow]:
+    def get_pinned_windows(self) -> list[ManagedWindow]:
         """Get all currently pinned windows"""
         return [w for w in self.managed_windows.values() if w.is_pinned]
     

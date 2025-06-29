@@ -19,7 +19,7 @@ from window_manager import WindowManager
 from windows_menu import WindowsMenu
 from pinned_windows import PinnedWindowsSection
 from email_manager import EmailManager
-
+from email_options_menu import EmailOptionsMenu
 
 
 class SuiteViewTaskbar:
@@ -35,7 +35,9 @@ class SuiteViewTaskbar:
         self.windows_menu = None
         self.pinned_section = None  # Initialize to None
         self.windows_menu_geometry = None
-
+        self.email_options_menu = None  # Initialize email options menu tracker
+        self.email_menu_closing = False  # Flag to prevent immediate reopen
+        
         # Store original work area for restoration
         self.original_work_area = WindowsUtils.get_work_area()
         
@@ -171,13 +173,13 @@ class SuiteViewTaskbar:
         windows_btn.pack(side=tk.RIGHT, padx=5)
 
         
-        # Add Email Attachments button
-        email_attachments_btn = tk.Button(self.main_frame, text="Email Attachments", 
+        # Add Emails button
+        emails_btn = tk.Button(self.main_frame, text="Emails", 
                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
-                        bd=0, padx=15, command=self.show_email_attachments_menu)
-        email_attachments_btn.pack(side=tk.LEFT, padx=5)
+                        bd=0, padx=15, command=self.show_email_options_menu)
+        emails_btn.pack(side=tk.LEFT, padx=5)
 
 
     def bind_events(self):
@@ -494,25 +496,50 @@ class SuiteViewTaskbar:
                     self.windows_menu.refresh_window_list()
             except:
                 pass
-    
 
-
-    def show_email_attachments_menu(self):
-        """Show the email attachments menu using the inventory view with caching"""
-        from email_menu import EmailAttachmentsMenu
+    def show_email_options_menu(self):
+        """Show the email options popup menu - toggle if already open"""
+        from email_options_menu import EmailOptionsMenu
         
-        # Create email menu instance if it doesn't exist
-        if not hasattr(self, 'email_menu'):
-            self.email_menu = EmailAttachmentsMenu(self.root)
+        # Check if we're in the process of closing (prevents immediate reopen)
+        if hasattr(self, 'email_menu_closing') and self.email_menu_closing:
+            return
         
-        # Show the email attachments (will use cache if available)
-        self.email_menu.show_email_attachments()
-
-    # Optional: Add a method to force refresh emails (could be bound to a keyboard shortcut)
-    def refresh_email_attachments(self):
-        """Force refresh email attachments"""
-        if hasattr(self, 'email_menu'):
-            self.email_menu.show_email_attachments(force_refresh=True)
-
-
-
+        # Check if email options menu is already open
+        if hasattr(self, 'email_options_menu') and self.email_options_menu is not None:
+            try:
+                if self.email_options_menu.winfo_exists():
+                    # Menu is open, close it
+                    self.email_options_menu.destroy()
+                    self.email_options_menu = None
+                    return
+            except:
+                self.email_options_menu = None
+        
+        # Get button position
+        emails_btn = None
+        for widget in self.main_frame.winfo_children():
+            if isinstance(widget, tk.Button) and widget.cget('text') == 'Emails':
+                emails_btn = widget
+                break
+        
+        if emails_btn:
+            # Create menu at temporary position to get its height
+            temp_menu = EmailOptionsMenu(self.root, 0, 0, self)
+            temp_menu.update_idletasks()
+            menu_height = temp_menu.winfo_reqheight()
+            temp_menu.destroy()
+            
+            # Position menu so its bottom edge touches the top of the taskbar
+            x = emails_btn.winfo_rootx()
+            taskbar_top = self.root.winfo_rooty()
+            y = taskbar_top - menu_height  # No gap, right at the edge
+            
+            # Create and show the options menu at calculated position
+            self.email_options_menu = EmailOptionsMenu(self.root, x, y, self)
+            
+            # Set up cleanup when menu is destroyed
+            def cleanup():
+                self.email_options_menu = None
+            
+            self.email_options_menu.bind("<Destroy>", lambda e: cleanup())

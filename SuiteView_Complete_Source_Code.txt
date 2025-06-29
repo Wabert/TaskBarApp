@@ -5,7 +5,7 @@
 ================================================================================
 
 Export Information:
-    Generated on: 2025-06-28 15:45:28
+    Generated on: 2025-06-28 19:53:28
     Project Directory: C:\Users\rober\Documents\Code\TaskBarApp
     Export Tool: SuiteView Code Exporter v1.0
 
@@ -454,27 +454,27 @@ Type: Application configuration and constants
 FILE: email_manager.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: email_manager.py
-Size: 18.7 KB
-Lines: 460 total, 372 non-empty
-Characters: 18,737
+Size: 20.0 KB
+Lines: 480 total, 398 non-empty
+Characters: 19,998
 Type: .PY file
 ────────────────────────────────────────────────────────────────────────────────
 
    1: # email_manager.py
    2: """
-   3: Enhanced email attachment management with caching functionality
-   4: Stores email scans for quick retrieval and supports multiple scan types
-   5: """
-   6: 
-   7: import win32com.client
-   8: from datetime import datetime, timedelta
-   9: import tkinter as tk
-  10: import json
-  11: import os
-  12: from pathlib import Path
-  13: import threading
-  14: import time
-  15: 
+   3: Updated email attachment management with support for both received and sent emails
+   4: """
+   5: 
+   6: import win32com.client
+   7: from datetime import datetime, timedelta
+   8: import tkinter as tk
+   9: import json
+  10: import os
+  11: from pathlib import Path
+  12: import threading
+  13: import time
+  14: 
+  15: # Keep existing EmailCache class as-is
   16: class EmailCache:
   17:     """Handles caching of email scan results"""
   18:     
@@ -551,389 +551,409 @@ Type: .PY file
   89: 
   90: 
   91: class EmailManager:
-  92:     """Enhanced email manager with caching and multiple scan types"""
+  92:     """Enhanced email manager with caching and support for received/sent emails"""
   93:     
   94:     # Scan type constants
   95:     SCAN_ATTACHMENTS = "attachments"
-  96:     SCAN_IMPORTANT = "important"
-  97:     SCAN_FLAGGED = "flagged"
-  98:     SCAN_UNREAD = "unread"
-  99:     
- 100:     def __init__(self, weeks_back: int = 2):
- 101:         """Initialize the email manager"""
- 102:         self.weeks_back = weeks_back
- 103:         self.outlook = None
- 104:         self.cache = EmailCache()
- 105:         self._initialize_outlook()
- 106:         
- 107:         # Track if a scan is in progress
- 108:         self.scan_in_progress = False
- 109:         self.current_scan_thread = None
- 110:     
- 111:     def _initialize_outlook(self):
- 112:         """Initialize Outlook connection"""
- 113:         try:
- 114:             self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
- 115:         except Exception as e:
- 116:             print(f"Error initializing Outlook: {e}")
- 117:             self.outlook = None
- 118:     
- 119:     def get_emails_with_attachments(self, use_cache: bool = True, 
- 120:                                    force_refresh: bool = False) -> dict:
- 121:         """
- 122:         Get emails with attachments, using cache if available
- 123:         
- 124:         Returns:
- 125:             Dictionary with 'data', 'metadata', and 'from_cache' keys
- 126:         """
- 127:         scan_type = self.SCAN_ATTACHMENTS
- 128:         
- 129:         # Check cache first if requested
- 130:         if use_cache and not force_refresh:
- 131:             cached_data = self.cache.load_scan(scan_type)
- 132:             if cached_data and self.cache.is_cache_valid(scan_type):
- 133:                 return {
- 134:                     'data': cached_data['data'],
- 135:                     'metadata': cached_data['metadata'],
- 136:                     'from_cache': True,
- 137:                     'cached_at': cached_data['cached_at']
- 138:                 }
- 139:         
- 140:         # Perform fresh scan
- 141:         return self._scan_emails_with_attachments()
- 142:     
- 143:     def _scan_emails_with_attachments(self) -> dict:
- 144:         """Perform a fresh scan for emails with attachments - one line per attachment"""
- 145:         
- 146:         start_time = datetime.now()
- 147:         email_attachments = []  # Changed from emails_with_attachments
- 148:         
- 149:         try:
- 150:             # Create a new Outlook instance for this thread
- 151:             import pythoncom
- 152:             pythoncom.CoInitialize()
- 153:             
- 154:             # Create fresh Outlook connection for this scan
- 155:             outlook_app = win32com.client.Dispatch("Outlook.Application")
- 156:             namespace = outlook_app.GetNamespace("MAPI")
- 157:             
- 158:             # Try to get the default inbox
- 159:             inbox = namespace.GetDefaultFolder(6)  # 6 = olFolderInbox
- 160:             messages = inbox.Items
- 161:             
- 162:             # Filter messages by date
- 163:             start_date = datetime.now() - timedelta(weeks=self.weeks_back)
- 164:             date_filter = f"[ReceivedTime] >= '{start_date.strftime('%m/%d/%Y %H:%M %p')}'"
- 165:             messages = messages.Restrict(date_filter)
+  96:     SCAN_ATTACHMENTS_SENT = "attachments_sent"
+  97:     SCAN_IMPORTANT = "important"
+  98:     SCAN_FLAGGED = "flagged"
+  99:     SCAN_UNREAD = "unread"
+ 100:     
+ 101:     def __init__(self, weeks_back: int = 2):
+ 102:         """Initialize the email manager"""
+ 103:         self.weeks_back = weeks_back
+ 104:         self.outlook = None
+ 105:         self.cache = EmailCache()
+ 106:         self._initialize_outlook()
+ 107:         
+ 108:         # Track if a scan is in progress
+ 109:         self.scan_in_progress = False
+ 110:         self.current_scan_thread = None
+ 111:     
+ 112:     def _initialize_outlook(self):
+ 113:         """Initialize Outlook connection"""
+ 114:         try:
+ 115:             self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+ 116:         except Exception as e:
+ 117:             print(f"Error initializing Outlook: {e}")
+ 118:             self.outlook = None
+ 119:     
+ 120:     def get_emails_with_attachments(self, use_cache: bool = True, 
+ 121:                                    force_refresh: bool = False,
+ 122:                                    email_type: str = 'received') -> dict:
+ 123:         """
+ 124:         Get emails with attachments, using cache if available
+ 125:         
+ 126:         Args:
+ 127:             use_cache: Whether to use cached data
+ 128:             force_refresh: Force a fresh scan
+ 129:             email_type: 'received' or 'sent'
+ 130:         
+ 131:         Returns:
+ 132:             Dictionary with 'data', 'metadata', and 'from_cache' keys
+ 133:         """
+ 134:         scan_type = self.SCAN_ATTACHMENTS if email_type == 'received' else self.SCAN_ATTACHMENTS_SENT
+ 135:         
+ 136:         # Check cache first if requested
+ 137:         if use_cache and not force_refresh:
+ 138:             cached_data = self.cache.load_scan(scan_type)
+ 139:             if cached_data and self.cache.is_cache_valid(scan_type):
+ 140:                 return {
+ 141:                     'data': cached_data['data'],
+ 142:                     'metadata': cached_data['metadata'],
+ 143:                     'from_cache': True,
+ 144:                     'cached_at': cached_data['cached_at']
+ 145:                 }
+ 146:         
+ 147:         # Perform fresh scan
+ 148:         if email_type == 'received':
+ 149:             return self._scan_emails_with_attachments()
+ 150:         else:
+ 151:             return self._scan_sent_emails_with_attachments()
+ 152:     
+ 153:     def _scan_sent_emails_with_attachments(self) -> dict:
+ 154:         """Scan sent emails for attachments"""
+ 155:         start_time = datetime.now()
+ 156:         email_attachments = []
+ 157:         
+ 158:         try:
+ 159:             # Create a new Outlook instance for this thread
+ 160:             import pythoncom
+ 161:             pythoncom.CoInitialize()
+ 162:             
+ 163:             # Create fresh Outlook connection for this scan
+ 164:             outlook_app = win32com.client.Dispatch("Outlook.Application")
+ 165:             namespace = outlook_app.GetNamespace("MAPI")
  166:             
- 167:             total_scanned = 0
- 168:             total_emails_with_attachments = 0
- 169:             
- 170:             for message in messages:
- 171:                 total_scanned += 1
- 172:                 try:
- 173:                     if message.Attachments.Count > 0:
- 174:                         total_emails_with_attachments += 1
- 175:                         
- 176:                         # Create one entry per attachment
- 177:                         for i in range(1, message.Attachments.Count + 1):
- 178:                             try:
- 179:                                 attachment = message.Attachments.Item(i)
- 180:                                 attachment_name = attachment.FileName
- 181:                                 
- 182:                                 # Get file extension
- 183:                                 if '.' in attachment_name:
- 184:                                     extension = attachment_name.rsplit('.', 1)[1].upper()
- 185:                                 else:
- 186:                                     extension = 'NONE'
- 187:                                 
- 188:                                 # Try to get size
- 189:                                 try:
- 190:                                     attachment_size = attachment.Size
- 191:                                 except:
- 192:                                     attachment_size = 0
- 193:                                 
- 194:                                 attachment_data = {
- 195:                                     'Date': message.ReceivedTime.strftime("%Y-%m-%d %H:%M"),
- 196:                                     'From': message.SenderName,
- 197:                                     'Subject': message.Subject,
- 198:                                     'AttachmentName': attachment_name,
- 199:                                     'Extension': extension,
- 200:                                     'Size': attachment_size,
- 201:                                     'SizeFormatted': self._format_size(attachment_size) if attachment_size > 0 else "Unknown",
- 202:                                     'EntryID': message.EntryID,
- 203:                                     'AttachmentIndex': i,  # Store which attachment this is
- 204:                                     'ReceivedTime': message.ReceivedTime.isoformat(),
- 205:                                 }
- 206:                                 email_attachments.append(attachment_data)
- 207:                                 
- 208:                             except Exception as e:
- 209:                                 print(f"Error processing attachment {i}: {e}")
- 210:                                 # Still add an entry for failed attachments
- 211:                                 attachment_data = {
- 212:                                     'Date': message.ReceivedTime.strftime("%Y-%m-%d %H:%M"),
- 213:                                     'From': message.SenderName,
- 214:                                     'Subject': message.Subject,
- 215:                                     'AttachmentName': "(Error reading attachment)",
- 216:                                     'Extension': 'ERROR',
- 217:                                     'Size': 0,
- 218:                                     'SizeFormatted': "Error",
- 219:                                     'EntryID': message.EntryID,
- 220:                                     'AttachmentIndex': i,
- 221:                                     'ReceivedTime': message.ReceivedTime.isoformat(),
- 222:                                 }
- 223:                                 email_attachments.append(attachment_data)
- 224:                                 
- 225:                 except Exception as e:
- 226:                     print(f"Error processing message: {e}")
- 227:                     continue
- 228:             
- 229:             # Sort by date, newest first
- 230:             email_attachments.sort(key=lambda x: x['ReceivedTime'], reverse=True)
- 231:             
- 232:             # Prepare metadata
- 233:             metadata = {
- 234:                 'scan_type': self.SCAN_ATTACHMENTS,
- 235:                 'weeks_back': self.weeks_back,
- 236:                 'start_date': start_date.isoformat(),
- 237:                 'end_date': datetime.now().isoformat(),
- 238:                 'total_scanned': total_scanned,
- 239:                 'total_emails_with_attachments': total_emails_with_attachments,
- 240:                 'total_attachment_lines': len(email_attachments),
- 241:                 'scan_duration': (datetime.now() - start_time).total_seconds()
- 242:             }
- 243:             
- 244:             # Save to cache
- 245:             self.cache.save_scan(self.SCAN_ATTACHMENTS, email_attachments, metadata)
- 246:             
- 247:             return {
- 248:                 'data': email_attachments,
- 249:                 'metadata': metadata,
- 250:                 'from_cache': False
- 251:             }
- 252:         
- 253:         except Exception as e:
- 254:             print(f"Error retrieving emails: {e}")
- 255:             return {'data': [], 'metadata': {}, 'from_cache': False}
- 256:             
- 257:         finally:
- 258:             # Uninitialize COM for this thread
- 259:             try:
- 260:                 pythoncom.CoUninitialize()
- 261:             except:
- 262:                 pass
- 263:  
- 264:     def open_attachment(self, entry_id: str, attachment_index: int):
- 265:         """Open a specific attachment from an email"""
- 266:         if not self.outlook:
- 267:             self._initialize_outlook()
- 268:             
- 269:         if not self.outlook:
- 270:             print("Cannot connect to Outlook")
- 271:             return
- 272:         
- 273:         try:
- 274:             import tempfile
- 275:             import os
- 276:             
- 277:             outlook_app = win32com.client.Dispatch("Outlook.Application")
- 278:             mail_item = outlook_app.Session.GetItemFromID(entry_id)
- 279:             
- 280:             if attachment_index <= mail_item.Attachments.Count:
- 281:                 attachment = mail_item.Attachments.Item(attachment_index)
- 282:                 
- 283:                 # Save attachment to temp directory
- 284:                 temp_dir = tempfile.gettempdir()
- 285:                 temp_path = os.path.join(temp_dir, attachment.FileName)
- 286:                 attachment.SaveAsFile(temp_path)
- 287:                 
- 288:                 # Open the file
- 289:                 os.startfile(temp_path)
- 290:             else:
- 291:                 print(f"Attachment index {attachment_index} not found")
- 292:                 
- 293:         except Exception as e:
- 294:             print(f"Error opening attachment: {e}")
- 295: 
- 296:     def refresh_recent_emails(self, hours_back: int = 24) -> dict:
- 297:         """
- 298:         Quick refresh to get only recent emails (last N hours)
- 299:         Updates the cache with new emails - one line per attachment
- 300:         """
- 301:         if not self.outlook:
- 302:             self._initialize_outlook()
- 303:             
- 304:         if not self.outlook:
- 305:             return {'data': [], 'metadata': {}, 'from_cache': False}
- 306:         
- 307:         # Load existing cache
- 308:         cached_data = self.cache.load_scan(self.SCAN_ATTACHMENTS)
- 309:         existing_attachments = cached_data['data'] if cached_data else []
- 310:         
- 311:         # Create a set of existing entries to avoid duplicates
- 312:         # Use EntryID + AttachmentIndex as unique key
- 313:         existing_keys = {
- 314:             f"{att['EntryID']}_{att.get('AttachmentIndex', 0)}" 
- 315:             for att in existing_attachments
- 316:         }
- 317:         
- 318:         # Scan only recent emails
- 319:         start_time = datetime.now()
- 320:         new_attachments = []
- 321:         
- 322:         try:
- 323:             inbox = self.outlook.GetDefaultFolder(6)
- 324:             messages = inbox.Items
- 325:             
- 326:             # Filter for very recent messages
- 327:             start_date = datetime.now() - timedelta(hours=hours_back)
- 328:             date_filter = f"[ReceivedTime] >= '{start_date.strftime('%m/%d/%Y %H:%M %p')}'"
- 329:             messages = messages.Restrict(date_filter)
- 330:             
- 331:             new_emails_count = 0
- 332:             
- 333:             for message in messages:
- 334:                 try:
- 335:                     if message.Attachments.Count > 0:
- 336:                         email_found = False
- 337:                         
- 338:                         # Process each attachment
- 339:                         for i in range(1, message.Attachments.Count + 1):
- 340:                             unique_key = f"{message.EntryID}_{i}"
- 341:                             
- 342:                             # Skip if already in cache
- 343:                             if unique_key in existing_keys:
- 344:                                 continue
- 345:                             
- 346:                             email_found = True
- 347:                             
- 348:                             try:
- 349:                                 attachment = message.Attachments.Item(i)
- 350:                                 attachment_name = attachment.FileName
- 351:                                 
- 352:                                 # Get file extension
- 353:                                 if '.' in attachment_name:
- 354:                                     extension = attachment_name.rsplit('.', 1)[1].upper()
- 355:                                 else:
- 356:                                     extension = 'NONE'
- 357:                                 
- 358:                                 # Try to get size
- 359:                                 try:
- 360:                                     attachment_size = attachment.Size
- 361:                                 except:
- 362:                                     attachment_size = 0
- 363:                                 
- 364:                                 attachment_data = {
- 365:                                     'Date': message.ReceivedTime.strftime("%Y-%m-%d %H:%M"),
- 366:                                     'From': message.SenderName,
- 367:                                     'Subject': message.Subject,
- 368:                                     'AttachmentName': attachment_name,
- 369:                                     'Extension': extension,
- 370:                                     'Size': attachment_size,
- 371:                                     'SizeFormatted': self._format_size(attachment_size) if attachment_size > 0 else "Unknown",
- 372:                                     'EntryID': message.EntryID,
- 373:                                     'AttachmentIndex': i,
- 374:                                     'ReceivedTime': message.ReceivedTime.isoformat(),
- 375:                                 }
- 376:                                 new_attachments.append(attachment_data)
- 377:                                 
- 378:                             except Exception as e:
- 379:                                 print(f"Error processing attachment: {e}")
- 380:                         
- 381:                         if email_found:
- 382:                             new_emails_count += 1
- 383:                             
- 384:                 except Exception as e:
- 385:                     print(f"Error processing new message: {e}")
- 386:                     continue
- 387:             
- 388:             # Merge with existing attachments
- 389:             all_attachments = new_attachments + existing_attachments
- 390:             all_attachments.sort(key=lambda x: x['ReceivedTime'], reverse=True)
- 391:             
- 392:             # Update metadata
- 393:             metadata = cached_data['metadata'] if cached_data else {}
- 394:             metadata['last_refresh'] = datetime.now().isoformat()
- 395:             metadata['new_emails_found'] = new_emails_count
- 396:             metadata['new_attachments_found'] = len(new_attachments)
- 397:             metadata['total_attachment_lines'] = len(all_attachments)
- 398:             
- 399:             # Save updated cache
- 400:             self.cache.save_scan(self.SCAN_ATTACHMENTS, all_attachments, metadata)
- 401:             
- 402:             return {
- 403:                 'data': all_attachments,
- 404:                 'metadata': metadata,
- 405:                 'from_cache': False,
- 406:                 'new_attachments': len(new_attachments)
- 407:             }
+ 167:             # Get the Sent Items folder (5 = olFolderSentMail)
+ 168:             sent_folder = namespace.GetDefaultFolder(5)
+ 169:             messages = sent_folder.Items
+ 170:             
+ 171:             # Filter messages by date
+ 172:             start_date = datetime.now() - timedelta(weeks=self.weeks_back)
+ 173:             date_filter = f"[SentOn] >= '{start_date.strftime('%m/%d/%Y %H:%M %p')}'"
+ 174:             messages = messages.Restrict(date_filter)
+ 175:             
+ 176:             total_scanned = 0
+ 177:             total_emails_with_attachments = 0
+ 178:             
+ 179:             for message in messages:
+ 180:                 total_scanned += 1
+ 181:                 try:
+ 182:                     if message.Attachments.Count > 0:
+ 183:                         total_emails_with_attachments += 1
+ 184:                         
+ 185:                         # Get recipients
+ 186:                         recipients = []
+ 187:                         for i in range(1, message.Recipients.Count + 1):
+ 188:                             try:
+ 189:                                 recipient = message.Recipients.Item(i)
+ 190:                                 recipients.append(recipient.Name)
+ 191:                             except:
+ 192:                                 pass
+ 193:                         to_string = "; ".join(recipients) if recipients else "Unknown"
+ 194:                         
+ 195:                         # Create one entry per attachment
+ 196:                         for i in range(1, message.Attachments.Count + 1):
+ 197:                             try:
+ 198:                                 attachment = message.Attachments.Item(i)
+ 199:                                 attachment_name = attachment.FileName
+ 200:                                 
+ 201:                                 # Get file extension
+ 202:                                 if '.' in attachment_name:
+ 203:                                     extension = attachment_name.rsplit('.', 1)[1].upper()
+ 204:                                 else:
+ 205:                                     extension = 'NONE'
+ 206:                                 
+ 207:                                 # Try to get size
+ 208:                                 try:
+ 209:                                     attachment_size = attachment.Size
+ 210:                                 except:
+ 211:                                     attachment_size = 0
+ 212:                                 
+ 213:                                 attachment_data = {
+ 214:                                     'Date': message.SentOn.strftime("%Y-%m-%d %H:%M"),
+ 215:                                     'To': to_string,  # Changed from 'From' to 'To'
+ 216:                                     'Subject': message.Subject,
+ 217:                                     'AttachmentName': attachment_name,
+ 218:                                     'Extension': extension,
+ 219:                                     'Size': attachment_size,
+ 220:                                     'SizeFormatted': self._format_size(attachment_size) if attachment_size > 0 else "Unknown",
+ 221:                                     'EntryID': message.EntryID,
+ 222:                                     'AttachmentIndex': i,
+ 223:                                     'SentOn': message.SentOn.isoformat(),
+ 224:                                 }
+ 225:                                 email_attachments.append(attachment_data)
+ 226:                                 
+ 227:                             except Exception as e:
+ 228:                                 print(f"Error processing attachment {i}: {e}")
+ 229:                                 # Still add an entry for failed attachments
+ 230:                                 attachment_data = {
+ 231:                                     'Date': message.SentOn.strftime("%Y-%m-%d %H:%M"),
+ 232:                                     'To': to_string,
+ 233:                                     'Subject': message.Subject,
+ 234:                                     'AttachmentName': "(Error reading attachment)",
+ 235:                                     'Extension': 'ERROR',
+ 236:                                     'Size': 0,
+ 237:                                     'SizeFormatted': "Error",
+ 238:                                     'EntryID': message.EntryID,
+ 239:                                     'AttachmentIndex': i,
+ 240:                                     'SentOn': message.SentOn.isoformat(),
+ 241:                                 }
+ 242:                                 email_attachments.append(attachment_data)
+ 243:                                 
+ 244:                 except Exception as e:
+ 245:                     print(f"Error processing message: {e}")
+ 246:                     continue
+ 247:             
+ 248:             # Sort by date, newest first
+ 249:             email_attachments.sort(key=lambda x: x['SentOn'], reverse=True)
+ 250:             
+ 251:             # Prepare metadata
+ 252:             metadata = {
+ 253:                 'scan_type': self.SCAN_ATTACHMENTS_SENT,
+ 254:                 'weeks_back': self.weeks_back,
+ 255:                 'start_date': start_date.isoformat(),
+ 256:                 'end_date': datetime.now().isoformat(),
+ 257:                 'total_scanned': total_scanned,
+ 258:                 'total_emails_with_attachments': total_emails_with_attachments,
+ 259:                 'total_attachment_lines': len(email_attachments),
+ 260:                 'scan_duration': (datetime.now() - start_time).total_seconds()
+ 261:             }
+ 262:             
+ 263:             # Save to cache
+ 264:             self.cache.save_scan(self.SCAN_ATTACHMENTS_SENT, email_attachments, metadata)
+ 265:             
+ 266:             return {
+ 267:                 'data': email_attachments,
+ 268:                 'metadata': metadata,
+ 269:                 'from_cache': False
+ 270:             }
+ 271:         
+ 272:         except Exception as e:
+ 273:             print(f"Error retrieving sent emails: {e}")
+ 274:             return {'data': [], 'metadata': {}, 'from_cache': False}
+ 275:             
+ 276:         finally:
+ 277:             # Uninitialize COM for this thread
+ 278:             try:
+ 279:                 pythoncom.CoUninitialize()
+ 280:             except:
+ 281:                 pass
+ 282:     
+ 283:     def _scan_emails_with_attachments(self) -> dict:
+ 284:         """Perform a fresh scan for emails with attachments - one line per attachment"""
+ 285:         
+ 286:         start_time = datetime.now()
+ 287:         email_attachments = []
+ 288:         
+ 289:         try:
+ 290:             # Create a new Outlook instance for this thread
+ 291:             import pythoncom
+ 292:             pythoncom.CoInitialize()
+ 293:             
+ 294:             # Create fresh Outlook connection for this scan
+ 295:             outlook_app = win32com.client.Dispatch("Outlook.Application")
+ 296:             namespace = outlook_app.GetNamespace("MAPI")
+ 297:             
+ 298:             # Try to get the default inbox
+ 299:             inbox = namespace.GetDefaultFolder(6)  # 6 = olFolderInbox
+ 300:             messages = inbox.Items
+ 301:             
+ 302:             # Filter messages by date
+ 303:             start_date = datetime.now() - timedelta(weeks=self.weeks_back)
+ 304:             date_filter = f"[ReceivedTime] >= '{start_date.strftime('%m/%d/%Y %H:%M %p')}'"
+ 305:             messages = messages.Restrict(date_filter)
+ 306:             
+ 307:             total_scanned = 0
+ 308:             total_emails_with_attachments = 0
+ 309:             
+ 310:             for message in messages:
+ 311:                 total_scanned += 1
+ 312:                 try:
+ 313:                     if message.Attachments.Count > 0:
+ 314:                         total_emails_with_attachments += 1
+ 315:                         
+ 316:                         # Create one entry per attachment
+ 317:                         for i in range(1, message.Attachments.Count + 1):
+ 318:                             try:
+ 319:                                 attachment = message.Attachments.Item(i)
+ 320:                                 attachment_name = attachment.FileName
+ 321:                                 
+ 322:                                 # Get file extension
+ 323:                                 if '.' in attachment_name:
+ 324:                                     extension = attachment_name.rsplit('.', 1)[1].upper()
+ 325:                                 else:
+ 326:                                     extension = 'NONE'
+ 327:                                 
+ 328:                                 # Try to get size
+ 329:                                 try:
+ 330:                                     attachment_size = attachment.Size
+ 331:                                 except:
+ 332:                                     attachment_size = 0
+ 333:                                 
+ 334:                                 attachment_data = {
+ 335:                                     'Date': message.ReceivedTime.strftime("%Y-%m-%d %H:%M"),
+ 336:                                     'From': message.SenderName,
+ 337:                                     'Subject': message.Subject,
+ 338:                                     'AttachmentName': attachment_name,
+ 339:                                     'Extension': extension,
+ 340:                                     'Size': attachment_size,
+ 341:                                     'SizeFormatted': self._format_size(attachment_size) if attachment_size > 0 else "Unknown",
+ 342:                                     'EntryID': message.EntryID,
+ 343:                                     'AttachmentIndex': i,
+ 344:                                     'ReceivedTime': message.ReceivedTime.isoformat(),
+ 345:                                 }
+ 346:                                 email_attachments.append(attachment_data)
+ 347:                                 
+ 348:                             except Exception as e:
+ 349:                                 print(f"Error processing attachment {i}: {e}")
+ 350:                                 # Still add an entry for failed attachments
+ 351:                                 attachment_data = {
+ 352:                                     'Date': message.ReceivedTime.strftime("%Y-%m-%d %H:%M"),
+ 353:                                     'From': message.SenderName,
+ 354:                                     'Subject': message.Subject,
+ 355:                                     'AttachmentName': "(Error reading attachment)",
+ 356:                                     'Extension': 'ERROR',
+ 357:                                     'Size': 0,
+ 358:                                     'SizeFormatted': "Error",
+ 359:                                     'EntryID': message.EntryID,
+ 360:                                     'AttachmentIndex': i,
+ 361:                                     'ReceivedTime': message.ReceivedTime.isoformat(),
+ 362:                                 }
+ 363:                                 email_attachments.append(attachment_data)
+ 364:                                 
+ 365:                 except Exception as e:
+ 366:                     print(f"Error processing message: {e}")
+ 367:                     continue
+ 368:             
+ 369:             # Sort by date, newest first
+ 370:             email_attachments.sort(key=lambda x: x['ReceivedTime'], reverse=True)
+ 371:             
+ 372:             # Prepare metadata
+ 373:             metadata = {
+ 374:                 'scan_type': self.SCAN_ATTACHMENTS,
+ 375:                 'weeks_back': self.weeks_back,
+ 376:                 'start_date': start_date.isoformat(),
+ 377:                 'end_date': datetime.now().isoformat(),
+ 378:                 'total_scanned': total_scanned,
+ 379:                 'total_emails_with_attachments': total_emails_with_attachments,
+ 380:                 'total_attachment_lines': len(email_attachments),
+ 381:                 'scan_duration': (datetime.now() - start_time).total_seconds()
+ 382:             }
+ 383:             
+ 384:             # Save to cache
+ 385:             self.cache.save_scan(self.SCAN_ATTACHMENTS, email_attachments, metadata)
+ 386:             
+ 387:             return {
+ 388:                 'data': email_attachments,
+ 389:                 'metadata': metadata,
+ 390:                 'from_cache': False
+ 391:             }
+ 392:         
+ 393:         except Exception as e:
+ 394:             print(f"Error retrieving emails: {e}")
+ 395:             return {'data': [], 'metadata': {}, 'from_cache': False}
+ 396:             
+ 397:         finally:
+ 398:             # Uninitialize COM for this thread
+ 399:             try:
+ 400:                 pythoncom.CoUninitialize()
+ 401:             except:
+ 402:                 pass
+ 403:     
+ 404:     def open_attachment(self, entry_id: str, attachment_index: int):
+ 405:         """Open a specific attachment from an email"""
+ 406:         if not self.outlook:
+ 407:             self._initialize_outlook()
  408:             
- 409:         except Exception as e:
- 410:             print(f"Error refreshing emails: {e}")
- 411:             return {'data': existing_attachments, 'metadata': {}, 'from_cache': True}
- 412: 
- 413:     def _format_size(self, size_bytes: int) -> str:
- 414:         """Format file size in human readable format"""
- 415:         if size_bytes == 0:
- 416:             return "0 B"
- 417:         
- 418:         size_names = ["B", "KB", "MB", "GB"]
- 419:         i = 0
- 420:         size = float(size_bytes)
- 421:         
- 422:         while size >= 1024.0 and i < len(size_names) - 1:
- 423:             size /= 1024.0
- 424:             i += 1
- 425:         
- 426:         if i == 0:
- 427:             return f"{int(size)} {size_names[i]}"
- 428:         else:
- 429:             return f"{size:.1f} {size_names[i]}"
- 430:     
- 431:     def open_email(self, entry_id: str):
- 432:         """Open a specific email in Outlook"""
- 433:         if not self.outlook:
- 434:             return
- 435:         
- 436:         try:
- 437:             outlook_app = win32com.client.Dispatch("Outlook.Application")
- 438:             mail_item = outlook_app.Session.GetItemFromID(entry_id)
- 439:             mail_item.Display()
- 440:         except Exception as e:
- 441:             print(f"Error opening email: {e}")
- 442:     
- 443:     def clear_cache(self, scan_type: str | None = None):
- 444:         """Clear email cache"""
- 445:         self.cache.clear_cache(scan_type)
- 446:     
- 447:     def get_cache_info(self, scan_type: str) -> dict | None:
- 448:         """Get information about cached data"""
- 449:         cached_data = self.cache.load_scan(scan_type)
- 450:         if not cached_data:
- 451:             return None
- 452:         
- 453:         return {
- 454:             'cached_at': cached_data['cached_at'],
- 455:             'item_count': len(cached_data['data']),
- 456:             'metadata': cached_data['metadata']
- 457:         }
- 458: 
- 459: 
- 460: 
+ 409:         if not self.outlook:
+ 410:             print("Cannot connect to Outlook")
+ 411:             return
+ 412:         
+ 413:         try:
+ 414:             import tempfile
+ 415:             import os
+ 416:             
+ 417:             outlook_app = win32com.client.Dispatch("Outlook.Application")
+ 418:             mail_item = outlook_app.Session.GetItemFromID(entry_id)
+ 419:             
+ 420:             if attachment_index <= mail_item.Attachments.Count:
+ 421:                 attachment = mail_item.Attachments.Item(attachment_index)
+ 422:                 
+ 423:                 # Save attachment to temp directory
+ 424:                 temp_dir = tempfile.gettempdir()
+ 425:                 temp_path = os.path.join(temp_dir, attachment.FileName)
+ 426:                 attachment.SaveAsFile(temp_path)
+ 427:                 
+ 428:                 # Open the file
+ 429:                 os.startfile(temp_path)
+ 430:             else:
+ 431:                 print(f"Attachment index {attachment_index} not found")
+ 432:                 
+ 433:         except Exception as e:
+ 434:             print(f"Error opening attachment: {e}")
+ 435:     
+ 436:     def _format_size(self, size_bytes: int) -> str:
+ 437:         """Format file size in human readable format"""
+ 438:         if size_bytes == 0:
+ 439:             return "0 B"
+ 440:         
+ 441:         size_names = ["B", "KB", "MB", "GB"]
+ 442:         i = 0
+ 443:         size = float(size_bytes)
+ 444:         
+ 445:         while size >= 1024.0 and i < len(size_names) - 1:
+ 446:             size /= 1024.0
+ 447:             i += 1
+ 448:         
+ 449:         if i == 0:
+ 450:             return f"{int(size)} {size_names[i]}"
+ 451:         else:
+ 452:             return f"{size:.1f} {size_names[i]}"
+ 453:     
+ 454:     def open_email(self, entry_id: str):
+ 455:         """Open a specific email in Outlook"""
+ 456:         if not self.outlook:
+ 457:             return
+ 458:         
+ 459:         try:
+ 460:             outlook_app = win32com.client.Dispatch("Outlook.Application")
+ 461:             mail_item = outlook_app.Session.GetItemFromID(entry_id)
+ 462:             mail_item.Display()
+ 463:         except Exception as e:
+ 464:             print(f"Error opening email: {e}")
+ 465:     
+ 466:     def clear_cache(self, scan_type: str | None = None):
+ 467:         """Clear email cache"""
+ 468:         self.cache.clear_cache(scan_type)
+ 469:     
+ 470:     def get_cache_info(self, scan_type: str) -> dict | None:
+ 471:         """Get information about cached data"""
+ 472:         cached_data = self.cache.load_scan(scan_type)
+ 473:         if not cached_data:
+ 474:             return None
+ 475:         
+ 476:         return {
+ 477:             'cached_at': cached_data['cached_at'],
+ 478:             'item_count': len(cached_data['data']),
+ 479:             'metadata': cached_data['metadata']
+ 480:         }
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: email_menu.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: email_menu.py
-Size: 13.6 KB
-Lines: 322 total, 267 non-empty
-Characters: 13,636
+Size: 15.0 KB
+Lines: 348 total, 292 non-empty
+Characters: 14,985
 Type: .PY file
 ────────────────────────────────────────────────────────────────────────────────
 
    1: # email_menu.py
    2: """
-   3: Enhanced email attachments menu with caching and refresh capabilities
+   3: Updated email attachments menu with support for both received and sent emails
    4: """
    5: 
    6: import tkinter as tk
@@ -944,7 +964,7 @@ Type: .PY file
   11: import threading
   12: 
   13: class EmailAttachmentsMenu:
-  14:     """Enhanced email attachments menu with caching"""
+  14:     """Enhanced email attachments menu with caching and support for sent/received"""
   15:     
   16:     def __init__(self, parent_window):
   17:         """Initialize the email attachments menu"""
@@ -953,306 +973,516 @@ Type: .PY file
   20:         self.inventory_window = None
   21:         self.loading_dialog = None
   22:     
-  23:     def show_email_attachments(self, force_refresh: bool = False):
-  24:         """Display the email attachments in an inventory view window"""
-  25:         # Check if we need to do a fresh scan
-  26:         cache_exists = self.email_manager.get_cache_info(EmailManager.SCAN_ATTACHMENTS) is not None
-  27:         needs_fresh_scan = force_refresh or not cache_exists or not self.email_manager.cache.is_cache_valid(EmailManager.SCAN_ATTACHMENTS)
-  28:         
-  29:         if needs_fresh_scan:
-  30:             # Show loading indicator and scan in background
-  31:             self.show_loading_dialog()
-  32:             
-  33:             scan_thread = threading.Thread(
-  34:                 target=self._perform_scan,
-  35:                 args=(),  # No args needed
-  36:                 daemon=True
-  37:             )
-  38:             scan_thread.start()
-  39:         else:
-  40:             # Use cached data directly
-  41:             result = self.email_manager.get_emails_with_attachments(use_cache=True, force_refresh=False)
-  42:             self._display_emails_from_result(result)
-  43:     
-  44:     def _perform_scan(self):
-  45:         """Perform email scan in background thread - always fresh"""
-  46:         result = self.email_manager.get_emails_with_attachments(
-  47:             use_cache=False,
-  48:             force_refresh=True
-  49:         )
-  50:         
-  51:         if self.loading_dialog:
-  52:             self.loading_dialog.after(0, lambda: self._scan_complete(result))
-  53:     
-  54:     def _scan_complete(self, result: dict):
-  55:         """Handle scan completion"""
-  56:         # Close loading dialog
-  57:         if self.loading_dialog:
-  58:             self.loading_dialog.destroy()
-  59:             self.loading_dialog = None
-  60:         
-  61:         # Display results
-  62:         self._display_emails_from_result(result)
-  63:     
-  64:     def _display_emails(self, force_refresh: bool = False):
-  65:         """Display emails (from cache or fresh scan)"""
-  66:         result = self.email_manager.get_emails_with_attachments(
-  67:             use_cache=not force_refresh,
-  68:             force_refresh=force_refresh
-  69:         )
-  70:         self._display_emails_from_result(result)
-  71:     
-  72:     def _display_emails_from_result(self, result: dict):
-  73:         """Display emails from scan result"""
-  74:         attachments = result['data']
-  75:         metadata = result.get('metadata', {})
-  76:         from_cache = result.get('from_cache', False)
-  77:         
-  78:         if not attachments:
-  79:             self._show_no_emails_message()
-  80:             return
+  23:     def show_email_attachments(self, force_refresh: bool = False, email_type: str = 'received'):
+  24:         """
+  25:         Display the email attachments in an inventory view window
+  26:         
+  27:         Args:
+  28:             force_refresh: Force a fresh scan
+  29:             email_type: 'received' or 'sent'
+  30:         """
+  31:         # Check if we need to do a fresh scan
+  32:         scan_type = EmailManager.SCAN_ATTACHMENTS if email_type == 'received' else EmailManager.SCAN_ATTACHMENTS_SENT
+  33:         cache_exists = self.email_manager.get_cache_info(scan_type) is not None
+  34:         needs_fresh_scan = force_refresh or not cache_exists or not self.email_manager.cache.is_cache_valid(scan_type)
+  35:         
+  36:         if needs_fresh_scan:
+  37:             # Show loading indicator and scan in background
+  38:             self.show_loading_dialog(email_type)
+  39:             
+  40:             scan_thread = threading.Thread(
+  41:                 target=self._perform_scan,
+  42:                 args=(email_type,),
+  43:                 daemon=True
+  44:             )
+  45:             scan_thread.start()
+  46:         else:
+  47:             # Use cached data directly
+  48:             result = self.email_manager.get_emails_with_attachments(
+  49:                 use_cache=True, 
+  50:                 force_refresh=False,
+  51:                 email_type=email_type
+  52:             )
+  53:             self._display_emails_from_result(result, email_type)
+  54:     
+  55:     def _perform_scan(self, email_type: str):
+  56:         """Perform email scan in background thread"""
+  57:         result = self.email_manager.get_emails_with_attachments(
+  58:             use_cache=False,
+  59:             force_refresh=True,
+  60:             email_type=email_type
+  61:         )
+  62:         
+  63:         if self.loading_dialog:
+  64:             self.loading_dialog.after(0, lambda: self._scan_complete(result, email_type))
+  65:     
+  66:     def _scan_complete(self, result: dict, email_type: str):
+  67:         """Handle scan completion"""
+  68:         # Close loading dialog
+  69:         if self.loading_dialog:
+  70:             self.loading_dialog.destroy()
+  71:             self.loading_dialog = None
+  72:         
+  73:         # Display results
+  74:         self._display_emails_from_result(result, email_type)
+  75:     
+  76:     def _display_emails_from_result(self, result: dict, email_type: str):
+  77:         """Display emails from scan result"""
+  78:         attachments = result['data']
+  79:         metadata = result.get('metadata', {})
+  80:         from_cache = result.get('from_cache', False)
   81:         
-  82:         # Prepare additional info
-  83:         additional_info = {
-  84:             'Period': f"Last {metadata.get('weeks_back', 2)} weeks",
-  85:             'Total Emails': metadata.get('total_emails_with_attachments', 'Unknown'),
-  86:             'Total Attachments': len(attachments),
-  87:             'Source': 'Cached' if from_cache else 'Fresh Scan'
-  88:         }
-  89:         
-  90:         if from_cache and 'cached_at' in result:
-  91:             cached_time = result['cached_at'].strftime('%Y-%m-%d %H:%M')
-  92:             additional_info['Cached At'] = cached_time
-  93:         
-  94:         if 'scan_duration' in metadata and not from_cache:
-  95:             additional_info['Scan Time'] = f"{metadata['scan_duration']:.1f}s"
-  96:         
-  97:         # Configure the inventory view window
-  98:         window_config = {
-  99:             'title': 'Email Attachments',
- 100:             'columns': [
- 101:                 {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
- 102:                 {'key': 'From', 'header': 'From', 'width': 180, 'type': 'text'},
- 103:                 {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
- 104:                 {'key': 'Attachment', 'header': 'Attachment', 'width': 250, 'type': 'text'},
- 105:                 {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
- 106:                 {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
- 107:             ],
- 108:             'on_item_click': self._handle_item_click,  # New: single click handler
- 109:             'on_item_double_click': self._open_email,  # Keep for backward compatibility
- 110:             'show_stats': True,
- 111:             'allow_export': True,
- 112:             'window_width': 1200,
- 113:             'window_height': 600,
- 114:             'additional_info': additional_info
- 115:         }
- 116:         
- 117:         # Create custom inventory window with refresh button
- 118:         self.inventory_window = EmailInventoryWindow(
- 119:             self.parent, 
- 120:             attachments, 
- 121:             window_config,
- 122:             self.refresh_emails,
- 123:             self.full_refresh_emails
- 124:         )
- 125:     
- 126:     def _handle_item_click(self, item: dict, column_key: str = None):
- 127:         """Handle clicks on specific columns"""
- 128:         if not column_key:
- 129:             return
- 130:             
- 131:         if column_key == 'Subject':
- 132:             # Open the email
- 133:             self._open_email(item)
- 134:         elif column_key == 'Attachment':
- 135:             # Open the attachment
- 136:             self._open_attachment(item)
- 137:     
- 138:     def _open_attachment(self, attachment_data: dict):
- 139:         """Handle click on attachment to open it"""
- 140:         if 'EntryID' in attachment_data and 'AttachmentIndex' in attachment_data:
- 141:             self.email_manager.open_attachment(
- 142:                 attachment_data['EntryID'], 
- 143:                 attachment_data['AttachmentIndex']
- 144:             )
- 145: 
- 146:     def refresh_emails(self):
- 147:         """Quick refresh - check for new emails only"""
- 148:         if self.inventory_window and hasattr(self.inventory_window, 'show_refreshing'):
- 149:             self.inventory_window.show_refreshing()
- 150:         
- 151:         # Run in background
- 152:         thread = threading.Thread(
- 153:             target=self._perform_quick_refresh,
- 154:             daemon=True
- 155:         )
- 156:         thread.start()
- 157:     
- 158:     def _perform_quick_refresh(self):
- 159:         """Perform quick refresh in background"""
- 160:         result = self.email_manager.refresh_recent_emails(hours_back=24)
- 161:         
- 162:         if self.inventory_window:
- 163:             self.inventory_window.after(0, lambda: self._update_inventory(result))
- 164:     
- 165:     def full_refresh_emails(self):
- 166:         """Full refresh - rescan all emails"""
- 167:         if self.inventory_window:
- 168:             self.inventory_window.destroy()
- 169:         self.show_email_attachments(force_refresh=True)
- 170:     
- 171:     def _update_inventory(self, result: dict):
- 172:         """Update inventory window with new data"""
- 173:         if self.inventory_window and self.inventory_window.winfo_exists():
- 174:             # Update the data
- 175:             self.inventory_window.original_data = result['data']
- 176:             self.inventory_window.filtered_data = result['data']
- 177:             self.inventory_window.populate_grid()
- 178:             self.inventory_window.update_stats()
- 179:             
- 180:             # Update additional info
- 181:             new_emails = result.get('new_emails', 0)
- 182:             if new_emails > 0:
- 183:                 self.inventory_window.show_refresh_complete(f"Found {new_emails} new email(s)")
- 184:             else:
- 185:                 self.inventory_window.show_refresh_complete("No new emails found")
- 186:     
- 187:     def _open_email(self, email_data: dict):
- 188:         """Handle double-click on email item to open it"""
- 189:         if 'EntryID' in email_data:
- 190:             self.email_manager.open_email(email_data['EntryID'])
+  82:         if not attachments:
+  83:             self._show_no_emails_message(email_type)
+  84:             return
+  85:         
+  86:         # Prepare additional info
+  87:         additional_info = {
+  88:             'Period': f"Last {metadata.get('weeks_back', 2)} weeks",
+  89:             'Total Emails': metadata.get('total_emails_with_attachments', 'Unknown'),
+  90:             'Total Attachments': len(attachments),
+  91:             'Source': 'Cached' if from_cache else 'Fresh Scan',
+  92:             'Type': 'Sent' if email_type == 'sent' else 'Received'
+  93:         }
+  94:         
+  95:         if from_cache and 'cached_at' in result:
+  96:             cached_time = result['cached_at'].strftime('%Y-%m-%d %H:%M')
+  97:             additional_info['Cached At'] = cached_time
+  98:         
+  99:         if 'scan_duration' in metadata and not from_cache:
+ 100:             additional_info['Scan Time'] = f"{metadata['scan_duration']:.1f}s"
+ 101:         
+ 102:         # Configure columns based on email type
+ 103:         if email_type == 'sent':
+ 104:             columns = [
+ 105:                 {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
+ 106:                 {'key': 'To', 'header': 'To', 'width': 180, 'type': 'text'},
+ 107:                 {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
+ 108:                 {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
+ 109:                 {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
+ 110:                 {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
+ 111:             ]
+ 112:             title = 'Sent Email Attachments'
+ 113:         else:
+ 114:             columns = [
+ 115:                 {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
+ 116:                 {'key': 'From', 'header': 'From', 'width': 180, 'type': 'text'},
+ 117:                 {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
+ 118:                 {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
+ 119:                 {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
+ 120:                 {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
+ 121:             ]
+ 122:             title = 'Received Email Attachments'
+ 123:         
+ 124:         # Configure the inventory view window
+ 125:         window_config = {
+ 126:             'title': title,
+ 127:             'columns': columns,
+ 128:             'on_item_click': self._handle_item_click,
+ 129:             'on_item_double_click': self._open_email,
+ 130:             'show_stats': True,
+ 131:             'allow_export': True,
+ 132:             'window_width': 1200,
+ 133:             'window_height': 600,
+ 134:             'additional_info': additional_info
+ 135:         }
+ 136:         
+ 137:         # Create custom inventory window with refresh button
+ 138:         self.inventory_window = EmailInventoryWindow(
+ 139:             self.parent, 
+ 140:             attachments, 
+ 141:             window_config,
+ 142:             lambda: self.refresh_emails(email_type),
+ 143:             lambda: self.full_refresh_emails(email_type),
+ 144:             email_type
+ 145:         )
+ 146:     
+ 147:     def _handle_item_click(self, item: dict, column_key: str = None):
+ 148:         """Handle clicks on specific columns"""
+ 149:         if not column_key:
+ 150:             return
+ 151:             
+ 152:         if column_key == 'Subject':
+ 153:             # Open the email
+ 154:             self._open_email(item)
+ 155:         elif column_key == 'AttachmentName':
+ 156:             # Open the attachment
+ 157:             self._open_attachment(item)
+ 158:     
+ 159:     def _open_attachment(self, attachment_data: dict):
+ 160:         """Handle click on attachment to open it"""
+ 161:         if 'EntryID' in attachment_data and 'AttachmentIndex' in attachment_data:
+ 162:             self.email_manager.open_attachment(
+ 163:                 attachment_data['EntryID'], 
+ 164:                 attachment_data['AttachmentIndex']
+ 165:             )
+ 166: 
+ 167:     def refresh_emails(self, email_type: str):
+ 168:         """Quick refresh - check for new emails only"""
+ 169:         if self.inventory_window and hasattr(self.inventory_window, 'show_refreshing'):
+ 170:             self.inventory_window.show_refreshing()
+ 171:         
+ 172:         # For now, just do a full refresh
+ 173:         # Could be optimized later to only check recent emails
+ 174:         thread = threading.Thread(
+ 175:             target=self._perform_quick_refresh,
+ 176:             args=(email_type,),
+ 177:             daemon=True
+ 178:         )
+ 179:         thread.start()
+ 180:     
+ 181:     def _perform_quick_refresh(self, email_type: str):
+ 182:         """Perform quick refresh in background"""
+ 183:         result = self.email_manager.get_emails_with_attachments(
+ 184:             use_cache=False,
+ 185:             force_refresh=True,
+ 186:             email_type=email_type
+ 187:         )
+ 188:         
+ 189:         if self.inventory_window:
+ 190:             self.inventory_window.after(0, lambda: self._update_inventory(result))
  191:     
- 192:     def _show_no_emails_message(self):
- 193:         """Show a message when no emails with attachments are found"""
- 194:         WarningDialog.show(
- 195:             self.parent,
- 196:             "No Emails Found",
- 197:             f"No emails with attachments found in the last {self.email_manager.weeks_back} weeks."
- 198:         )
- 199:     
- 200:     def show_loading_dialog(self):
- 201:         """Show loading dialog during email scan"""
- 202:         self.loading_dialog = LoadingDialog(self.parent, "Scanning emails...")
- 203: 
- 204: 
- 205: class EmailInventoryWindow(InventoryViewWindow):
- 206:     """Extended inventory window with refresh capabilities"""
- 207:     
- 208:     def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback):
- 209:         self.quick_refresh_callback = quick_refresh_callback
- 210:         self.full_refresh_callback = full_refresh_callback
- 211:         super().__init__(parent, data, config)
- 212:     
- 213:     def create_footer(self):
- 214:         """Override to add refresh buttons"""
- 215:         footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
- 216:         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
- 217:         footer_frame.pack_propagate(False)
- 218:         
- 219:         # Left side - filter status and refresh status
- 220:         left_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
- 221:         left_frame.pack(side=tk.LEFT, fill=tk.Y)
- 222:         
- 223:         self.filter_status_label = tk.Label(left_frame, text="No filters applied", 
- 224:                                            bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 225:                                            font=Fonts.MENU_ITEM)
- 226:         self.filter_status_label.pack(side=tk.LEFT, padx=10, pady=5)
- 227:         
- 228:         # Refresh status label
- 229:         self.refresh_status_label = tk.Label(left_frame, text="", 
- 230:                                            bg=Colors.DARK_GREEN, fg=Colors.LIGHT_GREEN,
- 231:                                            font=Fonts.MENU_ITEM)
- 232:         self.refresh_status_label.pack(side=tk.LEFT, padx=10, pady=5)
- 233:         
- 234:         # Right side - action buttons
- 235:         button_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
- 236:         button_frame.pack(side=tk.RIGHT, fill=tk.Y)
- 237:         
- 238:         # Quick Refresh button
- 239:         quick_refresh_btn = tk.Button(button_frame, text="↻ Quick Refresh", 
- 240:                                      bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 241:                                      relief=tk.RAISED, bd=1, cursor='hand2',
- 242:                                      font=Fonts.MENU_ITEM, padx=10,
- 243:                                      command=self.quick_refresh_callback)
- 244:         quick_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 245:         
- 246:         # Full Refresh button
- 247:         full_refresh_btn = tk.Button(button_frame, text="⟳ Full Refresh", 
- 248:                                     bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 249:                                     relief=tk.RAISED, bd=1, cursor='hand2',
- 250:                                     font=Fonts.MENU_ITEM, padx=10,
- 251:                                     command=self.full_refresh_callback)
- 252:         full_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 192:     def full_refresh_emails(self, email_type: str):
+ 193:         """Full refresh - rescan all emails"""
+ 194:         if self.inventory_window:
+ 195:             self.inventory_window.destroy()
+ 196:         self.show_email_attachments(force_refresh=True, email_type=email_type)
+ 197:     
+ 198:     def _update_inventory(self, result: dict):
+ 199:         """Update inventory window with new data"""
+ 200:         if self.inventory_window and self.inventory_window.winfo_exists():
+ 201:             # Update the data
+ 202:             self.inventory_window.original_data = result['data']
+ 203:             self.inventory_window.filtered_data = result['data']
+ 204:             self.inventory_window.populate_grid()
+ 205:             self.inventory_window.update_stats()
+ 206:             
+ 207:             # Show refresh complete message
+ 208:             self.inventory_window.show_refresh_complete("Refresh complete")
+ 209:     
+ 210:     def _open_email(self, email_data: dict):
+ 211:         """Handle double-click on email item to open it"""
+ 212:         if 'EntryID' in email_data:
+ 213:             self.email_manager.open_email(email_data['EntryID'])
+ 214:     
+ 215:     def _show_no_emails_message(self, email_type: str):
+ 216:         """Show a message when no emails with attachments are found"""
+ 217:         email_type_text = "sent" if email_type == 'sent' else "received"
+ 218:         WarningDialog.show(
+ 219:             self.parent,
+ 220:             "No Emails Found",
+ 221:             f"No {email_type_text} emails with attachments found in the last {self.email_manager.weeks_back} weeks."
+ 222:         )
+ 223:     
+ 224:     def show_loading_dialog(self, email_type: str):
+ 225:         """Show loading dialog during email scan"""
+ 226:         email_type_text = "sent" if email_type == 'sent' else "received"
+ 227:         self.loading_dialog = LoadingDialog(self.parent, f"Scanning {email_type_text} emails...")
+ 228: 
+ 229: 
+ 230: class EmailInventoryWindow(InventoryViewWindow):
+ 231:     """Extended inventory window with refresh capabilities"""
+ 232:     
+ 233:     def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback, email_type):
+ 234:         self.quick_refresh_callback = quick_refresh_callback
+ 235:         self.full_refresh_callback = full_refresh_callback
+ 236:         self.email_type = email_type
+ 237:         super().__init__(parent, data, config)
+ 238:     
+ 239:     def create_footer(self):
+ 240:         """Override to add refresh buttons"""
+ 241:         footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
+ 242:         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
+ 243:         footer_frame.pack_propagate(False)
+ 244:         
+ 245:         # Left side - filter status and refresh status
+ 246:         left_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
+ 247:         left_frame.pack(side=tk.LEFT, fill=tk.Y)
+ 248:         
+ 249:         self.filter_status_label = tk.Label(left_frame, text="No filters applied", 
+ 250:                                            bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 251:                                            font=Fonts.MENU_ITEM)
+ 252:         self.filter_status_label.pack(side=tk.LEFT, padx=10, pady=5)
  253:         
- 254:         # Clear Filters
- 255:         clear_btn = tk.Button(button_frame, text="Clear All Filters", 
- 256:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 257:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 258:                              font=Fonts.MENU_ITEM, padx=10,
- 259:                              command=self.clear_all_filters)
- 260:         clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 261:         
- 262:         # Export to Excel
- 263:         if self.allow_export:
- 264:             export_btn = tk.Button(button_frame, text="Export to Excel", 
- 265:                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
- 266:                                   relief=tk.RAISED, bd=1, cursor='hand2',
- 267:                                   font=Fonts.MENU_ITEM, padx=10,
- 268:                                   command=self.export_to_excel)
- 269:             export_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 270:         
- 271:         # Close button
- 272:         close_btn = tk.Button(button_frame, text="Close", 
- 273:                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
- 274:                              relief=tk.RAISED, bd=1, cursor='hand2',
- 275:                              font=Fonts.MENU_ITEM, padx=10,
- 276:                              command=self.on_closing)
- 277:         close_btn.pack(side=tk.LEFT, padx=5, pady=5)
- 278:     
- 279:     def show_refreshing(self):
- 280:         """Show refreshing status"""
- 281:         self.refresh_status_label.config(text="Refreshing...")
- 282:     
- 283:     def show_refresh_complete(self, message: str):
- 284:         """Show refresh complete status"""
- 285:         self.refresh_status_label.config(text=message)
- 286:         # Clear message after 3 seconds
- 287:         self.after(3000, lambda: self.refresh_status_label.config(text=""))
- 288: 
- 289: 
- 290: class LoadingDialog(CustomDialog):
- 291:     """Simple loading dialog"""
- 292:     
- 293:     def __init__(self, parent, message="Loading..."):
- 294:         super().__init__(parent, "Please Wait", width=300, height=150)
- 295:         
- 296:         # Loading message
- 297:         msg_label = tk.Label(self.dialog_content, text=message,
- 298:                            bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
- 299:                            font=Fonts.DIALOG_LABEL)
- 300:         msg_label.pack(pady=20)
- 301:         
- 302:         # Progress indicator (simple animation)
- 303:         self.progress_label = tk.Label(self.dialog_content, text="⏳",
- 304:                                      bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
- 305:                                      font=('Arial', 24))
- 306:         self.progress_label.pack(pady=10)
- 307:         
- 308:         # Remove button frame
- 309:         self.button_frame.pack_forget()
- 310:         
- 311:         # Start animation
- 312:         self.animate_progress()
- 313:     
- 314:     def animate_progress(self):
- 315:         """Simple progress animation"""
- 316:         current = self.progress_label.cget("text")
- 317:         if current == "⏳":
- 318:             self.progress_label.config(text="⌛")
- 319:         else:
- 320:             self.progress_label.config(text="⏳")
+ 254:         # Refresh status label
+ 255:         self.refresh_status_label = tk.Label(left_frame, text="", 
+ 256:                                            bg=Colors.DARK_GREEN, fg=Colors.LIGHT_GREEN,
+ 257:                                            font=Fonts.MENU_ITEM)
+ 258:         self.refresh_status_label.pack(side=tk.LEFT, padx=10, pady=5)
+ 259:         
+ 260:         # Right side - action buttons
+ 261:         button_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
+ 262:         button_frame.pack(side=tk.RIGHT, fill=tk.Y)
+ 263:         
+ 264:         # Quick Refresh button
+ 265:         quick_refresh_btn = tk.Button(button_frame, text="↻ Quick Refresh", 
+ 266:                                      bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 267:                                      relief=tk.RAISED, bd=1, cursor='hand2',
+ 268:                                      font=Fonts.MENU_ITEM, padx=10,
+ 269:                                      command=self.quick_refresh_callback)
+ 270:         quick_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 271:         
+ 272:         # Full Refresh button
+ 273:         full_refresh_btn = tk.Button(button_frame, text="⟳ Full Refresh", 
+ 274:                                     bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 275:                                     relief=tk.RAISED, bd=1, cursor='hand2',
+ 276:                                     font=Fonts.MENU_ITEM, padx=10,
+ 277:                                     command=self.full_refresh_callback)
+ 278:         full_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 279:         
+ 280:         # Clear Filters
+ 281:         clear_btn = tk.Button(button_frame, text="Clear All Filters", 
+ 282:                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 283:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 284:                              font=Fonts.MENU_ITEM, padx=10,
+ 285:                              command=self.clear_all_filters)
+ 286:         clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 287:         
+ 288:         # Export to Excel
+ 289:         if self.allow_export:
+ 290:             export_btn = tk.Button(button_frame, text="Export to Excel", 
+ 291:                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+ 292:                                   relief=tk.RAISED, bd=1, cursor='hand2',
+ 293:                                   font=Fonts.MENU_ITEM, padx=10,
+ 294:                                   command=self.export_to_excel)
+ 295:             export_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 296:         
+ 297:         # Close button
+ 298:         close_btn = tk.Button(button_frame, text="Close", 
+ 299:                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
+ 300:                              relief=tk.RAISED, bd=1, cursor='hand2',
+ 301:                              font=Fonts.MENU_ITEM, padx=10,
+ 302:                              command=self.on_closing)
+ 303:         close_btn.pack(side=tk.LEFT, padx=5, pady=5)
+ 304:     
+ 305:     def show_refreshing(self):
+ 306:         """Show refreshing status"""
+ 307:         self.refresh_status_label.config(text="Refreshing...")
+ 308:     
+ 309:     def show_refresh_complete(self, message: str):
+ 310:         """Show refresh complete status"""
+ 311:         self.refresh_status_label.config(text=message)
+ 312:         # Clear message after 3 seconds
+ 313:         self.after(3000, lambda: self.refresh_status_label.config(text=""))
+ 314: 
+ 315: 
+ 316: class LoadingDialog(CustomDialog):
+ 317:     """Simple loading dialog"""
+ 318:     
+ 319:     def __init__(self, parent, message="Loading..."):
+ 320:         super().__init__(parent, "Please Wait", width=300, height=150)
  321:         
- 322:         self.after(500, self.animate_progress)
+ 322:         # Loading message
+ 323:         msg_label = tk.Label(self.dialog_content, text=message,
+ 324:                            bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
+ 325:                            font=Fonts.DIALOG_LABEL)
+ 326:         msg_label.pack(pady=20)
+ 327:         
+ 328:         # Progress indicator (simple animation)
+ 329:         self.progress_label = tk.Label(self.dialog_content, text="⏳",
+ 330:                                      bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
+ 331:                                      font=('Arial', 24))
+ 332:         self.progress_label.pack(pady=10)
+ 333:         
+ 334:         # Remove button frame
+ 335:         self.button_frame.pack_forget()
+ 336:         
+ 337:         # Start animation
+ 338:         self.animate_progress()
+ 339:     
+ 340:     def animate_progress(self):
+ 341:         """Simple progress animation"""
+ 342:         current = self.progress_label.cget("text")
+ 343:         if current == "⏳":
+ 344:             self.progress_label.config(text="⌛")
+ 345:         else:
+ 346:             self.progress_label.config(text="⏳")
+ 347:         
+ 348:         self.after(500, self.animate_progress)
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: email_options_menu.py
+────────────────────────────────────────────────────────────────────────────────
+Path: email_options_menu.py
+Size: 6.5 KB
+Lines: 173 total, 138 non-empty
+Characters: 6,473
+Type: .PY file
+────────────────────────────────────────────────────────────────────────────────
+
+   1: # email_options_menu.py
+   2: """
+   3: Email options popup menu for SuiteView Taskbar
+   4: Shows options for viewing received and sent attachments
+   5: """
+   6: 
+   7: import tkinter as tk
+   8: from config import Colors, Fonts
+   9: from email_menu import EmailAttachmentsMenu
+  10: 
+  11: class EmailOptionsMenu(tk.Toplevel):
+  12:     """Popup menu for email options"""
+  13:     
+  14:     def __init__(self, parent, x, y, taskbar_instance):
+  15:         super().__init__(parent)
+  16:         self.parent = parent
+  17:         self.taskbar_instance = taskbar_instance
+  18:         
+  19:         # Window setup
+  20:         self.overrideredirect(True)
+  21:         self.configure(bg=Colors.DARK_GREEN)
+  22:         # NO TOPMOST - This makes everything simpler!
+  23:         # self.attributes('-topmost', True)  # REMOVED
+  24:         self.attributes('-alpha', 0.98)
+  25:         
+  26:         # Main container
+  27:         self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
+  28:         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+  29:         
+  30:         # Create menu items
+  31:         self.create_menu_items()
+  32:         
+  33:         # Update to get proper dimensions
+  34:         self.update_idletasks()
+  35:         width = max(250, self.winfo_reqwidth())
+  36:         height = self.winfo_reqheight()
+  37:         
+  38:         # Position menu with bottom edge at top of taskbar
+  39:         self.geometry(f"{width}x{height}+{x}+{y}")
+  40:         
+  41:         # Simple focus-based closing
+  42:         self.focus_set()
+  43:         self.grab_set()  # Grab all mouse/keyboard events
+  44:         
+  45:         # Bind simple click handler
+  46:         self.bind("<Button-1>", self.on_click)
+  47:     
+  48:     def on_click(self, event):
+  49:         """Handle clicks - close if outside menu"""
+  50:         # Check if click was on a menu item or the menu itself
+  51:         clicked_widget = self.winfo_containing(event.x_root, event.y_root)
+  52:         
+  53:         if clicked_widget != self:
+  54:             # Click was outside - close menu
+  55:             self.destroy()
+  56:     
+  57:     def destroy(self):
+  58:         """Clean up and destroy"""
+  59:         try:
+  60:             self.grab_release()
+  61:         except:
+  62:             pass
+  63:         super().destroy()
+  64:     
+  65:     def create_menu_items(self):
+  66:         """Create the menu options"""
+  67:         # Header with larger icon
+  68:         header_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
+  69:         header_frame.pack(fill=tk.X, pady=5)
+  70:         
+  71:         # Larger icon for header
+  72:         header_icon = tk.Label(header_frame, text="📧", 
+  73:                              bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  74:                              font=('Arial', 20))
+  75:         header_icon.pack(side=tk.LEFT, padx=(10, 5))
+  76:         
+  77:         header_text = tk.Label(header_frame, text="Email Options", 
+  78:                              bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+  79:                              font=Fonts.MENU_HEADER)
+  80:         header_text.pack(side=tk.LEFT)
+  81:         
+  82:         # Separator
+  83:         separator = tk.Frame(self.main_frame, height=1, bg=Colors.MEDIUM_GREEN)
+  84:         separator.pack(fill=tk.X, padx=5, pady=2)
+  85:         
+  86:         # Menu items container
+  87:         items_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN)
+  88:         items_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+  89:         
+  90:         # Attachments Received option with larger icon
+  91:         received_item = self.create_menu_item(
+  92:             items_frame, 
+  93:             "📥",
+  94:             "Attachments Received", 
+  95:             self.show_received_attachments
+  96:         )
+  97:         received_item.pack(fill=tk.X, padx=2, pady=1)
+  98:         
+  99:         # Attachments Sent option with larger icon
+ 100:         sent_item = self.create_menu_item(
+ 101:             items_frame, 
+ 102:             "📤",
+ 103:             "Attachments Sent", 
+ 104:             self.show_sent_attachments
+ 105:         )
+ 106:         sent_item.pack(fill=tk.X, padx=2, pady=1)
+ 107:     
+ 108:     def create_menu_item(self, parent, icon, text, command):
+ 109:         """Create a single menu item with separate icon and text"""
+ 110:         item_frame = tk.Frame(parent, bg=Colors.LIGHT_GREEN)
+ 111:         
+ 112:         # Large icon on the left
+ 113:         icon_label = tk.Label(item_frame, text=icon, bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
+ 114:                             font=('Arial', 18), width=2, anchor='center')
+ 115:         icon_label.pack(side=tk.LEFT, padx=(10, 5))
+ 116:         
+ 117:         # Text label
+ 118:         text_label = tk.Label(item_frame, text=text, bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
+ 119:                             font=Fonts.MENU_ITEM, anchor='w')
+ 120:         text_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+ 121:         
+ 122:         # Hover effect for the entire frame
+ 123:         def on_enter(e):
+ 124:             item_frame.configure(bg=Colors.HOVER_GREEN)
+ 125:             icon_label.configure(bg=Colors.HOVER_GREEN, fg=Colors.WHITE)
+ 126:             text_label.configure(bg=Colors.HOVER_GREEN, fg=Colors.WHITE)
+ 127:         
+ 128:         def on_leave(e):
+ 129:             item_frame.configure(bg=Colors.LIGHT_GREEN)
+ 130:             icon_label.configure(bg=Colors.LIGHT_GREEN, fg=Colors.BLACK)
+ 131:             text_label.configure(bg=Colors.LIGHT_GREEN, fg=Colors.BLACK)
+ 132:         
+ 133:         # Bind events to all components
+ 134:         for widget in [item_frame, icon_label, text_label]:
+ 135:             widget.bind("<Enter>", on_enter)
+ 136:             widget.bind("<Leave>", on_leave)
+ 137:             widget.bind("<Button-1>", lambda e: self.execute_command(command))
+ 138:             widget.configure(cursor='hand2')
+ 139:         
+ 140:         # Set minimum height for the frame
+ 141:         item_frame.configure(height=35)
+ 142:         item_frame.pack_propagate(False)
+ 143:         
+ 144:         return item_frame
+ 145:     
+ 146:     def execute_command(self, command):
+ 147:         """Execute menu command and close menu"""
+ 148:         self.destroy()
+ 149:         command()
+ 150:     
+ 151:     def show_received_attachments(self):
+ 152:         """Show received email attachments"""
+ 153:         # Get the taskbar instance
+ 154:         taskbar = self.taskbar_instance
+ 155:             
+ 156:         if not hasattr(taskbar, 'email_menu'):
+ 157:             from email_menu import EmailAttachmentsMenu
+ 158:             taskbar.email_menu = EmailAttachmentsMenu(taskbar.root)
+ 159:         
+ 160:         # Show received attachments (default behavior)
+ 161:         taskbar.email_menu.show_email_attachments(email_type='received')
+ 162:     
+ 163:     def show_sent_attachments(self):
+ 164:         """Show sent email attachments"""
+ 165:         # Get the taskbar instance
+ 166:         taskbar = self.taskbar_instance
+ 167:             
+ 168:         if not hasattr(taskbar, 'email_menu'):
+ 169:             from email_menu import EmailAttachmentsMenu
+ 170:             taskbar.email_menu = EmailAttachmentsMenu(taskbar.root)
+ 171:         
+ 172:         # Show sent attachments
+ 173:         taskbar.email_menu.show_email_attachments(email_type='sent')
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: enhanced_folder_inventory.py
@@ -5853,9 +6083,9 @@ Type: .PY file
 FILE: taskbar.py
 ────────────────────────────────────────────────────────────────────────────────
 Path: taskbar.py
-Size: 21.2 KB
-Lines: 519 total, 408 non-empty
-Characters: 21,214
+Size: 22.4 KB
+Lines: 542 total, 433 non-empty
+Characters: 22,430
 Type: Core taskbar functionality and UI
 ────────────────────────────────────────────────────────────────────────────────
 
@@ -5880,7 +6110,7 @@ Type: Core taskbar functionality and UI
   19: from windows_menu import WindowsMenu
   20: from pinned_windows import PinnedWindowsSection
   21: from email_manager import EmailManager
-  22: 
+  22: from email_options_menu import EmailOptionsMenu
   23: 
   24: 
   25: class SuiteViewTaskbar:
@@ -5896,488 +6126,511 @@ Type: Core taskbar functionality and UI
   35:         self.windows_menu = None
   36:         self.pinned_section = None  # Initialize to None
   37:         self.windows_menu_geometry = None
-  38: 
-  39:         # Store original work area for restoration
-  40:         self.original_work_area = WindowsUtils.get_work_area()
-  41:         
-  42:         # Get screen dimensions
-  43:         self.screen_width, self.screen_height = WindowsUtils.get_screen_dimensions()
-  44:         
-  45:         # Get Windows taskbar height for better positioning
-  46:         self.windows_taskbar_height = WindowsUtils.get_windows_taskbar_height()
-  47:         
-  48:         # Position the custom taskbar above Windows taskbar
-  49:         self.y_position = self.screen_height - self.windows_taskbar_height - Dimensions.TASKBAR_HEIGHT
-  50:         
-  51:         # Setup the window
-  52:         self.setup_window()
-  53:         
-  54:         # Create taskbar content
-  55:         self.create_taskbar_content()
-  56:         
-  57:         # Setup event bindings
-  58:         self.bind_events()
-  59:         
-  60:         # Apply Windows API modifications
-  61:         self.setup_windows_integration()
-  62:         
-  63:     def setup_window(self):
-  64:         """Configure the main window properties"""
-  65:         # Remove window decorations
-  66:         self.root.overrideredirect(True)
-  67:         
-  68:         # Set window attributes
-  69:         self.root.attributes('-topmost', True)
-  70:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
-  71:         
-  72:         # Configure window geometry
-  73:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
-  74:         
-  75:         # Set background color to dark green
-  76:         self.root.configure(bg=Colors.DARK_GREEN)
-  77:     
-  78:     def create_taskbar_content(self):
-  79:         """Create the taskbar UI elements"""
-  80:         # Create main frame
-  81:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
-  82:         self.main_frame.pack(fill=tk.BOTH, expand=True)
-  83:         
-  84:         # SuiteView Logo/Title
-  85:         self.create_logo_section()
-  86:         
-  87:         # Separator
-  88:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-  89:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
-  90:         
-  91:         # Main buttons
-  92:         self.create_main_buttons()
-  93:         
-  94:         # Right side elements
-  95:         self.create_right_side_elements()
-  96:     
-  97:     def create_logo_section(self):
-  98:         """Create the SuiteView logo/title section"""
-  99:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
- 100:         logo_frame.pack(side=tk.LEFT, padx=10)
- 101:         
- 102:         # Logo text with styling
- 103:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
- 104:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
- 105:         logo_label.pack()
- 106:         logo_label.bind("<Button-3>", self.show_links_menu)
- 107:     
- 108:     def create_main_buttons(self):
- 109:         """Create the main taskbar buttons"""
- 110:         # Existing buttons
- 111:         buttons_data = [
- 112:             ("Get Policy", None),
- 113:             ("Cyber", None),
- 114:             ("TAI", None)
- 115:         ]
- 116:         
- 117:         for text, command in buttons_data:
- 118:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 119:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
- 120:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
- 121:             btn.pack(side=tk.LEFT, padx=5)
- 122:             btn.bind("<Button-3>", self.show_links_menu)
- 123:             if command:
- 124:                 btn.configure(command=command)
- 125:         
- 126:         # Add separator before new features
- 127:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 128:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 129:         
- 130:         # Add Inventory feature
- 131:         inventory_btn = add_folder_inventory_to_taskbar(self)
- 132:         inventory_btn.pack(side=tk.LEFT, padx=5)
- 133:         inventory_btn.bind("<Button-3>", self.show_links_menu)
- 134:         
- 135:         # Add separator before Snip feature
- 136:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 137:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 138:         
- 139:         # Add Snip feature
- 140:         self.snipping_manager = add_snip_feature_to_taskbar(self)
- 141:         
- 142:         # Add separator before pinned windows section
- 143:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
- 144:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
- 145:         
- 146:         # Create and store pinned windows section
- 147:         print(f"Creating pinned section...")
- 148:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
- 149:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
- 150:         
- 151:         # Debug to confirm it's created and assigned
- 152:         #print(f"Pinned section created and assigned: {self.pinned_section}")
- 153:         #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
- 154:     
- 155:     def create_right_side_elements(self):
- 156:         """Create the right side elements of the taskbar"""
- 157:         
- 158:         # X close button
- 159:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 160:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
- 161:                             cursor='hand2')
- 162:         close_btn.pack(side=tk.RIGHT, padx=5)
- 163:         close_btn.bind("<Button-1>", self.close_app)
- 164:     
- 165:         #Windows button
- 166:         windows_btn = tk.Button(self.main_frame, text="Windows", 
- 167:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 168:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
- 169:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
- 170:                             bd=0, padx=15, command=self.toggle_windows_menu)
- 171:         windows_btn.pack(side=tk.RIGHT, padx=5)
- 172: 
- 173:         
- 174:         # Add Email Attachments button
- 175:         email_attachments_btn = tk.Button(self.main_frame, text="Email Attachments", 
- 176:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
- 177:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
- 178:                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
- 179:                         bd=0, padx=15, command=self.show_email_attachments_menu)
- 180:         email_attachments_btn.pack(side=tk.LEFT, padx=5)
- 181: 
- 182: 
- 183:     def bind_events(self):
- 184:         """Bind event handlers"""
- 185:         # Main window events
- 186:         self.root.bind("<Button-3>", self.show_links_menu)
- 187:         self.main_frame.bind("<Button-3>", self.show_links_menu)
- 188:         
- 189:         # Emergency exit keys
- 190:         self.root.bind("<Escape>", self.close_app)
- 191:         self.root.bind("<Control-q>", self.close_app)
- 192:         self.root.bind("<Control-Q>", self.close_app)
- 193:         self.root.bind("<Alt-F4>", self.close_app)
- 194:     
- 195:     def setup_windows_integration(self):
- 196:         """Setup Windows API integration"""
- 197:         # Keep window on top using Windows API
- 198:         self.set_always_on_top()
- 199:         
- 200:         # Adjust desktop working area
- 201:         self.adjust_work_area()
- 202:         
- 203:     def show_links_menu(self, event):
- 204:         """Show the right-click links menu positioned above the taskbar"""
- 205:         if self.links_menu:
- 206:             self.links_menu.destroy()
- 207:         
- 208:         # Create the menu at a temporary position first
- 209:         temp_x, temp_y = 0, 0
- 210:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
- 211:         
- 212:         # Get cursor position or use center position
- 213:         if event:
- 214:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
- 215:         else:
- 216:             x = self.screen_width // 2 - 200  # Center horizontally
- 217:         
- 218:         # Calculate proper position above YOUR custom taskbar
- 219:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
- 220:         final_x = x
- 221:         
- 222:         # Reposition the menu to the correct location
- 223:         self.links_menu.geometry(f"+{final_x}+{final_y}")
- 224:         
- 225:         # Debug output
- 226:         print(f"Estimated height: {self.links_menu.menu_height}")
- 227:         print(f"Positioned menu at: {final_x}, {final_y}")
- 228:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
- 229:        
- 230:     def show_windows_menu(self, event=None):
- 231:         """Show the windows management menu - toggle if already open"""
- 232:         if self.windows_menu and self.windows_menu.winfo_exists():
- 233:             # If menu exists and is open, close it
- 234:             self.windows_menu.close_window()
- 235:             self.windows_menu = None
- 236:         else:
- 237:             # Otherwise, create and show it
- 238:             # Get screen dimensions
- 239:             screen_width = self.root.winfo_screenwidth()
- 240:             
- 241:             # Position the menu above the taskbar, centered on screen
- 242:             x = (screen_width - 700) // 2  # Center a 700px wide menu
- 243:             y = self.y_position - 600  # Default height assumption
- 244:             
- 245:     def set_always_on_top(self):
- 246:         """Force window to stay on top using Windows API"""
- 247:         WindowsUtils.set_window_topmost(self.root.winfo_id())
- 248:     
- 249:     def adjust_work_area(self):
- 250:         """Adjust desktop work area to make room for taskbar"""
- 251:         if self.original_work_area:
- 252:             work_area = wintypes.RECT()
- 253:             work_area.left = self.original_work_area.left
- 254:             work_area.top = self.original_work_area.top
- 255:             work_area.right = self.original_work_area.right
- 256:             work_area.bottom = self.y_position
- 257:             
- 258:             success = WindowsUtils.set_work_area(work_area)
- 259:             if not success:
- 260:                 print("Could not adjust work area. May require admin privileges.")
- 261:     
- 262:     def close_app(self, event=None):
- 263:         """Close the application"""
- 264:         try:
- 265:             self.window_manager.unhide_all_windows()
- 266:             self.restore_work_area()
- 267:         except:
- 268:             pass  # Don't fail if restore doesn't work
- 269:         
- 270:         # Clean up snipping manager if it exists
- 271:         if hasattr(self, 'snipping_manager'):
- 272:             try:
- 273:                 self.snipping_manager.cleanup_temp_directory()
- 274:             except:
- 275:                 pass
- 276:         
- 277:         # Force kill any open dialogs
- 278:         for child in self.root.winfo_children():
- 279:             if isinstance(child, tk.Toplevel):
- 280:                 child.destroy()
- 281:         
- 282:         self.root.quit()
- 283:         self.root.destroy()
- 284:         sys.exit(0)
- 285:     
- 286:     def restore_work_area(self):
- 287:         """Restore original work area"""
- 288:         if self.original_work_area:
- 289:             WindowsUtils.restore_work_area(self.original_work_area)
- 290:     
- 291:     def run(self):
- 292:         """Start the application"""
- 293:         """Start the application"""
- 294:         # Verify setup before starting
- 295:         #self.verify_setup()
- 296:         
- 297:         # Start the periodic topmost maintenance
- 298:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
- 299:         
- 300:         # Start window state monitoring
- 301:         self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
- 302: 
- 303:         # Start the main event loop
- 304:         self.root.mainloop()
- 305:     
- 306:     def maintain_topmost(self):
- 307:         """Periodically ensure window stays on top"""
- 308:         self.set_always_on_top()
- 309: 
- 310:         # # Update pinned window button states
- 311:         # if self.pinned_section:
- 312:         #     self.pinned_section.update_window_states()
- 313: 
- 314:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+  38:         self.email_options_menu = None  # Initialize email options menu tracker
+  39:         self.email_menu_closing = False  # Flag to prevent immediate reopen
+  40:         
+  41:         # Store original work area for restoration
+  42:         self.original_work_area = WindowsUtils.get_work_area()
+  43:         
+  44:         # Get screen dimensions
+  45:         self.screen_width, self.screen_height = WindowsUtils.get_screen_dimensions()
+  46:         
+  47:         # Get Windows taskbar height for better positioning
+  48:         self.windows_taskbar_height = WindowsUtils.get_windows_taskbar_height()
+  49:         
+  50:         # Position the custom taskbar above Windows taskbar
+  51:         self.y_position = self.screen_height - self.windows_taskbar_height - Dimensions.TASKBAR_HEIGHT
+  52:         
+  53:         # Setup the window
+  54:         self.setup_window()
+  55:         
+  56:         # Create taskbar content
+  57:         self.create_taskbar_content()
+  58:         
+  59:         # Setup event bindings
+  60:         self.bind_events()
+  61:         
+  62:         # Apply Windows API modifications
+  63:         self.setup_windows_integration()
+  64:         
+  65:     def setup_window(self):
+  66:         """Configure the main window properties"""
+  67:         # Remove window decorations
+  68:         self.root.overrideredirect(True)
+  69:         
+  70:         # Set window attributes
+  71:         self.root.attributes('-topmost', True)
+  72:         self.root.attributes('-alpha', Settings.TASKBAR_OPACITY)
+  73:         
+  74:         # Configure window geometry
+  75:         self.root.geometry(f"{self.screen_width}x{Dimensions.TASKBAR_HEIGHT}+0+{self.y_position}")
+  76:         
+  77:         # Set background color to dark green
+  78:         self.root.configure(bg=Colors.DARK_GREEN)
+  79:     
+  80:     def create_taskbar_content(self):
+  81:         """Create the taskbar UI elements"""
+  82:         # Create main frame
+  83:         self.main_frame = tk.Frame(self.root, bg=Colors.DARK_GREEN, highlightthickness=0)
+  84:         self.main_frame.pack(fill=tk.BOTH, expand=True)
+  85:         
+  86:         # SuiteView Logo/Title
+  87:         self.create_logo_section()
+  88:         
+  89:         # Separator
+  90:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+  91:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+  92:         
+  93:         # Main buttons
+  94:         self.create_main_buttons()
+  95:         
+  96:         # Right side elements
+  97:         self.create_right_side_elements()
+  98:     
+  99:     def create_logo_section(self):
+ 100:         """Create the SuiteView logo/title section"""
+ 101:         logo_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN)
+ 102:         logo_frame.pack(side=tk.LEFT, padx=10)
+ 103:         
+ 104:         # Logo text with styling
+ 105:         logo_label = tk.Label(logo_frame, text=Settings.APP_NAME, bg=Colors.DARK_GREEN, 
+ 106:                              fg=Colors.WHITE, font=Fonts.TASKBAR_TITLE)
+ 107:         logo_label.pack()
+ 108:         logo_label.bind("<Button-3>", self.show_links_menu)
+ 109:     
+ 110:     def create_main_buttons(self):
+ 111:         """Create the main taskbar buttons"""
+ 112:         # Existing buttons
+ 113:         buttons_data = [
+ 114:             ("Get Policy", None),
+ 115:             ("Cyber", None),
+ 116:             ("TAI", None)
+ 117:         ]
+ 118:         
+ 119:         for text, command in buttons_data:
+ 120:             btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 121:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
+ 122:                         activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
+ 123:             btn.pack(side=tk.LEFT, padx=5)
+ 124:             btn.bind("<Button-3>", self.show_links_menu)
+ 125:             if command:
+ 126:                 btn.configure(command=command)
+ 127:         
+ 128:         # Add separator before new features
+ 129:         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 130:         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 131:         
+ 132:         # Add Inventory feature
+ 133:         inventory_btn = add_folder_inventory_to_taskbar(self)
+ 134:         inventory_btn.pack(side=tk.LEFT, padx=5)
+ 135:         inventory_btn.bind("<Button-3>", self.show_links_menu)
+ 136:         
+ 137:         # Add separator before Snip feature
+ 138:         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 139:         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 140:         
+ 141:         # Add Snip feature
+ 142:         self.snipping_manager = add_snip_feature_to_taskbar(self)
+ 143:         
+ 144:         # Add separator before pinned windows section
+ 145:         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+ 146:         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+ 147:         
+ 148:         # Create and store pinned windows section
+ 149:         print(f"Creating pinned section...")
+ 150:         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
+ 151:         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
+ 152:         
+ 153:         # Debug to confirm it's created and assigned
+ 154:         #print(f"Pinned section created and assigned: {self.pinned_section}")
+ 155:         #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
+ 156:     
+ 157:     def create_right_side_elements(self):
+ 158:         """Create the right side elements of the taskbar"""
+ 159:         
+ 160:         # X close button
+ 161:         close_btn = tk.Label(self.main_frame, text="X", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 162:                             font=(Fonts.TASKBAR_BUTTON[0], Fonts.TASKBAR_BUTTON[1], 'bold'), 
+ 163:                             cursor='hand2')
+ 164:         close_btn.pack(side=tk.RIGHT, padx=5)
+ 165:         close_btn.bind("<Button-1>", self.close_app)
+ 166:     
+ 167:         #Windows button
+ 168:         windows_btn = tk.Button(self.main_frame, text="Windows", 
+ 169:                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 170:                             relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+ 171:                             cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+ 172:                             bd=0, padx=15, command=self.toggle_windows_menu)
+ 173:         windows_btn.pack(side=tk.RIGHT, padx=5)
+ 174: 
+ 175:         
+ 176:         # Add Emails button
+ 177:         emails_btn = tk.Button(self.main_frame, text="Emails", 
+ 178:                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+ 179:                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+ 180:                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+ 181:                         bd=0, padx=15, command=self.show_email_options_menu)
+ 182:         emails_btn.pack(side=tk.LEFT, padx=5)
+ 183: 
+ 184: 
+ 185:     def bind_events(self):
+ 186:         """Bind event handlers"""
+ 187:         # Main window events
+ 188:         self.root.bind("<Button-3>", self.show_links_menu)
+ 189:         self.main_frame.bind("<Button-3>", self.show_links_menu)
+ 190:         
+ 191:         # Emergency exit keys
+ 192:         self.root.bind("<Escape>", self.close_app)
+ 193:         self.root.bind("<Control-q>", self.close_app)
+ 194:         self.root.bind("<Control-Q>", self.close_app)
+ 195:         self.root.bind("<Alt-F4>", self.close_app)
+ 196:     
+ 197:     def setup_windows_integration(self):
+ 198:         """Setup Windows API integration"""
+ 199:         # Keep window on top using Windows API
+ 200:         self.set_always_on_top()
+ 201:         
+ 202:         # Adjust desktop working area
+ 203:         self.adjust_work_area()
+ 204:         
+ 205:     def show_links_menu(self, event):
+ 206:         """Show the right-click links menu positioned above the taskbar"""
+ 207:         if self.links_menu:
+ 208:             self.links_menu.destroy()
+ 209:         
+ 210:         # Create the menu at a temporary position first
+ 211:         temp_x, temp_y = 0, 0
+ 212:         self.links_menu = QuickLinksMenu(self.root, self, temp_x, temp_y)
+ 213:         
+ 214:         # Get cursor position or use center position
+ 215:         if event:
+ 216:             x = self.root.winfo_pointerx() - 200  # Offset to center menu on cursor
+ 217:         else:
+ 218:             x = self.screen_width // 2 - 200  # Center horizontally
+ 219:         
+ 220:         # Calculate proper position above YOUR custom taskbar
+ 221:         final_y = self.y_position - self.links_menu.menu_height - 5  # 5px gap above YOUR taskbar
+ 222:         final_x = x
+ 223:         
+ 224:         # Reposition the menu to the correct location
+ 225:         self.links_menu.geometry(f"+{final_x}+{final_y}")
+ 226:         
+ 227:         # Debug output
+ 228:         print(f"Estimated height: {self.links_menu.menu_height}")
+ 229:         print(f"Positioned menu at: {final_x}, {final_y}")
+ 230:         print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
+ 231:        
+ 232:     def show_windows_menu(self, event=None):
+ 233:         """Show the windows management menu - toggle if already open"""
+ 234:         if self.windows_menu and self.windows_menu.winfo_exists():
+ 235:             # If menu exists and is open, close it
+ 236:             self.windows_menu.close_window()
+ 237:             self.windows_menu = None
+ 238:         else:
+ 239:             # Otherwise, create and show it
+ 240:             # Get screen dimensions
+ 241:             screen_width = self.root.winfo_screenwidth()
+ 242:             
+ 243:             # Position the menu above the taskbar, centered on screen
+ 244:             x = (screen_width - 700) // 2  # Center a 700px wide menu
+ 245:             y = self.y_position - 600  # Default height assumption
+ 246:             
+ 247:     def set_always_on_top(self):
+ 248:         """Force window to stay on top using Windows API"""
+ 249:         WindowsUtils.set_window_topmost(self.root.winfo_id())
+ 250:     
+ 251:     def adjust_work_area(self):
+ 252:         """Adjust desktop work area to make room for taskbar"""
+ 253:         if self.original_work_area:
+ 254:             work_area = wintypes.RECT()
+ 255:             work_area.left = self.original_work_area.left
+ 256:             work_area.top = self.original_work_area.top
+ 257:             work_area.right = self.original_work_area.right
+ 258:             work_area.bottom = self.y_position
+ 259:             
+ 260:             success = WindowsUtils.set_work_area(work_area)
+ 261:             if not success:
+ 262:                 print("Could not adjust work area. May require admin privileges.")
+ 263:     
+ 264:     def close_app(self, event=None):
+ 265:         """Close the application"""
+ 266:         try:
+ 267:             self.window_manager.unhide_all_windows()
+ 268:             self.restore_work_area()
+ 269:         except:
+ 270:             pass  # Don't fail if restore doesn't work
+ 271:         
+ 272:         # Clean up snipping manager if it exists
+ 273:         if hasattr(self, 'snipping_manager'):
+ 274:             try:
+ 275:                 self.snipping_manager.cleanup_temp_directory()
+ 276:             except:
+ 277:                 pass
+ 278:         
+ 279:         # Force kill any open dialogs
+ 280:         for child in self.root.winfo_children():
+ 281:             if isinstance(child, tk.Toplevel):
+ 282:                 child.destroy()
+ 283:         
+ 284:         self.root.quit()
+ 285:         self.root.destroy()
+ 286:         sys.exit(0)
+ 287:     
+ 288:     def restore_work_area(self):
+ 289:         """Restore original work area"""
+ 290:         if self.original_work_area:
+ 291:             WindowsUtils.restore_work_area(self.original_work_area)
+ 292:     
+ 293:     def run(self):
+ 294:         """Start the application"""
+ 295:         """Start the application"""
+ 296:         # Verify setup before starting
+ 297:         #self.verify_setup()
+ 298:         
+ 299:         # Start the periodic topmost maintenance
+ 300:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 301:         
+ 302:         # Start window state monitoring
+ 303:         self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
+ 304: 
+ 305:         # Start the main event loop
+ 306:         self.root.mainloop()
+ 307:     
+ 308:     def maintain_topmost(self):
+ 309:         """Periodically ensure window stays on top"""
+ 310:         self.set_always_on_top()
+ 311: 
+ 312:         # # Update pinned window button states
+ 313:         # if self.pinned_section:
+ 314:         #     self.pinned_section.update_window_states()
  315: 
- 316:     def toggle_windows_menu(self):
- 317:         """Toggle the windows management menu"""
- 318:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 319:             try:
- 320:                 if self.windows_menu.winfo_exists():
- 321:                     # Store current geometry BEFORE closing
- 322:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
- 323:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
- 324:                     self.windows_menu.close_window()
- 325:                     self.windows_menu = None
- 326:                     return
- 327:             except:
- 328:                 self.windows_menu = None
- 329:         
- 330:         # Create new windows menu
- 331:         print(f"Class: {type(self).__name__}")  # Debug
- 332:         self.windows_menu = WindowsMenu(self, self.window_manager, 
- 333:                                     self.on_windows_pinned,
- 334:                                     self.windows_menu_geometry)
- 335:     
- 336:     def on_windows_pinned(self):
- 337:         """Callback when windows are pinned/unpinned"""
- 338:         #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
- 339:         #print(f"Pinned section: {self.pinned_section}")
- 340:         
- 341:         if self.pinned_section:
- 342:             print(f"Refreshing pinned section...")
- 343:             self.pinned_section.refresh()
- 344:         else:
- 345:             print(f"ERROR: pinned_section is None!")
- 346:         
- 347:         # Always refresh the Windows Manager if it's open to update the list
- 348:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
- 349:             try:
- 350:                 if self.windows_menu.winfo_exists():
- 351:                     print(f"Refreshing Windows Manager...")
- 352:                     self.windows_menu.refresh_window_list()
- 353:                 else:
- 354:                     print(f"Windows Manager exists but window is destroyed")
- 355:             except Exception as e:
- 356:                 print(f"Error refreshing Windows Manager: {e}")
- 357:                 self.windows_menu = None
- 358:         else:
- 359:             print(f"Windows Manager is not open")
- 360:             
- 361:         #print(f"=== END ON_WINDOWS_PINNED ===\n")
- 362: 
- 363: 
- 364:     def start_window_monitoring(self):
- 365:         """Start monitoring for closed windows"""
- 366:         self.check_window_states()
- 367:         
- 368:     def check_window_states(self):
- 369:         """Periodically check if pinned windows still exist"""
- 370:         try:
- 371:             if hasattr(self, 'pinned_section') and self.pinned_section:
- 372:                 # Get current pinned windows
- 373:                 pinned_windows = self.window_manager.get_pinned_windows()
- 374:                 windows_to_unpin = []
- 375:                 
- 376:                 for window in pinned_windows:
- 377:                     # Check if window still exists
- 378:                     if not window.is_valid():
- 379:                         print(f"Window {window.display_name} no longer exists, unpinning...")
- 380:                         windows_to_unpin.append(window)
- 381:                 
- 382:                 # Unpin any closed windows
- 383:                 if windows_to_unpin:
- 384:                     for window in windows_to_unpin:
- 385:                         self.window_manager.unpin_window(window)
- 386:                     
- 387:                     # Refresh the pinned section
- 388:                     self.pinned_section.refresh()
- 389:                     
- 390:                     # Also refresh Windows Manager if it's open
- 391:                     if hasattr(self, 'windows_menu') and self.windows_menu:
- 392:                         try:
- 393:                             if self.windows_menu.winfo_exists():
- 394:                                 self.windows_menu.refresh_window_list()
- 395:                         except:
- 396:                             pass
- 397:         
- 398:         except Exception as e:
- 399:             print(f"Error checking window states: {e}")
- 400:         
- 401:         # Schedule next check (every 2 seconds)
- 402:         self.root.after(2000, self.check_window_states)
- 403: 
- 404:     def verify_setup(self):
- 405:         """Verify all components are properly initialized"""
- 406:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
- 407:         print(f"Window manager: {self.window_manager}")
- 408:         print(f"Pinned section: {self.pinned_section}")
- 409:         print(f"Pinned section type: {type(self.pinned_section)}")
- 410:         if self.pinned_section:
- 411:             print(f"Pinned section parent: {self.pinned_section.master}")
- 412:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
- 413:         print(f"=== END VERIFICATION ===\n")
- 414:     
- 415:     def check_window_states(self):
- 416:         """Periodically check for closed windows, new windows, and title changes"""
- 417:         try:
- 418:             # Get current window list
- 419:             current_windows = self.window_manager.get_relevant_windows()
- 420:             current_hwnds = {w.hwnd for w in current_windows}
- 421:             
- 422:             # Check for closed pinned windows
- 423:             if hasattr(self, 'pinned_section') and self.pinned_section:
- 424:                 pinned_windows = self.window_manager.get_pinned_windows()
- 425:                 windows_to_unpin = []
- 426:                 
- 427:                 for window in pinned_windows:
- 428:                     if not window.is_valid():
- 429:                         print(f"Window {window.display_name} no longer exists, unpinning...")
- 430:                         windows_to_unpin.append(window)
- 431:                 
- 432:                 if windows_to_unpin:
- 433:                     for window in windows_to_unpin:
- 434:                         self.window_manager.unpin_window(window)
- 435:                     self.pinned_section.refresh()
- 436:             
- 437:             # Initialize tracking dictionaries if they don't exist
- 438:             if not hasattr(self, '_previous_hwnds'):
- 439:                 self._previous_hwnds = current_hwnds
- 440:                 self._window_titles = {}
- 441:             
- 442:             # Check for new windows
- 443:             new_hwnds = current_hwnds - self._previous_hwnds
- 444:             if new_hwnds:
- 445:                 print(f"Detected {len(new_hwnds)} new window(s)")
- 446:                 self._refresh_windows_menu()
- 447:             
- 448:             # Check for title changes in existing windows
- 449:             title_changed = False
- 450:             for window in current_windows:
- 451:                 hwnd = window.hwnd
- 452:                 current_title = window.title
- 453:                 
- 454:                 # Store or compare title
- 455:                 if hwnd in self._window_titles:
- 456:                     if self._window_titles[hwnd] != current_title:
- 457:                         #print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
- 458:                         title_changed = True
- 459:                         self._window_titles[hwnd] = current_title
- 460:                         
- 461:                         # Update the window's display name
- 462:                         window.display_name = window._create_display_name()
- 463:                         
- 464:                         # Update pinned button if this window is pinned
- 465:                         if window.is_pinned and hasattr(self, 'pinned_section') and self.pinned_section:
- 466:                             self.pinned_section.update_window_title(window)
- 467:                 else:
- 468:                     self._window_titles[hwnd] = current_title
- 469:             
- 470:             # Clean up titles for closed windows
- 471:             closed_hwnds = set(self._window_titles.keys()) - current_hwnds
- 472:             for hwnd in closed_hwnds:
- 473:                 del self._window_titles[hwnd]
- 474:             
- 475:             # Refresh Windows menu if titles changed
- 476:             if title_changed:
- 477:                 self._refresh_windows_menu()
- 478:             
- 479:             # Update previous list for next check
- 480:             self._previous_hwnds = current_hwnds
- 481:         
- 482:         except Exception as e:
- 483:             print(f"Error checking window states: {e}")
- 484:         
- 485:         # Schedule next check (every 1 second for responsive updates)
- 486:         self.root.after(1000, self.check_window_states)
- 487: 
- 488:     def _refresh_windows_menu(self):
- 489:         """Helper method to refresh Windows menu if it's open"""
- 490:         if hasattr(self, 'windows_menu') and self.windows_menu:
- 491:             try:
- 492:                 if self.windows_menu.winfo_exists():
- 493:                     print("Refreshing Windows Manager...")
- 494:                     self.windows_menu.refresh_window_list()
- 495:             except:
- 496:                 pass
- 497:     
- 498: 
+ 316:         self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+ 317: 
+ 318:     def toggle_windows_menu(self):
+ 319:         """Toggle the windows management menu"""
+ 320:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 321:             try:
+ 322:                 if self.windows_menu.winfo_exists():
+ 323:                     # Store current geometry BEFORE closing
+ 324:                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
+ 325:                     print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
+ 326:                     self.windows_menu.close_window()
+ 327:                     self.windows_menu = None
+ 328:                     return
+ 329:             except:
+ 330:                 self.windows_menu = None
+ 331:         
+ 332:         # Create new windows menu
+ 333:         print(f"Class: {type(self).__name__}")  # Debug
+ 334:         self.windows_menu = WindowsMenu(self, self.window_manager, 
+ 335:                                     self.on_windows_pinned,
+ 336:                                     self.windows_menu_geometry)
+ 337:     
+ 338:     def on_windows_pinned(self):
+ 339:         """Callback when windows are pinned/unpinned"""
+ 340:         #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
+ 341:         #print(f"Pinned section: {self.pinned_section}")
+ 342:         
+ 343:         if self.pinned_section:
+ 344:             print(f"Refreshing pinned section...")
+ 345:             self.pinned_section.refresh()
+ 346:         else:
+ 347:             print(f"ERROR: pinned_section is None!")
+ 348:         
+ 349:         # Always refresh the Windows Manager if it's open to update the list
+ 350:         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
+ 351:             try:
+ 352:                 if self.windows_menu.winfo_exists():
+ 353:                     print(f"Refreshing Windows Manager...")
+ 354:                     self.windows_menu.refresh_window_list()
+ 355:                 else:
+ 356:                     print(f"Windows Manager exists but window is destroyed")
+ 357:             except Exception as e:
+ 358:                 print(f"Error refreshing Windows Manager: {e}")
+ 359:                 self.windows_menu = None
+ 360:         else:
+ 361:             print(f"Windows Manager is not open")
+ 362:             
+ 363:         #print(f"=== END ON_WINDOWS_PINNED ===\n")
+ 364: 
+ 365: 
+ 366:     def start_window_monitoring(self):
+ 367:         """Start monitoring for closed windows"""
+ 368:         self.check_window_states()
+ 369:         
+ 370:     def check_window_states(self):
+ 371:         """Periodically check if pinned windows still exist"""
+ 372:         try:
+ 373:             if hasattr(self, 'pinned_section') and self.pinned_section:
+ 374:                 # Get current pinned windows
+ 375:                 pinned_windows = self.window_manager.get_pinned_windows()
+ 376:                 windows_to_unpin = []
+ 377:                 
+ 378:                 for window in pinned_windows:
+ 379:                     # Check if window still exists
+ 380:                     if not window.is_valid():
+ 381:                         print(f"Window {window.display_name} no longer exists, unpinning...")
+ 382:                         windows_to_unpin.append(window)
+ 383:                 
+ 384:                 # Unpin any closed windows
+ 385:                 if windows_to_unpin:
+ 386:                     for window in windows_to_unpin:
+ 387:                         self.window_manager.unpin_window(window)
+ 388:                     
+ 389:                     # Refresh the pinned section
+ 390:                     self.pinned_section.refresh()
+ 391:                     
+ 392:                     # Also refresh Windows Manager if it's open
+ 393:                     if hasattr(self, 'windows_menu') and self.windows_menu:
+ 394:                         try:
+ 395:                             if self.windows_menu.winfo_exists():
+ 396:                                 self.windows_menu.refresh_window_list()
+ 397:                         except:
+ 398:                             pass
+ 399:         
+ 400:         except Exception as e:
+ 401:             print(f"Error checking window states: {e}")
+ 402:         
+ 403:         # Schedule next check (every 2 seconds)
+ 404:         self.root.after(2000, self.check_window_states)
+ 405: 
+ 406:     def verify_setup(self):
+ 407:         """Verify all components are properly initialized"""
+ 408:         print(f"\n=== VERIFYING TASKBAR SETUP ===")
+ 409:         print(f"Window manager: {self.window_manager}")
+ 410:         print(f"Pinned section: {self.pinned_section}")
+ 411:         print(f"Pinned section type: {type(self.pinned_section)}")
+ 412:         if self.pinned_section:
+ 413:             print(f"Pinned section parent: {self.pinned_section.master}")
+ 414:             print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
+ 415:         print(f"=== END VERIFICATION ===\n")
+ 416:     
+ 417:     def check_window_states(self):
+ 418:         """Periodically check for closed windows, new windows, and title changes"""
+ 419:         try:
+ 420:             # Get current window list
+ 421:             current_windows = self.window_manager.get_relevant_windows()
+ 422:             current_hwnds = {w.hwnd for w in current_windows}
+ 423:             
+ 424:             # Check for closed pinned windows
+ 425:             if hasattr(self, 'pinned_section') and self.pinned_section:
+ 426:                 pinned_windows = self.window_manager.get_pinned_windows()
+ 427:                 windows_to_unpin = []
+ 428:                 
+ 429:                 for window in pinned_windows:
+ 430:                     if not window.is_valid():
+ 431:                         print(f"Window {window.display_name} no longer exists, unpinning...")
+ 432:                         windows_to_unpin.append(window)
+ 433:                 
+ 434:                 if windows_to_unpin:
+ 435:                     for window in windows_to_unpin:
+ 436:                         self.window_manager.unpin_window(window)
+ 437:                     self.pinned_section.refresh()
+ 438:             
+ 439:             # Initialize tracking dictionaries if they don't exist
+ 440:             if not hasattr(self, '_previous_hwnds'):
+ 441:                 self._previous_hwnds = current_hwnds
+ 442:                 self._window_titles = {}
+ 443:             
+ 444:             # Check for new windows
+ 445:             new_hwnds = current_hwnds - self._previous_hwnds
+ 446:             if new_hwnds:
+ 447:                 print(f"Detected {len(new_hwnds)} new window(s)")
+ 448:                 self._refresh_windows_menu()
+ 449:             
+ 450:             # Check for title changes in existing windows
+ 451:             title_changed = False
+ 452:             for window in current_windows:
+ 453:                 hwnd = window.hwnd
+ 454:                 current_title = window.title
+ 455:                 
+ 456:                 # Store or compare title
+ 457:                 if hwnd in self._window_titles:
+ 458:                     if self._window_titles[hwnd] != current_title:
+ 459:                         #print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
+ 460:                         title_changed = True
+ 461:                         self._window_titles[hwnd] = current_title
+ 462:                         
+ 463:                         # Update the window's display name
+ 464:                         window.display_name = window._create_display_name()
+ 465:                         
+ 466:                         # Update pinned button if this window is pinned
+ 467:                         if window.is_pinned and hasattr(self, 'pinned_section') and self.pinned_section:
+ 468:                             self.pinned_section.update_window_title(window)
+ 469:                 else:
+ 470:                     self._window_titles[hwnd] = current_title
+ 471:             
+ 472:             # Clean up titles for closed windows
+ 473:             closed_hwnds = set(self._window_titles.keys()) - current_hwnds
+ 474:             for hwnd in closed_hwnds:
+ 475:                 del self._window_titles[hwnd]
+ 476:             
+ 477:             # Refresh Windows menu if titles changed
+ 478:             if title_changed:
+ 479:                 self._refresh_windows_menu()
+ 480:             
+ 481:             # Update previous list for next check
+ 482:             self._previous_hwnds = current_hwnds
+ 483:         
+ 484:         except Exception as e:
+ 485:             print(f"Error checking window states: {e}")
+ 486:         
+ 487:         # Schedule next check (every 1 second for responsive updates)
+ 488:         self.root.after(1000, self.check_window_states)
+ 489: 
+ 490:     def _refresh_windows_menu(self):
+ 491:         """Helper method to refresh Windows menu if it's open"""
+ 492:         if hasattr(self, 'windows_menu') and self.windows_menu:
+ 493:             try:
+ 494:                 if self.windows_menu.winfo_exists():
+ 495:                     print("Refreshing Windows Manager...")
+ 496:                     self.windows_menu.refresh_window_list()
+ 497:             except:
+ 498:                 pass
  499: 
- 500:     def show_email_attachments_menu(self):
- 501:         """Show the email attachments menu using the inventory view with caching"""
- 502:         from email_menu import EmailAttachmentsMenu
+ 500:     def show_email_options_menu(self):
+ 501:         """Show the email options popup menu - toggle if already open"""
+ 502:         from email_options_menu import EmailOptionsMenu
  503:         
- 504:         # Create email menu instance if it doesn't exist
- 505:         if not hasattr(self, 'email_menu'):
- 506:             self.email_menu = EmailAttachmentsMenu(self.root)
- 507:         
- 508:         # Show the email attachments (will use cache if available)
- 509:         self.email_menu.show_email_attachments()
- 510: 
- 511:     # Optional: Add a method to force refresh emails (could be bound to a keyboard shortcut)
- 512:     def refresh_email_attachments(self):
- 513:         """Force refresh email attachments"""
- 514:         if hasattr(self, 'email_menu'):
- 515:             self.email_menu.show_email_attachments(force_refresh=True)
- 516: 
- 517: 
- 518: 
- 519: 
+ 504:         # Check if email options menu is already open
+ 505:         if hasattr(self, 'email_options_menu') and self.email_options_menu is not None:
+ 506:             try:
+ 507:                 if self.email_options_menu.winfo_exists():
+ 508:                     # Menu is open, close it
+ 509:                     self.email_options_menu.destroy()
+ 510:                     self.email_options_menu = None
+ 511:                     return
+ 512:             except:
+ 513:                 self.email_options_menu = None
+ 514:         
+ 515:         # Get button position
+ 516:         emails_btn = None
+ 517:         for widget in self.main_frame.winfo_children():
+ 518:             if isinstance(widget, tk.Button) and widget.cget('text') == 'Emails':
+ 519:                 emails_btn = widget
+ 520:                 break
+ 521:         
+ 522:         if emails_btn:
+ 523:             # Create menu at temporary position to get its height
+ 524:             temp_menu = EmailOptionsMenu(self.root, 0, 0, self)
+ 525:             temp_menu.update_idletasks()
+ 526:             menu_height = temp_menu.winfo_reqheight()
+ 527:             temp_menu.destroy()
+ 528:             
+ 529:             # Position menu so its bottom edge touches the top of the taskbar
+ 530:             x = emails_btn.winfo_rootx()
+ 531:             taskbar_top = self.root.winfo_rooty()
+ 532:             y = taskbar_top - menu_height  # No gap, right at the edge
+ 533:             
+ 534:             # Create and show the options menu at calculated position
+ 535:             self.email_options_menu = EmailOptionsMenu(self.root, x, y, self)
+ 536:             
+ 537:             # Set up cleanup when menu is destroyed
+ 538:             def cleanup():
+ 539:                 self.email_options_menu = None
+ 540:             
+ 541:             self.email_options_menu.bind("<Destroy>", lambda e: cleanup())
+ 542: 
 
 ────────────────────────────────────────────────────────────────────────────────
 FILE: ui_components.py
@@ -8290,16 +8543,17 @@ comtypes
                            EXPORT SUMMARY
 ================================================================================
 
-Files Processed: 22
-Total Size: 320.1 KB
-Total Python Lines: 7,981
+Files Processed: 23
+Total Size: 330.4 KB
+Total Python Lines: 8,224
 
 File Breakdown:
     README.md                  718.0 B (  31 lines)
     browse_choice_dialog.py     7.0 KB ( 187 lines)
     config.py                   7.1 KB ( 175 lines)
-    email_manager.py           18.7 KB ( 460 lines)
-    email_menu.py              13.6 KB ( 322 lines)
+    email_manager.py           20.0 KB ( 480 lines)
+    email_menu.py              15.0 KB ( 348 lines)
+    email_options_menu.py       6.5 KB ( 173 lines)
     enhanced_folder_inventory.py  23.5 KB ( 569 lines)
     explorer_utils.py           8.9 KB ( 226 lines)
     folder_inventory.py        25.8 KB ( 619 lines)
@@ -8311,7 +8565,7 @@ File Breakdown:
     quick_links.py             36.3 KB ( 867 lines)
     restore_deskop.py           1.5 KB (  41 lines)
     snip_feature.py            16.1 KB ( 410 lines)
-    taskbar.py                 21.2 KB ( 519 lines)
+    taskbar.py                 22.4 KB ( 542 lines)
     ui_components.py           28.7 KB ( 745 lines)
     utils.py                    7.0 KB ( 211 lines)
     window_manager.py          13.6 KB ( 336 lines)

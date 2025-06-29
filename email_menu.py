@@ -1,6 +1,6 @@
 # email_menu.py
 """
-Enhanced email attachments menu with caching and refresh capabilities
+Updated email attachments menu with support for both received and sent emails
 """
 
 import tkinter as tk
@@ -11,7 +11,7 @@ from config import Colors, Fonts, Dimensions
 import threading
 
 class EmailAttachmentsMenu:
-    """Enhanced email attachments menu with caching"""
+    """Enhanced email attachments menu with caching and support for sent/received"""
     
     def __init__(self, parent_window):
         """Initialize the email attachments menu"""
@@ -20,38 +20,50 @@ class EmailAttachmentsMenu:
         self.inventory_window = None
         self.loading_dialog = None
     
-    def show_email_attachments(self, force_refresh: bool = False):
-        """Display the email attachments in an inventory view window"""
+    def show_email_attachments(self, force_refresh: bool = False, email_type: str = 'received'):
+        """
+        Display the email attachments in an inventory view window
+        
+        Args:
+            force_refresh: Force a fresh scan
+            email_type: 'received' or 'sent'
+        """
         # Check if we need to do a fresh scan
-        cache_exists = self.email_manager.get_cache_info(EmailManager.SCAN_ATTACHMENTS) is not None
-        needs_fresh_scan = force_refresh or not cache_exists or not self.email_manager.cache.is_cache_valid(EmailManager.SCAN_ATTACHMENTS)
+        scan_type = EmailManager.SCAN_ATTACHMENTS if email_type == 'received' else EmailManager.SCAN_ATTACHMENTS_SENT
+        cache_exists = self.email_manager.get_cache_info(scan_type) is not None
+        needs_fresh_scan = force_refresh or not cache_exists or not self.email_manager.cache.is_cache_valid(scan_type)
         
         if needs_fresh_scan:
             # Show loading indicator and scan in background
-            self.show_loading_dialog()
+            self.show_loading_dialog(email_type)
             
             scan_thread = threading.Thread(
                 target=self._perform_scan,
-                args=(),  # No args needed
+                args=(email_type,),
                 daemon=True
             )
             scan_thread.start()
         else:
             # Use cached data directly
-            result = self.email_manager.get_emails_with_attachments(use_cache=True, force_refresh=False)
-            self._display_emails_from_result(result)
+            result = self.email_manager.get_emails_with_attachments(
+                use_cache=True, 
+                force_refresh=False,
+                email_type=email_type
+            )
+            self._display_emails_from_result(result, email_type)
     
-    def _perform_scan(self):
-        """Perform email scan in background thread - always fresh"""
+    def _perform_scan(self, email_type: str):
+        """Perform email scan in background thread"""
         result = self.email_manager.get_emails_with_attachments(
             use_cache=False,
-            force_refresh=True
+            force_refresh=True,
+            email_type=email_type
         )
         
         if self.loading_dialog:
-            self.loading_dialog.after(0, lambda: self._scan_complete(result))
+            self.loading_dialog.after(0, lambda: self._scan_complete(result, email_type))
     
-    def _scan_complete(self, result: dict):
+    def _scan_complete(self, result: dict, email_type: str):
         """Handle scan completion"""
         # Close loading dialog
         if self.loading_dialog:
@@ -59,24 +71,16 @@ class EmailAttachmentsMenu:
             self.loading_dialog = None
         
         # Display results
-        self._display_emails_from_result(result)
+        self._display_emails_from_result(result, email_type)
     
-    def _display_emails(self, force_refresh: bool = False):
-        """Display emails (from cache or fresh scan)"""
-        result = self.email_manager.get_emails_with_attachments(
-            use_cache=not force_refresh,
-            force_refresh=force_refresh
-        )
-        self._display_emails_from_result(result)
-    
-    def _display_emails_from_result(self, result: dict):
+    def _display_emails_from_result(self, result: dict, email_type: str):
         """Display emails from scan result"""
         attachments = result['data']
         metadata = result.get('metadata', {})
         from_cache = result.get('from_cache', False)
         
         if not attachments:
-            self._show_no_emails_message()
+            self._show_no_emails_message(email_type)
             return
         
         # Prepare additional info
@@ -84,7 +88,8 @@ class EmailAttachmentsMenu:
             'Period': f"Last {metadata.get('weeks_back', 2)} weeks",
             'Total Emails': metadata.get('total_emails_with_attachments', 'Unknown'),
             'Total Attachments': len(attachments),
-            'Source': 'Cached' if from_cache else 'Fresh Scan'
+            'Source': 'Cached' if from_cache else 'Fresh Scan',
+            'Type': 'Sent' if email_type == 'sent' else 'Received'
         }
         
         if from_cache and 'cached_at' in result:
@@ -94,19 +99,34 @@ class EmailAttachmentsMenu:
         if 'scan_duration' in metadata and not from_cache:
             additional_info['Scan Time'] = f"{metadata['scan_duration']:.1f}s"
         
-        # Configure the inventory view window
-        window_config = {
-            'title': 'Email Attachments',
-            'columns': [
+        # Configure columns based on email type
+        if email_type == 'sent':
+            columns = [
+                {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
+                {'key': 'To', 'header': 'To', 'width': 180, 'type': 'text'},
+                {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
+                {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
+                {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
+                {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
+            ]
+            title = 'Sent Email Attachments'
+        else:
+            columns = [
                 {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
                 {'key': 'From', 'header': 'From', 'width': 180, 'type': 'text'},
                 {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
                 {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
                 {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
                 {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
-            ],
-            'on_item_click': self._handle_item_click,  # New: single click handler
-            'on_item_double_click': self._open_email,  # Keep for backward compatibility
+            ]
+            title = 'Received Email Attachments'
+        
+        # Configure the inventory view window
+        window_config = {
+            'title': title,
+            'columns': columns,
+            'on_item_click': self._handle_item_click,
+            'on_item_double_click': self._open_email,
             'show_stats': True,
             'allow_export': True,
             'window_width': 1200,
@@ -119,8 +139,9 @@ class EmailAttachmentsMenu:
             self.parent, 
             attachments, 
             window_config,
-            self.refresh_emails,
-            self.full_refresh_emails
+            lambda: self.refresh_emails(email_type),
+            lambda: self.full_refresh_emails(email_type),
+            email_type
         )
     
     def _handle_item_click(self, item: dict, column_key: str = None):
@@ -143,30 +164,36 @@ class EmailAttachmentsMenu:
                 attachment_data['AttachmentIndex']
             )
 
-    def refresh_emails(self):
+    def refresh_emails(self, email_type: str):
         """Quick refresh - check for new emails only"""
         if self.inventory_window and hasattr(self.inventory_window, 'show_refreshing'):
             self.inventory_window.show_refreshing()
         
-        # Run in background
+        # For now, just do a full refresh
+        # Could be optimized later to only check recent emails
         thread = threading.Thread(
             target=self._perform_quick_refresh,
+            args=(email_type,),
             daemon=True
         )
         thread.start()
     
-    def _perform_quick_refresh(self):
+    def _perform_quick_refresh(self, email_type: str):
         """Perform quick refresh in background"""
-        result = self.email_manager.refresh_recent_emails(hours_back=24)
+        result = self.email_manager.get_emails_with_attachments(
+            use_cache=False,
+            force_refresh=True,
+            email_type=email_type
+        )
         
         if self.inventory_window:
             self.inventory_window.after(0, lambda: self._update_inventory(result))
     
-    def full_refresh_emails(self):
+    def full_refresh_emails(self, email_type: str):
         """Full refresh - rescan all emails"""
         if self.inventory_window:
             self.inventory_window.destroy()
-        self.show_email_attachments(force_refresh=True)
+        self.show_email_attachments(force_refresh=True, email_type=email_type)
     
     def _update_inventory(self, result: dict):
         """Update inventory window with new data"""
@@ -177,37 +204,36 @@ class EmailAttachmentsMenu:
             self.inventory_window.populate_grid()
             self.inventory_window.update_stats()
             
-            # Update additional info
-            new_attachments = result.get('new_attachments', 0)
-            if new_attachments > 0:
-                self.inventory_window.show_refresh_complete(f"Found {new_attachments} new attachment(s)")
-            else:
-                self.inventory_window.show_refresh_complete("No new attachments found")
+            # Show refresh complete message
+            self.inventory_window.show_refresh_complete("Refresh complete")
     
     def _open_email(self, email_data: dict):
         """Handle double-click on email item to open it"""
         if 'EntryID' in email_data:
             self.email_manager.open_email(email_data['EntryID'])
     
-    def _show_no_emails_message(self):
+    def _show_no_emails_message(self, email_type: str):
         """Show a message when no emails with attachments are found"""
+        email_type_text = "sent" if email_type == 'sent' else "received"
         WarningDialog.show(
             self.parent,
             "No Emails Found",
-            f"No emails with attachments found in the last {self.email_manager.weeks_back} weeks."
+            f"No {email_type_text} emails with attachments found in the last {self.email_manager.weeks_back} weeks."
         )
     
-    def show_loading_dialog(self):
+    def show_loading_dialog(self, email_type: str):
         """Show loading dialog during email scan"""
-        self.loading_dialog = LoadingDialog(self.parent, "Scanning emails...")
+        email_type_text = "sent" if email_type == 'sent' else "received"
+        self.loading_dialog = LoadingDialog(self.parent, f"Scanning {email_type_text} emails...")
 
 
 class EmailInventoryWindow(InventoryViewWindow):
     """Extended inventory window with refresh capabilities"""
     
-    def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback):
+    def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback, email_type):
         self.quick_refresh_callback = quick_refresh_callback
         self.full_refresh_callback = full_refresh_callback
+        self.email_type = email_type
         super().__init__(parent, data, config)
     
     def create_footer(self):

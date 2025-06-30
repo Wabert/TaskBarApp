@@ -1,0 +1,20 @@
+Floating Windows
+	Windows Manager
+	Folder Inventory
+	Add new link
+
+Anchor to taskbar
+	Quick Links
+	Emails
+	
+From Parent at location
+	Filter column (off of inventory)
+
+
+Notification
+	Loading Dialog
+	Progress Dialog
+	Error Dialog
+	Warning Dialog
+	Confirmation Dialog
+	Unpin Window

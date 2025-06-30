@@ -18,8 +18,6 @@ from folder_inventory import add_folder_inventory_to_taskbar  # UPDATED IMPORT
 from window_manager import WindowManager
 from windows_menu import WindowsMenu
 from pinned_windows import PinnedWindowsSection
-from email_manager import EmailManager
-from email_options_menu import EmailOptionsMenu
 
 
 class SuiteViewTaskbar:
@@ -525,7 +523,7 @@ class SuiteViewTaskbar:
         
         if emails_btn:
             # Create menu at temporary position to get its height
-            temp_menu = EmailOptionsMenu(self.root, 0, 0, self)
+            temp_menu = EmailOptionsMenu(self.root, emails_btn, self)
             temp_menu.update_idletasks()
             menu_height = temp_menu.winfo_reqheight()
             temp_menu.destroy()
@@ -536,7 +534,7 @@ class SuiteViewTaskbar:
             y = taskbar_top - menu_height  # No gap, right at the edge
             
             # Create and show the options menu at calculated position
-            self.email_options_menu = EmailOptionsMenu(self.root, x, y, self)
+            self.email_options_menu = EmailOptionsMenu(self.root, emails_btn, self)
             
             # Set up cleanup when menu is destroyed
             def cleanup():

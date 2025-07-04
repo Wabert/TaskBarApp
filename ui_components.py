@@ -2,253 +2,80 @@
 """
 Shared UI components for SuiteView Taskbar Application
 Contains reusable dialogs, custom widgets, and styling functions
+Updated to use SimpleWindow
 """
 
 import tkinter as tk
 from tkinter import ttk
 from config import Colors, Fonts, Dimensions
 from utils import UIUtils
+from simple_window_factory import SimpleWindow
 
-class CustomDialog(tk.Toplevel):
-    """Base class for custom dialogs with consistent styling"""
+class CustomDialog(SimpleWindow):
+    """Base class for custom dialogs with consistent styling using SimpleWindow"""
     
     def __init__(self, parent, title, width=400, height=300, resizable=False, x=None, y=None):
-        super().__init__(parent)
+        # Initialize SimpleWindow without resize handles
+        super().__init__(parent, title, resize_handles=None)
+        
         self.parent = parent
         self.result = None
         
-        # Initialize drag variables
-        self.is_dragging = False
-        self.drag_start_x = 0
-        self.drag_start_y = 0
+        # Set window size
+        self.geometry(f"{width}x{height}")
         
-        # Initialize topmost maintenance
-        self.maintain_topmost_active = True
+        # Set background color
+        self.content_frame.configure(bg=Colors.LIGHT_GREEN)
         
-        # Window setup
-        self.configure(bg=Colors.DARK_GREEN)
-        self.resizable(resizable, resizable)
-        self.overrideredirect(True)  # Remove default title bar
-        
-        # Make dialog modal and always on top
-        self.transient(parent)
-        self.attributes('-topmost', True)
-        self.lift()
-        
+        # Position window
         if x is not None and y is not None:
-            # Use custom position
             self.geometry(f"{width}x{height}+{x}+{y}")
         else:
-            # Center on screen (existing behavior)
-            UIUtils.center_window(self, width, height)
+            # Center on parent
+            self.update_idletasks()
+            parent_x = parent.winfo_x()
+            parent_y = parent.winfo_y()
+            parent_width = parent.winfo_width()
+            parent_height = parent.winfo_height()
+            x = parent_x + (parent_width - width) // 2
+            y = parent_y + (parent_height - height) // 2
+            self.geometry(f"{width}x{height}+{x}+{y}")
         
-        # Main content frame
-        self.content_frame = tk.Frame(self, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=2)
-        self.content_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
-        
-        # Create custom title bar
-        self.create_title_bar(title)
-        
-        # Container for dialog content
-        self.dialog_content = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-        self.dialog_content.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        # Button frame at bottom
-        self.button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, height=50)
-        self.button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
-        self.button_frame.pack_propagate(False)
-        
-        # Make modal and ensure it stays on top
+        # Make modal
+        self.transient(parent)
         self.grab_set()
-        self.focus_force()
         
-        # Schedule periodic topmost updates to ensure dialog stays visible
-        self.after(100, self._maintain_topmost)
+        # Create dialog structure
+        self._create_dialog_structure()
         
-        # Pause parent's topmost maintenance if it exists
+        # Pause parent's topmost maintenance if it has it
         if hasattr(parent, 'pause_topmost_maintenance'):
             parent.pause_topmost_maintenance()
         
-        # Resume parent's topmost when this dialog is destroyed
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        # Bind escape key
+        self.bind('<Escape>', lambda e: self.cancel())
+        
+        # Focus
+        self.focus_set()
     
-    def create_title_bar(self, title):
-        """Create custom title bar with drag functionality"""
-        self.title_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=25)
-        self.title_frame.pack(fill=tk.X)
-        self.title_frame.pack_propagate(False)
+    def _create_dialog_structure(self):
+        """Create the standard dialog structure"""
+        # Main content area - using the inherited content_frame
+        self.dialog_content = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        self.dialog_content.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        # Drag handle (left side)
-        drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                             font=('Arial', 8), cursor='fleur')
-        drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
-        
-        # Title label
-        title_label = tk.Label(self.title_frame, text=f"📋 {title}", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                              font=Fonts.DIALOG_TITLE, cursor='fleur')
-        title_label.pack(side=tk.LEFT, padx=5, pady=3)
-        
-        # Close button
-        close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                           font=('Arial', 12, 'bold'), cursor='hand2')
-        close_btn.pack(side=tk.RIGHT, padx=5)
-        close_btn.bind("<Button-1>", lambda e: self.cancel())
-        
-        # Bind drag events to title bar elements
-        for widget in [self.title_frame, drag_handle, title_label]:
-            widget.bind("<Button-1>", self.start_drag)
-            widget.bind("<B1-Motion>", self.do_drag)
-            widget.bind("<ButtonRelease-1>", self.end_drag)
-            widget.bind("<Enter>", lambda e: self.configure(cursor='fleur'))
-            widget.bind("<Leave>", lambda e: self.configure(cursor=''))
-        
-        return self.title_frame
-    
-    def add_button(self, text, command, style='primary'):
-        """Add a button to the button frame"""
-        if style == 'primary':
-            bg_color = Colors.DARK_GREEN
-        elif style == 'secondary':
-            bg_color = Colors.MEDIUM_GREEN
-        else:
-            bg_color = Colors.INACTIVE_GRAY
-        
-        button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
-        button_container.pack(expand=True)
-        
-        btn = tk.Button(button_container, text=text, bg=bg_color, fg=Colors.WHITE,
-                       command=command, width=Dimensions.DIALOG_BUTTON_WIDTH, 
-                       font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
-        btn.pack(side=tk.LEFT, padx=5)
-        
-        return btn
-    
-    def cancel(self):
-        """Cancel the dialog"""
-        self.result = None
-        self.destroy()
+        # Button frame at bottom
+        self.button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        self.button_frame.pack(fill=tk.X, pady=(0, 20))
     
     def ok(self):
-        """OK button handler - override in subclasses"""
+        """OK button clicked"""
         self.result = True
         self.destroy()
     
-    def start_drag(self, event):
-        """Start dragging the dialog"""
-        self.is_dragging = True
-        self.drag_start_x = event.x_root
-        self.drag_start_y = event.y_root
-        
-        # Visual feedback
-        self.title_frame.configure(bg=Colors.HOVER_GREEN)
-        self.configure(cursor='fleur')
-    
-    def do_drag(self, event):
-        """Handle drag motion"""
-        if not self.is_dragging:
-            return
-        
-        # Calculate the distance moved
-        delta_x = event.x_root - self.drag_start_x
-        delta_y = event.y_root - self.drag_start_y
-        
-        # Get current position
-        current_x = self.winfo_x()
-        current_y = self.winfo_y()
-        
-        # Calculate new position
-        new_x = current_x + delta_x
-        new_y = current_y + delta_y
-        
-        # Keep dialog on screen (basic bounds checking)
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        dialog_width = self.winfo_width()
-        dialog_height = self.winfo_height()
-        
-        # Ensure dialog stays on screen
-        new_x = max(0, min(new_x, screen_width - dialog_width))
-        new_y = max(0, min(new_y, screen_height - dialog_height))
-        
-        # Move the dialog
-        self.geometry(f"+{new_x}+{new_y}")
-        
-        # Update start position for next move
-        self.drag_start_x = event.x_root
-        self.drag_start_y = event.y_root
-    
-    def end_drag(self, event):
-        """End dragging operation"""
-        self.is_dragging = False
-        self.configure(cursor='')
-        
-        # Remove visual feedback
-        self.title_frame.configure(bg=Colors.DARK_GREEN)
-    
-    def pause_topmost_maintenance(self):
-        """Pause the topmost maintenance for this dialog"""
-        self.maintain_topmost_active = False
-    
-    def resume_topmost_maintenance(self):
-        """Resume the topmost maintenance for this dialog"""
-        self.maintain_topmost_active = True
-    
-    def _maintain_topmost(self):
-        """Periodically ensure dialog stays on top"""
-        try:
-            if self.winfo_exists() and self.maintain_topmost_active:
-                # Only maintain topmost if no combobox is active to avoid stealing focus
-                focused_widget = self.focus_get()
-                if not (focused_widget and isinstance(focused_widget, ttk.Combobox)):
-                    # Check if any combobox in the dialog has focus or is showing dropdown
-                    combobox_active = self._has_active_combobox()
-                    if not combobox_active:
-                        self.lift()
-                        self.attributes('-topmost', True)
-                self.after(500, self._maintain_topmost)  # Check every 500ms
-            elif self.winfo_exists():
-                # Still schedule next check even if paused
-                self.after(500, self._maintain_topmost)
-        except:
-            pass  # Dialog has been destroyed
-    
-    def _has_active_combobox(self):
-        """Check if any combobox in the dialog is currently active (dropdown showing)"""
-        try:
-            # Recursively check all widgets to find active comboboxes
-            return self._check_widget_for_active_combobox(self)
-        except:
-            return False
-    
-    def _check_widget_for_active_combobox(self, widget):
-        """Recursively check widget and its children for active comboboxes"""
-        try:
-            # Check if current widget is an active combobox
-            if isinstance(widget, ttk.Combobox):
-                # Check if combobox has focus or its dropdown is showing
-                if widget.focus_get() == widget:
-                    return True
-                # Additional check: see if the combobox state indicates dropdown is open
-                try:
-                    if 'pressed' in str(widget.state()) or 'active' in str(widget.state()):
-                        return True
-                except:
-                    pass
-            
-            # Check all child widgets
-            for child in widget.winfo_children():
-                if self._check_widget_for_active_combobox(child):
-                    return True
-            
-            return False
-        except:
-            return False
-    
-    def _on_closing(self):
-        """Handle dialog closing"""
-        # Resume parent's topmost maintenance
-        if hasattr(self.parent, 'resume_topmost_maintenance'):
-            self.parent.resume_topmost_maintenance()
+    def cancel(self):
+        """Cancel button clicked"""
+        self.result = None
         self.destroy()
     
     def destroy(self):
@@ -257,6 +84,7 @@ class CustomDialog(tk.Toplevel):
         if hasattr(self.parent, 'resume_topmost_maintenance'):
             self.parent.resume_topmost_maintenance()
         super().destroy()
+
 
 class ConfirmationDialog(CustomDialog):
     """Confirmation dialog with Yes/No buttons"""
@@ -317,6 +145,69 @@ class ConfirmationDialog(CustomDialog):
         parent.wait_window(dialog)
         return dialog.result
 
+
+class LoadingDialog(SimpleWindow):
+    """Simple loading dialog using SimpleWindow"""
+    
+    def __init__(self, parent, message="Loading..."):
+        # Initialize SimpleWindow without resize handles
+        super().__init__(parent, "Please Wait", resize_handles=None)
+        
+        # Set window size
+        self.geometry("300x150")
+        
+        # Center on parent
+        self.update_idletasks()
+        parent.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - 300) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 150) // 2
+        self.geometry(f"300x150+{x}+{y}")
+        
+        # Set background color
+        self.content_frame.configure(bg=Colors.LIGHT_GREEN)
+        
+        # Create content
+        self.message = message
+        self._create_content()
+        
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Start animation
+        self.animate_progress()
+    
+    def _create_content(self):
+        """Create the loading dialog content"""
+        content = self.content_frame
+        
+        # Loading message
+        self.msg_label = tk.Label(content, text=self.message,
+                                 bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
+                                 font=Fonts.DIALOG_LABEL)
+        self.msg_label.pack(pady=20)
+        
+        # Progress indicator (simple animation)
+        self.progress_label = tk.Label(content, text="⏳",
+                                      bg=Colors.LIGHT_GREEN, fg=Colors.DARK_GREEN,
+                                      font=('Arial', 24))
+        self.progress_label.pack(pady=10)
+    
+    def animate_progress(self):
+        """Simple progress animation"""
+        current = self.progress_label.cget("text")
+        if current == "⏳":
+            self.progress_label.config(text="⌛")
+        else:
+            self.progress_label.config(text="⏳")
+        
+        self.after(500, self.animate_progress)
+    
+    def update_message(self, new_message):
+        """Update the loading message"""
+        self.msg_label.config(text=new_message)
+
+
 class WarningDialog(CustomDialog):
     """Warning dialog with OK button"""
     
@@ -359,6 +250,7 @@ class WarningDialog(CustomDialog):
         dialog.attributes('-topmost', True)
         parent.wait_window(dialog)
         return dialog.result
+
 
 class ErrorDialog(CustomDialog):
     """Error dialog with OK button"""
@@ -403,7 +295,8 @@ class ErrorDialog(CustomDialog):
         parent.wait_window(dialog)
         return dialog.result
 
-# Updated FormField class (add this to ui_components.py)
+
+# Helper Components (not dialogs, so don't change these)
 
 class FormField:
     """Helper class for creating form fields with clipboard support"""
@@ -428,14 +321,13 @@ class FormField:
                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
                 self._bind_text_clipboard_operations()
             
-            self.widget.pack(fill=tk.X, expand=True)
-            
+            self.widget.pack(fill=tk.X)
         else:
-            # Original side-by-side layout
+            # Side-by-side layout
             self.label = tk.Label(self.frame, text=label_text, bg=Colors.LIGHT_GREEN, 
                                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
-            self.label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
-        
+            self.label.pack(side=tk.LEFT, padx=(0, 10))
+            
             if field_type == 'entry':
                 self.widget = tk.Entry(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
                 self._bind_clipboard_operations()
@@ -446,300 +338,188 @@ class FormField:
                 self.widget = tk.Text(self.frame, font=Fonts.DIALOG_LABEL, **kwargs)
                 self._bind_text_clipboard_operations()
             
-            self.widget.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
-            self.frame.grid_columnconfigure(1, weight=1)
+            self.widget.pack(side=tk.LEFT, fill=tk.X, expand=True)
     
     def _bind_clipboard_operations(self):
-        """Bind standard clipboard operations to Entry widget"""
-        # Standard Windows/cross-platform shortcuts
-        self.widget.bind('<Control-c>', self._copy)
-        self.widget.bind('<Control-x>', self._cut)
-        self.widget.bind('<Control-v>', self._paste)
-        self.widget.bind('<Control-a>', self._select_all)
-        
-        # Right-click context menu
-        self.widget.bind('<Button-3>', self._show_context_menu)
+        """Bind standard clipboard operations for Entry widgets"""
+        self.widget.bind('<Control-a>', lambda e: self.widget.select_range(0, 'end'))
+        self.widget.bind('<Control-A>', lambda e: self.widget.select_range(0, 'end'))
+        # Ctrl+C and Ctrl+V are automatically handled by tkinter Entry
     
     def _bind_combobox_clipboard_operations(self):
-        """Bind clipboard operations to Combobox widget"""
-        # Comboboxes need special handling since they have different methods
-        self.widget.bind('<Control-c>', self._copy_combobox)
-        self.widget.bind('<Control-x>', self._cut_combobox)
-        self.widget.bind('<Control-v>', self._paste_combobox)
-        self.widget.bind('<Control-a>', self._select_all_combobox)
-        
-        # Right-click context menu
-        self.widget.bind('<Button-3>', self._show_combobox_context_menu)
+        """Bind clipboard operations for Combobox widgets"""
+        # Combobox uses an internal Entry widget
+        self.widget.bind('<Control-a>', lambda e: self.widget.event_generate('<<SelectAll>>'))
+        self.widget.bind('<Control-A>', lambda e: self.widget.event_generate('<<SelectAll>>'))
     
     def _bind_text_clipboard_operations(self):
-        """Enhance Text widget clipboard operations"""
-        # Text widgets already have built-in clipboard support, but we can add context menu
-        self.widget.bind('<Button-3>', self._show_text_context_menu)
-    
-    def _copy(self, event=None):
-        """Copy selected text to clipboard"""
-        try:
-            if self.widget.selection_present():
-                self.widget.clipboard_clear()
-                self.widget.clipboard_append(self.widget.selection_get())
-        except tk.TclError:
-            pass  # No selection
-        return 'break'
-    
-    def _cut(self, event=None):
-        """Cut selected text to clipboard"""
-        try:
-            if self.widget.selection_present():
-                self.widget.clipboard_clear()
-                self.widget.clipboard_append(self.widget.selection_get())
-                self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
-        except tk.TclError:
-            pass  # No selection
-        return 'break'
-    
-    def _paste(self, event=None):
-        """Paste from clipboard"""
-        try:
-            clipboard_text = self.widget.clipboard_get()
-            if self.widget.selection_present():
-                self.widget.delete(tk.SEL_FIRST, tk.SEL_LAST)
-            self.widget.insert(tk.INSERT, clipboard_text)
-        except tk.TclError:
-            pass  # No clipboard content
-        return 'break'
-    
-    def _select_all(self, event=None):
-        """Select all text"""
-        self.widget.select_range(0, tk.END)
-        self.widget.icursor(tk.END)
-        return 'break'
-    
-    def _copy_combobox(self, event=None):
-        """Copy from combobox"""
-        try:
-            if self.widget.selection_present():
-                self.widget.clipboard_clear()
-                self.widget.clipboard_append(self.widget.selection_get())
-        except (tk.TclError, AttributeError):
-            # Fallback: copy entire value if no selection
-            try:
-                self.widget.clipboard_clear()
-                self.widget.clipboard_append(self.widget.get())
-            except:
-                pass
-        return 'break'
-    
-    def _cut_combobox(self, event=None):
-        """Cut from combobox"""
-        try:
-            if self.widget.selection_present():
-                self.widget.clipboard_clear()
-                self.widget.clipboard_append(self.widget.selection_get())
-                # For combobox, we can delete selected text
-                start = self.widget.index(tk.SEL_FIRST)
-                end = self.widget.index(tk.SEL_LAST)
-                current_value = self.widget.get()
-                new_value = current_value[:start] + current_value[end:]
-                self.widget.set(new_value)
-        except (tk.TclError, AttributeError):
-            pass
-        return 'break'
-    
-    def _paste_combobox(self, event=None):
-        """Paste to combobox"""
-        try:
-            clipboard_text = self.widget.clipboard_get()
-            if self.widget.selection_present():
-                # Replace selection
-                start = self.widget.index(tk.SEL_FIRST)
-                end = self.widget.index(tk.SEL_LAST)
-                current_value = self.widget.get()
-                new_value = current_value[:start] + clipboard_text + current_value[end:]
-                self.widget.set(new_value)
-            else:
-                # Insert at cursor position
-                cursor_pos = self.widget.index(tk.INSERT)
-                current_value = self.widget.get()
-                new_value = current_value[:cursor_pos] + clipboard_text + current_value[cursor_pos:]
-                self.widget.set(new_value)
-        except tk.TclError:
-            pass
-        return 'break'
-    
-    def _select_all_combobox(self, event=None):
-        """Select all text in combobox"""
-        try:
-            self.widget.selection_range(0, tk.END)
-            self.widget.icursor(tk.END)
-        except (tk.TclError, AttributeError):
-            pass
-        return 'break'
-    
-    def _show_context_menu(self, event):
-        """Show right-click context menu for Entry"""
-        context_menu = tk.Menu(self.widget, tearoff=0)
-        
-        # Check if there's a selection
-        has_selection = False
-        try:
-            has_selection = self.widget.selection_present()
-        except:
-            pass
-        
-        # Check if clipboard has content
-        has_clipboard = False
-        try:
-            self.widget.clipboard_get()
-            has_clipboard = True
-        except:
-            pass
-        
-        context_menu.add_command(label="Cut", command=self._cut, 
-                               state=tk.NORMAL if has_selection else tk.DISABLED)
-        context_menu.add_command(label="Copy", command=self._copy,
-                               state=tk.NORMAL if has_selection else tk.DISABLED)
-        context_menu.add_command(label="Paste", command=self._paste,
-                               state=tk.NORMAL if has_clipboard else tk.DISABLED)
-        context_menu.add_separator()
-        context_menu.add_command(label="Select All", command=self._select_all)
-        
-        try:
-            context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            context_menu.grab_release()
-    
-    def _show_combobox_context_menu(self, event):
-        """Show right-click context menu for Combobox"""
-        context_menu = tk.Menu(self.widget, tearoff=0)
-        
-        # Check if there's a selection
-        has_selection = False
-        try:
-            has_selection = self.widget.selection_present()
-        except:
-            pass
-        
-        # Check if clipboard has content
-        has_clipboard = False
-        try:
-            self.widget.clipboard_get()
-            has_clipboard = True
-        except:
-            pass
-        
-        context_menu.add_command(label="Cut", command=self._cut_combobox,
-                               state=tk.NORMAL if has_selection else tk.DISABLED)
-        context_menu.add_command(label="Copy", command=self._copy_combobox,
-                               state=tk.NORMAL if (has_selection or self.widget.get()) else tk.DISABLED)
-        context_menu.add_command(label="Paste", command=self._paste_combobox,
-                               state=tk.NORMAL if has_clipboard else tk.DISABLED)
-        context_menu.add_separator()
-        context_menu.add_command(label="Select All", command=self._select_all_combobox,
-                               state=tk.NORMAL if self.widget.get() else tk.DISABLED)
-        
-        try:
-            context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            context_menu.grab_release()
-    
-    def _show_text_context_menu(self, event):
-        """Show right-click context menu for Text widget"""
-        # Text widgets have built-in context menus in some systems,
-        # but we can provide a custom one for consistency
-        context_menu = tk.Menu(self.widget, tearoff=0)
-        
-        # Check if there's a selection
-        has_selection = False
-        try:
-            has_selection = bool(self.widget.tag_ranges(tk.SEL))
-        except:
-            pass
-        
-        # Check if clipboard has content
-        has_clipboard = False
-        try:
-            self.widget.clipboard_get()
-            has_clipboard = True
-        except:
-            pass
-        
-        context_menu.add_command(label="Cut", command=lambda: self.widget.event_generate("<<Cut>>"),
-                               state=tk.NORMAL if has_selection else tk.DISABLED)
-        context_menu.add_command(label="Copy", command=lambda: self.widget.event_generate("<<Copy>>"),
-                               state=tk.NORMAL if has_selection else tk.DISABLED)
-        context_menu.add_command(label="Paste", command=lambda: self.widget.event_generate("<<Paste>>"),
-                               state=tk.NORMAL if has_clipboard else tk.DISABLED)
-        context_menu.add_separator()
-        context_menu.add_command(label="Select All", command=lambda: self.widget.tag_add(tk.SEL, "1.0", tk.END))
-        
-        try:
-            context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            context_menu.grab_release()
+        """Bind clipboard operations for Text widgets"""
+        self.widget.bind('<Control-a>', lambda e: self.widget.tag_add('sel', '1.0', 'end'))
+        self.widget.bind('<Control-A>', lambda e: self.widget.tag_add('sel', '1.0', 'end'))
     
     def pack(self, **kwargs):
+        """Pack the form field frame"""
         self.frame.pack(**kwargs)
-        return self
     
     def grid(self, **kwargs):
+        """Grid the form field frame"""
         self.frame.grid(**kwargs)
-        return self
     
     def get(self):
-        if hasattr(self.widget, 'get'):
+        """Get the widget value"""
+        if isinstance(self.widget, tk.Text):
+            return self.widget.get('1.0', 'end-1c')
+        else:
             return self.widget.get()
-        return ""
     
     def set(self, value):
-        if hasattr(self.widget, 'delete') and hasattr(self.widget, 'insert'):
-            self.widget.delete(0, tk.END)
-            self.widget.insert(0, value)
-        elif hasattr(self.widget, 'set'):
+        """Set the widget value"""
+        if isinstance(self.widget, tk.Text):
+            self.widget.delete('1.0', 'end')
+            self.widget.insert('1.0', value)
+        elif isinstance(self.widget, ttk.Combobox):
             self.widget.set(value)
-
-class StyledButton(tk.Button):
-    """Custom styled button"""
+        else:
+            self.widget.delete(0, 'end')
+            self.widget.insert(0, value)
     
-    def __init__(self, parent, text, style='primary', **kwargs):
-        # Set default styling based on style type
-        if style == 'primary':
-            bg_color = Colors.DARK_GREEN
-            fg_color = Colors.WHITE
-        elif style == 'secondary':
-            bg_color = Colors.MEDIUM_GREEN
-            fg_color = Colors.BLACK
-        elif style == 'success':
-            bg_color = Colors.LIGHT_GREEN
-            fg_color = Colors.BLACK
-        else:  # 'danger' or other
-            bg_color = Colors.INACTIVE_GRAY
-            fg_color = Colors.WHITE
-        
-        defaults = {
-            'bg': bg_color,
-            'fg': fg_color,
-            'font': Fonts.DIALOG_BUTTON,
-            'relief': tk.RAISED,
-            'bd': 1,
-            'cursor': 'hand2',
-            'activebackground': Colors.HOVER_GREEN,
-            'activeforeground': Colors.WHITE
-        }
-        
-        # Override defaults with provided kwargs
-        defaults.update(kwargs)
-        
-        super().__init__(parent, text=text, **defaults)
+    def focus_set(self):
+        """Set focus to the widget"""
+        self.widget.focus_set()
+
 
 class CategoryHeader(tk.Frame):
-    """Styled category header for lists"""
+    """Styled category header for menus and dialogs"""
     
-    def __init__(self, parent, title, **kwargs):
-        super().__init__(parent, bg=Colors.MEDIUM_GREEN, relief=tk.RAISED, bd=1, **kwargs)
+    def __init__(self, parent, text, bg_color=Colors.DARK_GREEN, fg_color=Colors.WHITE):
+        super().__init__(parent, bg=bg_color, height=25)
+        self.pack_propagate(False)
         
-        self.title_label = tk.Label(self, text=title, bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                                   font=Fonts.MENU_HEADER, height=1)
-        self.title_label.pack(pady=1)
+        self.label = tk.Label(self, text=text, bg=bg_color, fg=fg_color,
+                             font=Fonts.MENU_HEADER, anchor='w')
+        self.label.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
+
+
+class SectionDivider(tk.Frame):
+    """Horizontal divider for visual separation"""
     
-    def set_title(self, title):
-        self.title_label.config(text=title)
+    def __init__(self, parent, color=Colors.MEDIUM_GREEN, height=2):
+        super().__init__(parent, bg=color, height=height)
+
+
+class ScrollableFrame(tk.Frame):
+    """Frame with scrollbar support"""
+    
+    def __init__(self, parent, bg_color=Colors.LIGHT_GREEN, **kwargs):
+        container = tk.Frame(parent, bg=bg_color)
+        container.pack(fill=tk.BOTH, expand=True, **kwargs)
+        
+        # Create canvas and scrollbar
+        self.canvas = tk.Canvas(container, bg=bg_color, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
+        
+        # Create the scrollable frame
+        super().__init__(self.canvas, bg=bg_color)
+        self.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        
+        # Create window in canvas
+        self.canvas_window = self.canvas.create_window((0, 0), window=self, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack elements
+        self.canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind mousewheel
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        
+        # Store reference to canvas
+        self.parent_canvas = self.canvas
+    
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def update_scroll_region(self):
+        """Update the scroll region to encompass all widgets"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+
+class ToolTip:
+    """Simple tooltip implementation"""
+    
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+    
+    def show_tooltip(self, event=None):
+        """Show the tooltip"""
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        
+        self.tooltip = tk.Toplevel(self.widget)
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+        
+        label = tk.Label(self.tooltip, text=self.text, bg=Colors.LIGHT_GREEN,
+                        fg=Colors.BLACK, relief=tk.SOLID, borderwidth=1,
+                        font=("Arial", 9))
+        label.pack()
+    
+    def hide_tooltip(self, event=None):
+        """Hide the tooltip"""
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
+
+# Utility functions
+
+class UIUtils:
+    """Static utility methods for UI operations"""
+    
+    @staticmethod
+    def center_window(window, width=None, height=None):
+        """Center a window on screen"""
+        window.update_idletasks()
+        
+        # Get window size
+        if width is None:
+            width = window.winfo_width()
+        if height is None:
+            height = window.winfo_height()
+        
+        # Calculate position
+        x = (window.winfo_screenwidth() // 2) - (width // 2)
+        y = (window.winfo_screenheight() // 2) - (height // 2)
+        
+        window.geometry(f"{width}x{height}+{x}+{y}")
+    
+    @staticmethod
+    def create_hover_effect(widget, enter_bg, leave_bg, enter_fg=None, leave_fg=None):
+        """Create hover effect for a widget"""
+        def on_enter(event):
+            widget.config(bg=enter_bg)
+            if enter_fg:
+                widget.config(fg=enter_fg)
+        
+        def on_leave(event):
+            widget.config(bg=leave_bg)
+            if leave_fg:
+                widget.config(fg=leave_fg)
+        
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
+        
+        return on_enter, on_leave
+    
+    @staticmethod
+    def create_separator(parent, bg_color, width=2):
+        """Create a vertical separator"""
+        import tkinter as tk
+        separator = tk.Frame(parent, bg=bg_color, width=width)
+        return separator

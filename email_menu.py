@@ -4,7 +4,7 @@ Updated email attachments menu with support for both received and sent emails
 """
 
 import tkinter as tk
-from inventory_view_window import InventoryViewWindow
+from simple_window_factory import SimpleWindow, create_inventory_window
 from email_manager import EmailManager
 from ui_components import CustomDialog, WarningDialog
 from config import Colors, Fonts, Dimensions
@@ -227,17 +227,70 @@ class EmailAttachmentsMenu:
         self.loading_dialog = LoadingDialog(self.parent, f"Scanning {email_type_text} emails...")
 
 
-class EmailInventoryWindow(InventoryViewWindow):
-    """Extended inventory window with refresh capabilities"""
+class EmailInventoryWindow(SimpleWindow):
+    """Extended inventory window with refresh capabilities using SimpleWindow"""
     
     def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback, email_type):
         self.quick_refresh_callback = quick_refresh_callback
         self.full_refresh_callback = full_refresh_callback
         self.email_type = email_type
-        super().__init__(parent, data, config)
+        self.original_data = data
+        self.filtered_data = data
+        self.config = config
+        
+        # Initialize SimpleWindow
+        super().__init__(parent, config.get('title', 'Email Attachments'))
+        
+        # Set window size
+        window_width = config.get('window_width', 1200)
+        window_height = config.get('window_height', 600)
+        self.geometry(f"{window_width}x{window_height}")
+        
+        # Create the inventory view
+        self._create_inventory_view()
+        
+        # Show the window
+        self.lift()
+        self.focus_force()
     
-    def create_footer(self):
-        """Override to add refresh buttons"""
+    def _create_inventory_view(self):
+        """Create the embedded inventory view"""
+        # Create inventory view in the content frame
+        self.inventory_view = create_inventory_view(
+            self.content_frame,
+            self.original_data,
+            self.config
+        )
+        
+        # Pack the inventory view (it returns a frame)
+        self.inventory_view.pack(fill=tk.BOTH, expand=True)
+        
+        # Add custom footer with refresh buttons
+        self._create_footer()
+        
+        # Store references for updates
+        self.treeview = None
+        self.filter_status_label = None
+        self.refresh_status_label = None
+        
+        # Find the treeview widget for updates
+        self._find_treeview_widget()
+    
+    def _find_treeview_widget(self):
+        """Find the treeview widget in the inventory view"""
+        def find_treeview(widget):
+            if hasattr(widget, 'winfo_class') and widget.winfo_class() == 'Treeview':
+                return widget
+            for child in widget.winfo_children():
+                result = find_treeview(child)
+                if result:
+                    return result
+            return None
+        
+        self.treeview = find_treeview(self.inventory_view)
+    
+    def _create_footer(self):
+        """Create footer with refresh buttons"""
         footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
         footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
         footer_frame.pack_propagate(False)
@@ -277,7 +330,7 @@ class EmailInventoryWindow(InventoryViewWindow):
                                     command=self.full_refresh_callback)
         full_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
-        # Clear Filters
+        # Clear Filters button
         clear_btn = tk.Button(button_frame, text="Clear All Filters", 
                              bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
                              relief=tk.RAISED, bd=1, cursor='hand2',
@@ -286,7 +339,7 @@ class EmailInventoryWindow(InventoryViewWindow):
         clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
         # Export to Excel
-        if self.allow_export:
+        if self.config.get('allow_export', False):
             export_btn = tk.Button(button_frame, text="Export to Excel", 
                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
                                   relief=tk.RAISED, bd=1, cursor='hand2',
@@ -299,18 +352,53 @@ class EmailInventoryWindow(InventoryViewWindow):
                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
                              relief=tk.RAISED, bd=1, cursor='hand2',
                              font=Fonts.MENU_ITEM, padx=10,
-                             command=self.on_closing)
+                             command=self.close_window)
         close_btn.pack(side=tk.LEFT, padx=5, pady=5)
     
     def show_refreshing(self):
         """Show refreshing status"""
-        self.refresh_status_label.config(text="Refreshing...")
+        if self.refresh_status_label:
+            self.refresh_status_label.config(text="Refreshing...")
     
     def show_refresh_complete(self, message: str):
         """Show refresh complete status"""
-        self.refresh_status_label.config(text=message)
-        # Clear message after 3 seconds
-        self.after(3000, lambda: self.refresh_status_label.config(text=""))
+        if self.refresh_status_label:
+            self.refresh_status_label.config(text=message)
+            # Clear message after 3 seconds
+            self.after(3000, lambda: self.refresh_status_label.config(text=""))
+    
+    def populate_grid(self):
+        """Populate the grid with current data"""
+        if self.treeview:
+            # Clear existing items
+            for item in self.treeview.get_children():
+                self.treeview.delete(item)
+            
+            # Add new items
+            for item in self.filtered_data:
+                values = []
+                for col in self.config.get('columns', []):
+                    values.append(str(item.get(col['key'], '')))
+                self.treeview.insert('', 'end', values=values)
+    
+    def update_stats(self):
+        """Update statistics display"""
+        # This would update any stats display - for now just pass
+        pass
+    
+    def clear_all_filters(self):
+        """Clear all applied filters"""
+        self.filtered_data = self.original_data.copy()
+        self.populate_grid()
+        if self.filter_status_label:
+            self.filter_status_label.config(text="No filters applied")
+    
+    def export_to_excel(self):
+        """Export current data to Excel"""
+        # Import here to avoid circular imports
+        from utils import export_to_excel
+        if self.filtered_data:
+            export_to_excel(self.filtered_data, f"{self.email_type}_email_attachments")
 
 
 class LoadingDialog(CustomDialog):

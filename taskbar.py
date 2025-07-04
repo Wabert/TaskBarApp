@@ -13,7 +13,7 @@ from utils import WindowsUtils, UIUtils
 from links_manager import LinksManager
 from quick_links import QuickLinksMenu
 from snip_feature import add_snip_feature_to_taskbar
-from folder_inventory import add_folder_inventory_to_taskbar  # UPDATED IMPORT
+from folder_inventory import FolderInventoryDialog, FolderInventoryWindow
 
 from window_manager import WindowManager
 from windows_menu import WindowsMenu
@@ -35,6 +35,7 @@ class SuiteViewTaskbar:
         self.windows_menu_geometry = None
         self.email_options_menu = None  # Initialize email options menu tracker
         self.email_menu_closing = False  # Flag to prevent immediate reopen
+        self.emails_btn = None
         
         # Store original work area for restoration
         self.original_work_area = WindowsUtils.get_work_area()
@@ -128,14 +129,26 @@ class SuiteViewTaskbar:
         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
         
         # Add Inventory feature
-        inventory_btn = add_folder_inventory_to_taskbar(self)
-        inventory_btn.pack(side=tk.LEFT, padx=5)
-        inventory_btn.bind("<Button-3>", self.show_links_menu)
+        #inventory_btn = add_folder_inventory_to_taskbar(self)
+        #inventory_btn.pack(side=tk.LEFT, padx=5)
+        #inventory_btn.bind("<Button-3>", self.show_links_menu)
         
         # Add separator before Snip feature
         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
-        
+
+        # Inventory button
+        inventory_btn = tk.Button(self.main_frame, text="Inventory", 
+                                bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                                relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+                                cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+                                bd=0, padx=15, command=self.show_inventory_dialog)
+        inventory_btn.pack(side=tk.LEFT, padx=5)
+
+        # Add separator before Snip feature
+        separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+        separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+
         # Add Snip feature
         self.snipping_manager = add_snip_feature_to_taskbar(self)
         
@@ -172,12 +185,12 @@ class SuiteViewTaskbar:
 
         
         # Add Emails button
-        emails_btn = tk.Button(self.main_frame, text="Emails", 
+        self.emails_btn = tk.Button(self.main_frame, text="Emails", 
                         bg=Colors.DARK_GREEN, fg=Colors.WHITE,
                         relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
                         bd=0, padx=15, command=self.show_email_options_menu)
-        emails_btn.pack(side=tk.LEFT, padx=5)
+        self.emails_btn.pack(side=tk.LEFT, padx=5)
 
 
     def bind_events(self):
@@ -291,11 +304,9 @@ class SuiteViewTaskbar:
     def run(self):
         """Start the application"""
         """Start the application"""
-        # Verify setup before starting
-        #self.verify_setup()
         
         # Start the periodic topmost maintenance
-        self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
+        #self.root.after(Settings.AUTO_REFRESH_INTERVAL, self.maintain_topmost)
         
         # Start window state monitoring
         self.root.after(1000, self.start_window_monitoring)  # Start after 1 second
@@ -495,46 +506,46 @@ class SuiteViewTaskbar:
             except:
                 pass
 
+    
+    def show_inventory_dialog(self):
+        """Show the folder inventory dialog"""
+        dialog = FolderInventoryDialog(self.root)
+        dialog.lift()
+        dialog.focus_force()
+        
     def show_email_options_menu(self):
         """Show the email options popup menu - toggle if already open"""
         from email_options_menu import EmailOptionsMenu
         
-        # Check if we're in the process of closing (prevents immediate reopen)
-        if hasattr(self, 'email_menu_closing') and self.email_menu_closing:
-            return
+        # # Check if we're in the process of closing (prevents immediate reopen)
+        # if hasattr(self, 'email_menu_closing') and self.email_menu_closing:
+        #     return
         
-        # Check if email options menu is already open
-        if hasattr(self, 'email_options_menu') and self.email_options_menu is not None:
-            try:
-                if self.email_options_menu.winfo_exists():
-                    # Menu is open, close it
-                    self.email_options_menu.destroy()
-                    self.email_options_menu = None
-                    return
-            except:
-                self.email_options_menu = None
+        # # Check if email options menu is already open
+        # if hasattr(self, 'email_options_menu') and self.email_options_menu is not None:
+        #     try:
+        #         # Note: Need to check self.email_options_menu.root since that's the actual window
+        #         if self.email_options_menu.root.winfo_exists():
+        #             # Menu is open, close it
+        #             self.email_options_menu.root.destroy()
+        #             self.email_options_menu = None
+        #             return
+        #     except:
+        #         self.email_options_menu = None
         
-        # Get button position
-        emails_btn = None
-        for widget in self.main_frame.winfo_children():
-            if isinstance(widget, tk.Button) and widget.cget('text') == 'Emails':
-                emails_btn = widget
-                break
         
-        if emails_btn:
-            # Create menu at temporary position to get its height
-            temp_menu = EmailOptionsMenu(self.root, emails_btn, self)
-            temp_menu.update_idletasks()
-            menu_height = temp_menu.winfo_reqheight()
-            temp_menu.destroy()
+        if self.emails_btn:
+            # Create and show the options menu
+            self.email_options_menu = EmailOptionsMenu(self.root, self.emails_btn, self)
             
-            # Position menu so its bottom edge touches the top of the taskbar
-            x = emails_btn.winfo_rootx()
+            # Position menu above taskbar
+            menu_height = 150  # Approximate height for 2 menu items
+            x = self.emails_btn.winfo_rootx()
             taskbar_top = self.root.winfo_rooty()
-            y = taskbar_top - menu_height  # No gap, right at the edge
+            y = taskbar_top - menu_height
             
-            # Create and show the options menu at calculated position
-            self.email_options_menu = EmailOptionsMenu(self.root, emails_btn, self)
+            # Set the position
+            self.email_options_menu.geometry(f"{200}x{menu_height}+{x}+{y}")
             
             # Set up cleanup when menu is destroyed
             def cleanup():

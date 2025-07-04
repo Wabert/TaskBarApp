@@ -1,16 +1,15 @@
 # email_options_menu.py
 """
 Email options popup menu for SuiteView Taskbar
-Shows options for viewing received and sent attachments
-Simplified version using base class click-outside detection
+Updated to use SimpleWindow from simple_window_factory
 """
 
 import tkinter as tk
-from window_factory import BaseWindow
+from simple_window_factory import SimpleWindow
 from config import Colors, Fonts
 from email_menu import EmailAttachmentsMenu
 
-class EmailOptionsMenu(BaseWindow):
+class EmailOptionsMenu(SimpleWindow):
     """Popup menu for email options"""
 
     def __init__(self, parent, button, taskbar_instance):
@@ -23,9 +22,13 @@ class EmailOptionsMenu(BaseWindow):
             taskbar_instance: Reference to the main taskbar
         """
         self.taskbar_instance = taskbar_instance
+        self.button = button
         
-        # Initialize with taskbar_menu type and pass button for positioning
-        super().__init__(parent, "", "taskbar_menu", button=button)
+        # Initialize with no resize handles for menu
+        super().__init__(parent, "Email Options", resize_handles=None)
+        
+        # Position near button
+        self._position_near_button()
         
         # Set transparency
         self.attributes('-alpha', 0.98)
@@ -34,30 +37,28 @@ class EmailOptionsMenu(BaseWindow):
         self.bind("<Enter>", lambda e: setattr(self, 'mouse_over_menu', True))
         self.bind("<Leave>", lambda e: setattr(self, 'mouse_over_menu', False))
         self.mouse_over_menu = False
+        
+        # Create the menu content
+        self._create_menu_content()
+        
+        # Enable click-outside detection
+        self._setup_click_outside_detection()
     
-    def create_content(self):
+    def _position_near_button(self):
+        """Position menu near the button that triggered it"""
+        if self.button:
+            # Get button position
+            button_x = self.button.winfo_rootx()
+            button_y = self.button.winfo_rooty()
+            button_height = self.button.winfo_height()
+            
+            # Position menu below button
+            self.geometry(f"+{button_x}+{button_y + button_height + 5}")
+    
+    def _create_menu_content(self):
         """Create the menu content"""
-        # Override background color for the menu
+        # Override the light green background with dark green for menu style
         self.content_frame.configure(bg=Colors.DARK_GREEN)
-        
-        # Header with larger icon
-        header_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN)
-        header_frame.pack(fill=tk.X, pady=5)
-        
-        # Larger icon for header
-        header_icon = tk.Label(header_frame, text="📧", 
-                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                             font=('Arial', 20))
-        header_icon.pack(side=tk.LEFT, padx=(10, 5))
-        
-        header_text = tk.Label(header_frame, text="Email Options", 
-                             bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                             font=Fonts.MENU_HEADER)
-        header_text.pack(side=tk.LEFT)
-        
-        # Separator
-        separator = tk.Frame(self.content_frame, height=1, bg=Colors.MEDIUM_GREEN)
-        separator.pack(fill=tk.X, padx=5, pady=2)
         
         # Menu items container with light background
         items_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
@@ -88,7 +89,8 @@ class EmailOptionsMenu(BaseWindow):
     
     def _create_menu_item(self, parent, icon, text, command):
         """Create a single menu item with icon and text"""
-        item_frame = tk.Frame(parent, bg=Colors.LIGHT_GREEN)
+        item_frame = tk.Frame(parent, bg=Colors.LIGHT_GREEN, height=35)
+        item_frame.pack_propagate(False)
         
         # Large icon on the left
         icon_label = tk.Label(item_frame, text=icon, bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
@@ -118,11 +120,31 @@ class EmailOptionsMenu(BaseWindow):
             widget.bind("<Button-1>", lambda e: self._execute_command(command))
             widget.configure(cursor='hand2')
         
-        # Set minimum height for the frame
-        item_frame.configure(height=35)
-        item_frame.pack_propagate(False)
-        
         return item_frame
+    
+    def _setup_click_outside_detection(self):
+        """Set up detection for clicks outside the menu"""
+        # Bind to all windows to detect clicks anywhere
+        self.bind_all("<Button-1>", self._check_click_outside, "+")
+        
+    def _check_click_outside(self, event):
+        """Check if click was outside the menu"""
+        try:
+            # Get the widget that was clicked
+            clicked_widget = event.widget
+            
+            # Check if the clicked widget is part of this menu
+            widget = clicked_widget
+            while widget:
+                if widget == self:
+                    # Click was inside the menu
+                    return
+                widget = widget.master
+            
+            # Click was outside - close the menu
+            self.close_window()
+        except:
+            pass
     
     def _execute_command(self, command):
         """Execute menu command and close menu"""
@@ -153,14 +175,12 @@ class EmailOptionsMenu(BaseWindow):
         # Show sent attachments
         taskbar.email_menu.show_email_attachments(email_type='sent')
     
-    def _create_window_structure(self):
-        """Override to create custom structure for menu"""
-        # Don't create the standard titlebar for menus
-        # Just create the content frame with dark background
-        self.content_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
-        self.content_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-    
-    def on_closing(self):
-        """Cleanup when closing"""
-        # Any cleanup code if needed
-        pass
+    def close_window(self):
+        """Override to clean up bindings before closing"""
+        try:
+            # Unbind the click detection
+            self.unbind_all("<Button-1>")
+        except:
+            pass
+        # Call parent close method
+        super().close_window()

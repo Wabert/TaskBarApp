@@ -163,21 +163,20 @@ ERROR: Could not read file - {str(e)}
             'browse_choice_dialog.py': 'File/folder selection dialog',
             'restore_deskop.py': 'Desktop restoration utilities',
             'window_manager.py': 'Window management and visibility controls',
-            'windows_menu.py': 'Windows menu UI and interaction handling',
-            'inventory_view_window.py': 'Inventory view window and filtering',
+                        'windows_menu.py': 'Windows menu UI and interaction handling',
+            'inventory_view_examples.py': 'Example implementations for inventory views',
+            'folder_inventory.py': 'Folder inventory scanning and management',
+            'email_manager.py': 'Email functionality and management',
+            'email_menu.py': 'Email menu UI and interactions',
+            'email_options_menu.py': 'Email options and configuration menu',
+            'explorer_utils.py': 'File explorer utilities and helpers',
+            'pinned_windows.py': 'Pinned windows management and tracking',
+            'simple_window_factory.py': 'Comprehensive window factory with filtering, simple windows, inventory views, and dialogs',
+            'window_factory.py': 'Window factory for creating UI elements',
+            'snip_feature.py': 'Screenshot and snipping functionality',
             'code_exporter.py': 'Code export utility for documentation',
             'requirements.txt': 'Python package dependencies',
-            'README.md': 'Project documentation and setup instructions',
-            '.gitignore': 'Git ignore rules for version control',
-            'setup.py': 'Package installation and distribution setup',
-            'LICENSE': 'Project license information',
-            'CHANGELOG.md': 'Version history and change log',
-            'docs/': 'Documentation directory',
-            'tests/': 'Test files and test suite',
-            'assets/': 'Application assets and resources',
-            'logs/': 'Application log files',
-            'data/': 'Application data storage',
-            'backup/': 'Backup files and configurations'
+            'README.md': 'Project documentation and setup instructions'
         }
         return descriptions.get(file_path.name, f'{file_path.suffix.upper()} file')
     

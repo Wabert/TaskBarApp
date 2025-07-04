@@ -1,15 +1,244 @@
-# inventory_view_window.py
+# simple_window_factory.py
 """
-Interactive inventory view window with Excel-like filtering capabilities
-This component is designed to be reused throughout the SuiteView project for displaying any tabular data
+Window Factory - Creates custom windows with green styling and advanced functionality
+Includes simple windows, inventory view windows, and dialog components
+Using inheritance approach for cleaner API
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
-from config import Colors, Fonts, Dimensions
-from ui_components import CustomDialog
 from typing import Any
+
+# Import config components (with fallback if not available)
+try:
+    from config import Colors, Fonts, Dimensions
+except ImportError:
+    # Fallback colors/fonts if config not available
+    class Colors:
+        DARK_GREEN = "#2d5a2d"
+        LIGHT_GREEN = "#e8f5e8"
+        MEDIUM_GREEN = "#4a7c4a"
+        HOVER_GREEN = "#3d6a3d"
+        BLACK = "#000000"
+        WHITE = "#ffffff"
+        INACTIVE_GRAY = "#666666"
+    
+    class Fonts:
+        DIALOG_TITLE = ("Arial", 12, "bold")
+        DIALOG_LABEL = ("Arial", 10)
+        DIALOG_BUTTON = ("Arial", 10)
+        MENU_HEADER = ("Arial", 10, "bold")
+        MENU_ITEM = ("Arial", 9)
+    
+    class Dimensions:
+        DIALOG_BUTTON_WIDTH = 10
+
+# No longer need to import CustomDialog since FilterMenuDialog now uses SimpleWindow
+
+class SimpleWindow(tk.Toplevel):
+    def __init__(self, parent, title="Window", resize_handles=None):
+        """
+        Create a custom window with green styling
+        
+        Args:
+            parent: Parent window (required)
+            title: Window title text
+            resize_handles: List of sides that can be resized 
+                          ["left", "right", "top", "bottom"] or None for no resizing
+        """
+        # Initialize Toplevel
+        super().__init__(parent)
+        
+        # Remove default title bar
+        self.overrideredirect(True)
+        
+        # Store configuration
+        self.title_text = title
+        self.resize_handles = resize_handles or []
+        
+        # Colors - matching the mockup
+        self.border_color = "#2d5a2d"
+        self.header_bg = "#2d5a2d"
+        self.content_bg = "#e8f5e8"
+        self.text_color = "white"
+        self.border_width = 4
+        
+
+
+        # Window state
+        self._drag_start_x = 0
+        self._drag_start_y = 0
+        self._resize_start_x = 0
+        self._resize_start_y = 0
+        self._resize_start_width = 0
+        self._resize_start_height = 0
+        self._resizing = False
+        self._resize_side = None
+        
+        # Build the window
+        self._create_window()
+        
+    def _create_window(self):
+        """Build the window structure"""
+        # Configure window background
+        self.configure(bg=self.content_bg)
+        
+        # Main container with border
+        self.main_frame = tk.Frame(self, bg=self.border_color)
+        self.main_frame.pack(fill="both", expand=True)
+        
+        # Inner container
+        self.inner_frame = tk.Frame(self.main_frame, bg=self.content_bg)
+        self.inner_frame.place(x=self.border_width, y=self.border_width, 
+                              relwidth=1, relheight=1, 
+                              width=-2*self.border_width, 
+                              height=-2*self.border_width)
+        
+        # Header bar
+        self.header_frame = tk.Frame(self.inner_frame, bg=self.header_bg, height=32)
+        self.header_frame.pack(fill="x", side="top")
+        self.header_frame.pack_propagate(False)
+        
+        # Title label
+        self.title_label = tk.Label(self.header_frame, text=self.title_text, 
+                                   bg=self.header_bg, fg=self.text_color,
+                                   font=("Arial", 10), anchor="w")
+        self.title_label.pack(side="left", padx=8, fill="y")
+        
+        # Close button
+        self.close_button = tk.Button(self.header_frame, text="✕", 
+                                     bg=self.header_bg, fg=self.text_color,
+                                     font=("Arial", 12), bd=0,
+                                     activebackground=self.header_bg,
+                                     activeforeground=self.text_color,
+                                     command=self.close_window)
+        self.close_button.pack(side="right", padx=8)
+        
+        # Content area
+        self.content_frame = tk.Frame(self.inner_frame, bg=self.content_bg)
+        self.content_frame.pack(fill="both", expand=True)
+        
+        # Bind window dragging to header
+        self.header_frame.bind("<Button-1>", self._start_drag)
+        self.header_frame.bind("<B1-Motion>", self._drag_window)
+        self.title_label.bind("<Button-1>", self._start_drag)
+        self.title_label.bind("<B1-Motion>", self._drag_window)
+        
+        # Set up resize bindings
+        self._setup_resize_bindings()
+        
+    def _setup_resize_bindings(self):
+        """Set up mouse bindings for resizing"""
+        if not self.resize_handles:
+            return
+            
+        # Bind mouse motion to detect when over resize areas
+        self.bind("<Motion>", self._on_mouse_motion)
+        self.bind("<Button-1>", self._start_resize)
+        self.bind("<B1-Motion>", self._do_resize)
+        self.bind("<ButtonRelease-1>", self._stop_resize)
+        
+    def _on_mouse_motion(self, event):
+        """Change cursor when over resize areas"""
+        if self._resizing:
+            return
+            
+        x, y = event.x, event.y
+        width, height = self.winfo_width(), self.winfo_height()
+        
+        cursor = ""
+        if "left" in self.resize_handles and x < self.border_width:
+            cursor = "sb_h_double_arrow"
+        elif "right" in self.resize_handles and x > width - self.border_width:
+            cursor = "sb_h_double_arrow"
+        elif "top" in self.resize_handles and y < self.border_width:
+            cursor = "sb_v_double_arrow"
+        elif "bottom" in self.resize_handles and y > height - self.border_width:
+            cursor = "sb_v_double_arrow"
+        
+        self.config(cursor=cursor)
+        
+    def _start_resize(self, event):
+        """Start resizing if clicked on a resize area"""
+        x, y = event.x, event.y
+        width, height = self.winfo_width(), self.winfo_height()
+        
+        self._resize_side = None
+        if "left" in self.resize_handles and x < self.border_width:
+            self._resize_side = "left"
+        elif "right" in self.resize_handles and x > width - self.border_width:
+            self._resize_side = "right"
+        elif "top" in self.resize_handles and y < self.border_width:
+            self._resize_side = "top"
+        elif "bottom" in self.resize_handles and y > height - self.border_width:
+            self._resize_side = "bottom"
+            
+        if self._resize_side:
+            self._resizing = True
+            self._resize_start_x = event.x_root
+            self._resize_start_y = event.y_root
+            self._resize_start_width = width
+            self._resize_start_height = height
+            self._resize_start_left = self.winfo_x()
+            self._resize_start_top = self.winfo_y()
+            
+    def _do_resize(self, event):
+        """Perform the resize"""
+        if not self._resizing or not self._resize_side:
+            return
+            
+        dx = event.x_root - self._resize_start_x
+        dy = event.y_root - self._resize_start_y
+        
+        if self._resize_side == "left":
+            new_width = self._resize_start_width - dx
+            new_x = self._resize_start_left + dx
+            if new_width > 100:  # Minimum width
+                self.geometry(f"{new_width}x{self._resize_start_height}+{new_x}+{self._resize_start_top}")
+                
+        elif self._resize_side == "right":
+            new_width = self._resize_start_width + dx
+            if new_width > 100:
+                self.geometry(f"{new_width}x{self._resize_start_height}")
+                
+        elif self._resize_side == "top":
+            new_height = self._resize_start_height - dy
+            new_y = self._resize_start_top + dy
+            if new_height > 100:  # Minimum height
+                self.geometry(f"{self._resize_start_width}x{new_height}+{self._resize_start_left}+{new_y}")
+                
+        elif self._resize_side == "bottom":
+            new_height = self._resize_start_height + dy
+            if new_height > 100:
+                self.geometry(f"{self._resize_start_width}x{new_height}")
+                
+    def _stop_resize(self, event):
+        """Stop resizing"""
+        self._resizing = False
+        self._resize_side = None
+        
+    def _start_drag(self, event):
+        """Start dragging the window"""
+        self._drag_start_x = event.x_root
+        self._drag_start_y = event.y_root
+        
+    def _drag_window(self, event):
+        """Drag the window"""
+        x = self.winfo_x() + (event.x_root - self._drag_start_x)
+        y = self.winfo_y() + (event.y_root - self._drag_start_y)
+        self.geometry(f"+{x}+{y}")
+        self._drag_start_x = event.x_root
+        self._drag_start_y = event.y_root
+        
+    def close_window(self):
+        """Close the window"""
+        self.destroy()
+        
+    def get_content_frame(self):
+        """Return the content frame for adding widgets"""
+        return self.content_frame
+
 
 class InventoryViewWindow(tk.Toplevel):
     """
@@ -575,11 +804,25 @@ class InventoryViewWindow(tk.Toplevel):
         self.destroy()
 
 
-class FilterMenuDialog(CustomDialog):
+class FilterMenuDialog(SimpleWindow):
     """Dialog for selecting filter values for a column"""
     
     def __init__(self, parent, column_key, column_header, unique_values, current_selection, apply_callback):
-        super().__init__(parent, f"Filter: {column_header}", width=350, height=400)
+        super().__init__(parent, f"Filter: {column_header}", resize_handles=None)
+        
+        # Set window size
+        self.geometry("350x400")
+        
+        # Center on parent
+        self.update_idletasks()
+        if parent:
+            parent.update_idletasks()
+            x = parent.winfo_x() + (parent.winfo_width() - 350) // 2
+            y = parent.winfo_y() + (parent.winfo_height() - 400) // 2
+            self.geometry(f"350x400+{x}+{y}")
+        
+        # Set background color
+        self.content_frame.configure(bg=Colors.LIGHT_GREEN)
         
         self.column_key = column_key
         self.column_header = column_header
@@ -602,8 +845,8 @@ class FilterMenuDialog(CustomDialog):
         """Create the filter selection interface"""
         # Clear Filter button
         if self.has_existing_filter:
-            clear_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
-            clear_frame.pack(fill=tk.X, pady=(0, 10))
+            clear_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+            clear_frame.pack(fill=tk.X, pady=(0, 10), padx=10)
             
             clear_filter_btn = tk.Button(clear_frame, text="Clear Filter for This Column", 
                                        bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
@@ -613,8 +856,8 @@ class FilterMenuDialog(CustomDialog):
             clear_filter_btn.pack(pady=5)
         
         # Search box
-        search_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
-        search_frame.pack(fill=tk.X, pady=5)
+        search_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        search_frame.pack(fill=tk.X, pady=5, padx=10)
         
         tk.Label(search_frame, text="Search:", bg=Colors.LIGHT_GREEN, 
                 fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).pack(side=tk.LEFT)
@@ -626,8 +869,8 @@ class FilterMenuDialog(CustomDialog):
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         
         # Select All / None buttons
-        select_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
-        select_frame.pack(fill=tk.X, pady=5)
+        select_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        select_frame.pack(fill=tk.X, pady=5, padx=10)
         
         select_all_btn = tk.Button(select_frame, text="Select All", 
                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
@@ -640,8 +883,8 @@ class FilterMenuDialog(CustomDialog):
         select_none_btn.pack(side=tk.LEFT, padx=5)
         
         # Listbox with checkboxes
-        list_frame = tk.Frame(self.dialog_content, bg=Colors.LIGHT_GREEN)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        list_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=5, padx=10)
         
         self.filter_tree = ttk.Treeview(list_frame, show='tree', height=12)
         self.filter_tree.column('#0', width=300)
@@ -662,7 +905,7 @@ class FilterMenuDialog(CustomDialog):
     def clear_column_filter(self):
         """Clear the filter for this specific column"""
         self.apply_callback(self.column_key, [])
-        self.destroy()
+        self.close_window()
     
     def on_click(self, event):
         """Handle click on items"""
@@ -730,8 +973,11 @@ class FilterMenuDialog(CustomDialog):
     
     def create_action_buttons(self):
         """Create OK and Cancel buttons"""
-        button_container = tk.Frame(self.button_frame, bg=Colors.LIGHT_GREEN)
-        button_container.pack(expand=True)
+        button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
+        button_frame.pack(side=tk.BOTTOM, pady=10, padx=10)
+        
+        button_container = tk.Frame(button_frame, bg=Colors.LIGHT_GREEN)
+        button_container.pack()
         
         ok_btn = tk.Button(button_container, text="OK", 
                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
@@ -750,8 +996,98 @@ class FilterMenuDialog(CustomDialog):
     def apply_filter(self):
         """Apply the selected filter"""
         self.apply_callback(self.column_key, list(self.current_selection))
-        self.destroy()
+        self.close_window()
     
     def cancel(self):
         """Cancel without applying changes"""
-        self.destroy()
+        self.close_window()
+
+
+# Factory functions
+def create_window(parent, title="Window", resize_handles=None):
+    """
+    Create a simple custom window
+    
+    Args:
+        parent: Parent window (required)
+        title: Window title
+        resize_handles: List of ["left", "right", "top", "bottom"] or None
+        
+    Returns:
+        SimpleWindow instance
+    """
+    return SimpleWindow(parent, title=title, resize_handles=resize_handles)
+
+
+def create_inventory_window(parent, data, window_config=None):
+    """
+    Create an inventory view window for displaying tabular data with filtering
+    
+    Args:
+        parent: Parent window (required)
+        data: List of dictionaries containing the data to display
+        window_config: Configuration dictionary (optional)
+        
+    Returns:
+        InventoryViewWindow instance
+    """
+    return InventoryViewWindow(parent, data, window_config)
+
+
+def create_filter_dialog(parent, column_key, column_header, unique_values, current_selection, apply_callback):
+    """
+    Create a filter dialog for column filtering
+    
+    Args:
+        parent: Parent window (required)
+        column_key: Key of the column being filtered
+        column_header: Display name of the column
+        unique_values: List of unique values for filtering
+        current_selection: Currently selected values
+        apply_callback: Callback function to apply filter
+        
+    Returns:
+        FilterMenuDialog instance
+    """
+    return FilterMenuDialog(parent, column_key, column_header, unique_values, current_selection, apply_callback)
+
+
+def create_data_view_window(parent, data, title="Data View", columns=None, **kwargs):
+    """
+    Create a data view window for displaying any tabular data with filtering
+    
+    Args:
+        parent: Parent window (required)
+        data: List of dictionaries containing the data to display
+        title: Window title
+        columns: List of column configurations (optional, auto-generated if not provided)
+        **kwargs: Additional configuration options for InventoryViewWindow
+        
+    Returns:
+        InventoryViewWindow instance
+    """
+    window_config = kwargs.copy()
+    window_config['title'] = title
+    if columns:
+        window_config['columns'] = columns
+    
+    return InventoryViewWindow(parent, data, window_config)
+
+
+# Example usage
+if __name__ == "__main__":
+    # Create root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    
+    # Create a window that can be resized from left and right
+    window = create_window(root, "Test Window", resize_handles=["left", "right"])
+    
+    # Add some content
+    label = tk.Label(window.get_content_frame(), 
+                    text="This window can be resized\nfrom the left and right edges",
+                    bg="#e8f5e8", fg="#2d5a2d")
+    label.pack(pady=20)
+    
+    # Start the app
+    root.mainloop()

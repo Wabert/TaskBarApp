@@ -8,10 +8,11 @@ from pathlib import Path
 
 # Color Scheme (Two-Tone Green)
 class Colors:
-    DARK_GREEN = '#006600'      # Main taskbar, headers, borders
+    #DARK_GREEN = '#006600'      # Main taskbar, headers, borders
+    DARK_GREEN = "#2d5a2d"
     MEDIUM_GREEN = '#00AA00'    # Menu backgrounds, inactive elements  
-    LIGHT_GREEN = '#B3FFB3'     # Input fields, hover states, active elements (lighter green)
-    #LIGHT_GREEN = '#00CC00'
+    #LIGHT_GREEN = '#B3FFB3'     # Input fields, hover states, active elements (lighter green)
+    LIGHT_GREEN = "#e8f5e8"
     HOVER_GREEN = '#008800'     # Hover effects
     INACTIVE_GRAY = '#666666'   # Cancel buttons, disabled elements
     WHITE = '#FFFFFF'
@@ -32,6 +33,16 @@ class Fonts:
     DIALOG_LABEL = ('Arial', 9)
     DIALOG_BUTTON = ('Arial', 9)
     WARNING_ICON = ('Arial', 20)
+    
+    # Tree view fonts for folder inventory
+    TREE_ITEM = ('Arial', 9)
+    TREE_HEADING = ('Arial', 9, 'bold')
+    
+    # Generic button font
+    BUTTON = ('Arial', 9)
+    
+    # Status bar font
+    STATUS = ('Arial', 8)
 
 # Window Dimensions
 class Dimensions:
@@ -79,8 +90,8 @@ DEFAULT_CATEGORIES = ["Quick Links", "Applications", "Folders", "Websites"]
 class Settings:
     APP_NAME = "SuiteView"
     VERSION = "2.0"
-    TASKBAR_OPACITY = 0.98
-    MENU_OPACITY = 0.98
+    TASKBAR_OPACITY = 1.00
+    MENU_OPACITY = 1.00
     AUTO_REFRESH_INTERVAL = 1000  # milliseconds
     PINNED_SECTION_WIDTH = 400     # Width allocated for pinned windows
     PINNED_BUTTON_WIDTH = 80       # Width of each pinned window button

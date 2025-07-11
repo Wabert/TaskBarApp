@@ -9,43 +9,53 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Any
+import json
+import os
+from config import Colors, Fonts, Dimensions
 
-# Import config components (with fallback if not available)
-try:
-    from config import Colors, Fonts, Dimensions
-except ImportError:
-    # Fallback colors/fonts if config not available
-    class Colors:
-        DARK_GREEN = "#2d5a2d"
-        LIGHT_GREEN = "#e8f5e8"
-        MEDIUM_GREEN = "#4a7c4a"
-        HOVER_GREEN = "#3d6a3d"
-        BLACK = "#000000"
-        WHITE = "#ffffff"
-        INACTIVE_GRAY = "#666666"
-    
-    class Fonts:
-        DIALOG_TITLE = ("Arial", 12, "bold")
-        DIALOG_LABEL = ("Arial", 10)
-        DIALOG_BUTTON = ("Arial", 10)
-        MENU_HEADER = ("Arial", 10, "bold")
-        MENU_ITEM = ("Arial", 9)
-    
-    class Dimensions:
-        DIALOG_BUTTON_WIDTH = 10
+# Session storage for window positions
+_session_window_positions = {}
 
-# No longer need to import CustomDialog since FilterMenuDialog now uses SimpleWindow
+# Permanent storage file path
+_permanent_positions_file = "window_positions.json"
+
+# # Import config components (with fallback if not available)
+# try:
+#     from config import Colors, Fonts, Dimensions
+# except ImportError:
+#     # Fallback colors/fonts if config not available
+#     class Colors:
+#         DARK_GREEN = "#2d5a2d"
+#         LIGHT_GREEN = "#e8f5e8"
+#         MEDIUM_GREEN = "#4a7c4a"
+#         HOVER_GREEN = "#3d6a3d"
+#         BLACK = "#000000"
+#         WHITE = "#ffffff"
+#         INACTIVE_GRAY = "#666666"
+    
+#     class Fonts:
+#         DIALOG_TITLE = ("Arial", 12, "bold")
+#         DIALOG_LABEL = ("Arial", 10)
+#         DIALOG_BUTTON = ("Arial", 10)
+#         MENU_HEADER = ("Arial", 10, "bold")
+#         MENU_ITEM = ("Arial", 9)
+    
+#     class Dimensions:
+#         DIALOG_BUTTON_WIDTH = 10
 
 class SimpleWindow(tk.Toplevel):
-    def __init__(self, parent, title="Window", resize_handles=None):
+    def __init__(self, parent, title=None, resize_handles=None, movable=True, location_persistence="none", close_on=None):
         """
         Create a custom window with green styling
         
         Args:
             parent: Parent window (required)
-            title: Window title text
+            title: Window title text, or None to hide titlebar completely
             resize_handles: List of sides that can be resized 
                           ["left", "right", "top", "bottom"] or None for no resizing
+            movable: Whether the window can be moved by dragging (default: True)
+            location_persistence: Position persistence mode - "none", "session", or "permanent" (default: "none")
+            close_on: List of close methods - ["x_button", "click_outside"] (default: ["x_button"])
         """
         # Initialize Toplevel
         super().__init__(parent)
@@ -56,12 +66,16 @@ class SimpleWindow(tk.Toplevel):
         # Store configuration
         self.title_text = title
         self.resize_handles = resize_handles or []
+        self.movable = movable
+        self.location_persistence = location_persistence
+        self.close_on = close_on or ['x_button']
+        self.window_id = f"{title or 'NoTitle'}_{id(self)}"  # Unique identifier for this window instance
         
         # Colors - matching the mockup
-        self.border_color = "#2d5a2d"
-        self.header_bg = "#2d5a2d"
-        self.content_bg = "#e8f5e8"
-        self.text_color = "white"
+        self.border_color = Colors.DARK_GREEN
+        self.header_bg = Colors.DARK_GREEN
+        self.content_bg = Colors.LIGHT_GREEN
+        self.text_color = Colors.WHITE
         self.border_width = 4
         
 
@@ -79,6 +93,10 @@ class SimpleWindow(tk.Toplevel):
         # Build the window
         self._create_window()
         
+        # Load saved position if persistence is enabled
+        if self.movable and self.location_persistence != "none":
+            self._load_position()
+        
     def _create_window(self):
         """Build the window structure"""
         # Configure window background
@@ -95,38 +113,51 @@ class SimpleWindow(tk.Toplevel):
                               width=-2*self.border_width, 
                               height=-2*self.border_width)
         
-        # Header bar
-        self.header_frame = tk.Frame(self.inner_frame, bg=self.header_bg, height=32)
-        self.header_frame.pack(fill="x", side="top")
-        self.header_frame.pack_propagate(False)
-        
-        # Title label
-        self.title_label = tk.Label(self.header_frame, text=self.title_text, 
-                                   bg=self.header_bg, fg=self.text_color,
-                                   font=("Arial", 10), anchor="w")
-        self.title_label.pack(side="left", padx=8, fill="y")
-        
-        # Close button
-        self.close_button = tk.Button(self.header_frame, text="✕", 
-                                     bg=self.header_bg, fg=self.text_color,
-                                     font=("Arial", 12), bd=0,
-                                     activebackground=self.header_bg,
-                                     activeforeground=self.text_color,
-                                     command=self.close_window)
-        self.close_button.pack(side="right", padx=8)
+        # Header bar (only if title is not None)
+        if self.title_text is not None:
+            self.header_frame = tk.Frame(self.inner_frame, bg=self.header_bg, height=32)
+            self.header_frame.pack(fill="x", side="top")
+            self.header_frame.pack_propagate(False)
+            
+            # Title label
+            self.title_label = tk.Label(self.header_frame, text=self.title_text, 
+                                       bg=self.header_bg, fg=self.text_color,
+                                       font=("Arial", 10), anchor="w")
+            self.title_label.pack(side="left", padx=8, fill="y")
+            
+            # Close button (only if 'x_button' is in close_on)
+            if 'x_button' in self.close_on:
+                self.close_button = tk.Button(self.header_frame, text="✕", 
+                                             bg=self.header_bg, fg=self.text_color,
+                                             font=("Arial", 12), bd=0,
+                                             activebackground=self.header_bg,
+                                             activeforeground=self.text_color,
+                                             command=self.close_window)
+                self.close_button.pack(side="right", padx=8)
         
         # Content area
         self.content_frame = tk.Frame(self.inner_frame, bg=self.content_bg)
         self.content_frame.pack(fill="both", expand=True)
         
-        # Bind window dragging to header
-        self.header_frame.bind("<Button-1>", self._start_drag)
-        self.header_frame.bind("<B1-Motion>", self._drag_window)
-        self.title_label.bind("<Button-1>", self._start_drag)
-        self.title_label.bind("<B1-Motion>", self._drag_window)
+        # Bind window dragging (if movable)
+        if self.movable:
+            if self.title_text is not None:
+                # Bind to header elements if header exists
+                self.header_frame.bind("<Button-1>", self._start_drag)
+                self.header_frame.bind("<B1-Motion>", self._drag_window)
+                self.title_label.bind("<Button-1>", self._start_drag)
+                self.title_label.bind("<B1-Motion>", self._drag_window)
+            else:
+                # Bind to content frame if no header (but avoid conflicts with content)
+                self.content_frame.bind("<Button-1>", self._start_drag)
+                self.content_frame.bind("<B1-Motion>", self._drag_window)
         
         # Set up resize bindings
         self._setup_resize_bindings()
+        
+        # Set up click outside close if requested
+        if 'click_outside' in self.close_on:
+            self._setup_click_outside_close()
         
     def _setup_resize_bindings(self):
         """Set up mouse bindings for resizing"""
@@ -231,6 +262,10 @@ class SimpleWindow(tk.Toplevel):
         self._drag_start_x = event.x_root
         self._drag_start_y = event.y_root
         
+        # Save position if persistence is enabled
+        if self.location_persistence != "none":
+            self._save_position()
+        
     def close_window(self):
         """Close the window"""
         self.destroy()
@@ -238,11 +273,122 @@ class SimpleWindow(tk.Toplevel):
     def get_content_frame(self):
         """Return the content frame for adding widgets"""
         return self.content_frame
+    
+    def _save_position(self):
+        """Save the current window position based on persistence mode"""
+        if self.location_persistence == "none":
+            return
+        
+        try:
+            x = self.winfo_x()
+            y = self.winfo_y()
+            position = {"x": x, "y": y}
+            
+            if self.location_persistence == "session":
+                _session_window_positions[self.window_id] = position
+            elif self.location_persistence == "permanent":
+                self._save_permanent_position(position)
+        except Exception as e:
+            # Silently handle any errors in position saving
+            pass
+    
+    def _load_position(self):
+        """Load the saved window position based on persistence mode"""
+        if self.location_persistence == "none":
+            return
+        
+        try:
+            position = None
+            
+            if self.location_persistence == "session":
+                position = _session_window_positions.get(self.window_id)
+            elif self.location_persistence == "permanent":
+                position = self._load_permanent_position()
+            
+            if position and "x" in position and "y" in position:
+                # Validate position is within screen bounds
+                screen_width = self.winfo_screenwidth()
+                screen_height = self.winfo_screenheight()
+                
+                x = max(0, min(position["x"], screen_width - 100))  # Ensure window is visible
+                y = max(0, min(position["y"], screen_height - 100))
+                
+                self.geometry(f"+{x}+{y}")
+        except Exception as e:
+            # Silently handle any errors in position loading
+            pass
+    
+    def _save_permanent_position(self, position):
+        """Save position to permanent storage"""
+        try:
+            # Load existing positions
+            positions = {}
+            if os.path.exists(_permanent_positions_file):
+                with open(_permanent_positions_file, 'r') as f:
+                    positions = json.load(f)
+            
+            # Update position for this window
+            positions[self.title_text] = position
+            
+            # Save back to file
+            with open(_permanent_positions_file, 'w') as f:
+                json.dump(positions, f, indent=2)
+        except Exception as e:
+            # Silently handle any errors in permanent storage
+            pass
+    
+    def _load_permanent_position(self):
+        """Load position from permanent storage"""
+        try:
+            if os.path.exists(_permanent_positions_file):
+                with open(_permanent_positions_file, 'r') as f:
+                    positions = json.load(f)
+                return positions.get(self.title_text)
+        except Exception as e:
+            # Silently handle any errors in permanent storage
+            pass
+        return None
 
+    def _setup_click_outside_close(self):
+        """Set up click outside to close functionality"""
+        # Bind to focus out event
+        self.bind('<FocusOut>', self._on_focus_out)
+        
+    def _on_focus_out(self, event):
+        """Handle focus out event for click outside close"""
+        # Schedule a check to see if we should close
+        self.after(50, self._check_if_should_close)
+        
+    def _check_if_should_close(self):
+        """Check if we should close due to focus change"""
+        try:
+            # Get the currently focused widget
+            focused = self.focus_get()
+            
+            # If no widget has focus, close the window
+            if focused is None:
+                self.close_window()
+                return
+                
+            # Check if the focused widget is within our window hierarchy
+            widget = focused
+            while widget:
+                if widget == self:
+                    # Focus is within our window, don't close
+                    return
+                widget = widget.master
+            
+            # Focus is outside our window, close it
+            self.close_window()
+            
+        except:
+            # If there's any error, don't close
+            pass
 
-class InventoryViewWindow(tk.Toplevel):
+class InventoryViewWindow(SimpleWindow):
     """
     Reusable interactive window for viewing any tabular data with Excel-like filtering
+    Inherits from SimpleWindow for consistent styling and behavior
     
     Args:
         parent: Parent window
@@ -264,21 +410,29 @@ class InventoryViewWindow(tk.Toplevel):
     """
     
     def __init__(self, parent, data: list[dict[str, Any]], window_config: dict | None = None):
-        super().__init__(parent)
-        self.parent = parent
-        self.original_data = data.copy() if data else []
-        self.filtered_data = self.original_data.copy()
-        
         # Parse configuration
         config = window_config or {}
         self.window_title = config.get('title', 'Data View')
+        self.window_width = config.get('window_width', 1000)
+        self.window_height = config.get('window_height', 700)
+        
+        # Initialize SimpleWindow with resize handles
+        super().__init__(parent, self.window_title, resize_handles=["left", "right", "bottom"], 
+                        location_persistence=config.get('location_persistence', 'none'))
+        
+        # Set window size
+        self.geometry(f"{self.window_width}x{self.window_height}")
+        
+        # Store data
+        self.original_data = data.copy() if data else []
+        self.filtered_data = self.original_data.copy()
+        
+        # Configuration
         self.column_configs = config.get('columns', self._auto_generate_columns())
         self.on_item_click = config.get('on_item_click')
         self.on_item_double_click = config.get('on_item_double_click')
         self.show_stats = config.get('show_stats', True)
         self.allow_export = config.get('allow_export', True)
-        self.window_width = config.get('window_width', 1000)
-        self.window_height = config.get('window_height', 700)
         self.additional_info = config.get('additional_info', {})
         
         # Extract column information
@@ -291,26 +445,7 @@ class InventoryViewWindow(tk.Toplevel):
         self.active_filters = {}
         self.column_unique_values = {}
         
-        # Window setup
-        self.overrideredirect(True)
-        self.configure(bg=Colors.DARK_GREEN)
-        self.attributes('-topmost', True)
-        self.geometry(f"{self.window_width}x{self.window_height}")
-        
-        # Initialize drag variables
-        self.is_dragging = False
-        self.drag_start_x = 0
-        self.drag_start_y = 0
-        
-        # Main container
-        self.main_frame = tk.Frame(self, bg=Colors.DARK_GREEN, relief=tk.RAISED, bd=2)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=3)
-        
-        # Create UI components
-        self.create_custom_title_bar()
-        self.content_frame = tk.Frame(self.main_frame, bg=Colors.LIGHT_GREEN)
-        self.content_frame.pack(fill=tk.BOTH, expand=True)
-        
+        # Create UI components in the content_frame from SimpleWindow
         self.create_header()
         self.create_data_grid()
         self.create_footer()
@@ -320,9 +455,9 @@ class InventoryViewWindow(tk.Toplevel):
         self.update_stats()
         self.center_window()
         
-        # Bind close event
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
-    
+        # Make topmost
+        self.attributes('-topmost', True)
+        
     def _auto_generate_columns(self) -> list[dict]:
         """Auto-generate column configuration from data"""
         if not self.original_data:
@@ -372,46 +507,10 @@ class InventoryViewWindow(tk.Toplevel):
         
         return 'text'
     
-    def create_custom_title_bar(self):
-        """Create custom title bar matching other windows' style"""
-        self.title_frame = tk.Frame(self.main_frame, bg=Colors.DARK_GREEN, height=25)
-        self.title_frame.pack(fill=tk.X)
-        self.title_frame.pack_propagate(False)
-        
-        # Drag handle
-        drag_handle = tk.Label(self.title_frame, text="⋮⋮⋮", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                              font=('Arial', 8), cursor='fleur')
-        drag_handle.pack(side=tk.LEFT, padx=3, pady=3)
-        
-        # Title with icon
-        icon = "📊" if "email" in self.window_title.lower() else "📁"
-        title_label = tk.Label(self.title_frame, text=f"{icon} {self.window_title}", 
-                              bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                              font=Fonts.DIALOG_TITLE, cursor='fleur')
-        title_label.pack(side=tk.LEFT, padx=5, pady=3)
-        
-        # Close button
-        close_btn = tk.Label(self.title_frame, text="×", bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                            font=('Arial', 12, 'bold'), cursor='hand2')
-        close_btn.pack(side=tk.RIGHT, padx=5)
-        close_btn.bind("<Button-1>", lambda e: self.on_closing())
-        
-        # Bind drag events
-        for widget in [self.title_frame, drag_handle, title_label]:
-            widget.bind("<Button-1>", self.start_drag)
-            widget.bind("<B1-Motion>", self.do_drag)
-            widget.bind("<ButtonRelease-1>", self.end_drag)
-    
     def create_header(self):
         """Create header with information"""
         header_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.RAISED, bd=1)
-        header_frame.pack(fill=tk.X, padx=2, pady=2)
-        
-        # Title
-        title_label = tk.Label(header_frame, text=self.window_title, 
-                              bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
-                              font=('Arial', 14, 'bold'))
-        title_label.pack(pady=5)
+        header_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # Additional information
         if self.additional_info:
@@ -430,12 +529,12 @@ class InventoryViewWindow(tk.Toplevel):
         if self.show_stats:
             self.stats_label = tk.Label(header_frame, text="", bg=Colors.LIGHT_GREEN, 
                                        fg=Colors.BLACK, font=Fonts.DIALOG_LABEL)
-            self.stats_label.pack(pady=5)
+            self.stats_label.pack(pady=2)
     
     def create_data_grid(self):
         """Create the main data grid with filtering"""
         grid_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN, relief=tk.SUNKEN, bd=1)
-        grid_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        grid_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
         
         # Create Treeview
         self.tree = ttk.Treeview(grid_frame, show='tree headings')
@@ -468,7 +567,7 @@ class InventoryViewWindow(tk.Toplevel):
         style.configure('Treeview', background=Colors.LIGHT_GREEN, 
                        foreground=Colors.BLACK, fieldbackground=Colors.LIGHT_GREEN)
         style.configure('Treeview.Heading', background=Colors.MEDIUM_GREEN,
-                       foreground=Colors.BLACK, font=Fonts.MENU_HEADER)
+                       foreground=Colors.WHITE, font=Fonts.MENU_HEADER)
         
         # Bind click events
         if self.on_item_click:
@@ -515,8 +614,8 @@ class InventoryViewWindow(tk.Toplevel):
     
     def create_footer(self):
         """Create footer with action buttons and filter status"""
-        footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
-        footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
+        footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=40)
+        footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=5, pady=(0, 5))
         footer_frame.pack_propagate(False)
         
         # Filter status
@@ -533,8 +632,8 @@ class InventoryViewWindow(tk.Toplevel):
         button_frame.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Clear Filters
-        clear_btn = tk.Button(button_frame, text="Clear All Filters", 
-                             bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+        clear_btn = tk.Button(button_frame, text="Clear Filters", 
+                             bg=Colors.MEDIUM_GREEN, fg=Colors.WHITE,
                              relief=tk.RAISED, bd=1, cursor='hand2',
                              font=Fonts.MENU_ITEM, padx=10,
                              command=self.clear_all_filters)
@@ -542,20 +641,12 @@ class InventoryViewWindow(tk.Toplevel):
         
         # Export to Excel (if enabled)
         if self.allow_export:
-            export_btn = tk.Button(button_frame, text="Export to Excel", 
-                                  bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+            export_btn = tk.Button(button_frame, text="Export", 
+                                  bg=Colors.MEDIUM_GREEN, fg=Colors.WHITE,
                                   relief=tk.RAISED, bd=1, cursor='hand2',
                                   font=Fonts.MENU_ITEM, padx=10,
                                   command=self.export_to_excel)
             export_btn.pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Close button
-        close_btn = tk.Button(button_frame, text="Close", 
-                             bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
-                             relief=tk.RAISED, bd=1, cursor='hand2',
-                             font=Fonts.MENU_ITEM, padx=10,
-                             command=self.on_closing)
-        close_btn.pack(side=tk.LEFT, padx=5, pady=5)
     
     def populate_grid(self):
         """Populate the grid with current filtered data"""
@@ -761,35 +852,6 @@ class InventoryViewWindow(tk.Toplevel):
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export to Excel:\n{str(e)}")
     
-    # Drag and window management methods
-    def start_drag(self, event):
-        """Start dragging the window"""
-        self.is_dragging = True
-        self.drag_start_x = event.x_root
-        self.drag_start_y = event.y_root
-        self.title_frame.configure(bg=Colors.HOVER_GREEN)
-    
-    def do_drag(self, event):
-        """Handle drag motion"""
-        if not self.is_dragging:
-            return
-        
-        delta_x = event.x_root - self.drag_start_x
-        delta_y = event.y_root - self.drag_start_y
-        
-        new_x = self.winfo_x() + delta_x
-        new_y = self.winfo_y() + delta_y
-        
-        self.geometry(f"+{new_x}+{new_y}")
-        
-        self.drag_start_x = event.x_root
-        self.drag_start_y = event.y_root
-    
-    def end_drag(self, event):
-        """End dragging operation"""
-        self.is_dragging = False
-        self.title_frame.configure(bg=Colors.DARK_GREEN)
-    
     def center_window(self):
         """Center the window on screen"""
         self.update_idletasks()
@@ -798,225 +860,24 @@ class InventoryViewWindow(tk.Toplevel):
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
-    
-    def on_closing(self):
-        """Handle window closing"""
-        self.destroy()
-
-
-class FilterMenuDialog(SimpleWindow):
-    """Dialog for selecting filter values for a column"""
-    
-    def __init__(self, parent, column_key, column_header, unique_values, current_selection, apply_callback):
-        super().__init__(parent, f"Filter: {column_header}", resize_handles=None)
-        
-        # Set window size
-        self.geometry("350x400")
-        
-        # Center on parent
-        self.update_idletasks()
-        if parent:
-            parent.update_idletasks()
-            x = parent.winfo_x() + (parent.winfo_width() - 350) // 2
-            y = parent.winfo_y() + (parent.winfo_height() - 400) // 2
-            self.geometry(f"350x400+{x}+{y}")
-        
-        # Set background color
-        self.content_frame.configure(bg=Colors.LIGHT_GREEN)
-        
-        self.column_key = column_key
-        self.column_header = column_header
-        self.unique_values = unique_values
-        self.current_selection = current_selection.copy()
-        self.apply_callback = apply_callback
-        self.parent_window = parent
-        
-        # Check if filter exists
-        self.has_existing_filter = column_key in parent.active_filters
-        
-        # Default to all selected if no current selection
-        if not self.current_selection and not self.has_existing_filter:
-            self.current_selection = set(unique_values)
-        
-        self.create_filter_interface()
-        self.create_action_buttons()
-    
-    def create_filter_interface(self):
-        """Create the filter selection interface"""
-        # Clear Filter button
-        if self.has_existing_filter:
-            clear_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-            clear_frame.pack(fill=tk.X, pady=(0, 10), padx=10)
-            
-            clear_filter_btn = tk.Button(clear_frame, text="Clear Filter for This Column", 
-                                       bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
-                                       command=self.clear_column_filter, 
-                                       font=Fonts.DIALOG_LABEL,
-                                       cursor='hand2', relief=tk.RAISED, bd=1)
-            clear_filter_btn.pack(pady=5)
-        
-        # Search box
-        search_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-        search_frame.pack(fill=tk.X, pady=5, padx=10)
-        
-        tk.Label(search_frame, text="Search:", bg=Colors.LIGHT_GREEN, 
-                fg=Colors.BLACK, font=Fonts.DIALOG_LABEL).pack(side=tk.LEFT)
-        
-        self.search_var = tk.StringVar()
-        self.search_var.trace('w', self.filter_list)
-        search_entry = tk.Entry(search_frame, textvariable=self.search_var, 
-                               font=Fonts.DIALOG_LABEL)
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-        # Select All / None buttons
-        select_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-        select_frame.pack(fill=tk.X, pady=5, padx=10)
-        
-        select_all_btn = tk.Button(select_frame, text="Select All", 
-                                  bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                                  command=self.select_all, font=Fonts.DIALOG_LABEL)
-        select_all_btn.pack(side=tk.LEFT, padx=5)
-        
-        select_none_btn = tk.Button(select_frame, text="Select None", 
-                                   bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                                   command=self.select_none, font=Fonts.DIALOG_LABEL)
-        select_none_btn.pack(side=tk.LEFT, padx=5)
-        
-        # Listbox with checkboxes
-        list_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=5, padx=10)
-        
-        self.filter_tree = ttk.Treeview(list_frame, show='tree', height=12)
-        self.filter_tree.column('#0', width=300)
-        
-        filter_scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, 
-                                        command=self.filter_tree.yview)
-        self.filter_tree.configure(yscrollcommand=filter_scrollbar.set)
-        
-        self.filter_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        filter_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.populate_filter_list()
-        
-        # Bind click events
-        self.filter_tree.bind('<Button-1>', self.on_click)
-        self.filter_tree.bind('<Return>', self.toggle_item)
-    
-    def clear_column_filter(self):
-        """Clear the filter for this specific column"""
-        self.apply_callback(self.column_key, [])
-        self.close_window()
-    
-    def on_click(self, event):
-        """Handle click on items"""
-        item = self.filter_tree.identify('item', event.x, event.y)
-        if item:
-            self.filter_tree.selection_set(item)
-            self.toggle_item()
-    
-    def populate_filter_list(self, search_text=""):
-        """Populate the filter list"""
-        for item in self.filter_tree.get_children():
-            self.filter_tree.delete(item)
-        
-        filtered_values = [val for val in self.unique_values 
-                          if search_text.lower() in val.lower()] if search_text else self.unique_values
-        
-        for value in filtered_values:
-            checkbox = "☑" if value in self.current_selection else "☐"
-            display_text = f"{checkbox} {value}"
-            self.filter_tree.insert('', 'end', text=display_text, values=[value])
-    
-    def filter_list(self, *args):
-        """Filter the list based on search"""
-        self.populate_filter_list(self.search_var.get())
-    
-    def toggle_item(self, event=None):
-        """Toggle selection of an item"""
-        selected_item = self.filter_tree.selection()
-        if not selected_item:
-            return
-        
-        item_id = selected_item[0]
-        values = self.filter_tree.item(item_id, 'values')
-        if values:
-            value = values[0]
-            
-            if value in self.current_selection:
-                self.current_selection.remove(value)
-            else:
-                self.current_selection.add(value)
-            
-            self.populate_filter_list(self.search_var.get())
-    
-    def select_all(self):
-        """Select all visible items"""
-        search_text = self.search_var.get()
-        filtered_values = [val for val in self.unique_values 
-                          if search_text.lower() in val.lower()] if search_text else self.unique_values
-        
-        for value in filtered_values:
-            self.current_selection.add(value)
-        
-        self.populate_filter_list(search_text)
-    
-    def select_none(self):
-        """Deselect all visible items"""
-        search_text = self.search_var.get()
-        filtered_values = [val for val in self.unique_values 
-                          if search_text.lower() in val.lower()] if search_text else self.unique_values
-        
-        for value in filtered_values:
-            self.current_selection.discard(value)
-        
-        self.populate_filter_list(search_text)
-    
-    def create_action_buttons(self):
-        """Create OK and Cancel buttons"""
-        button_frame = tk.Frame(self.content_frame, bg=Colors.LIGHT_GREEN)
-        button_frame.pack(side=tk.BOTTOM, pady=10, padx=10)
-        
-        button_container = tk.Frame(button_frame, bg=Colors.LIGHT_GREEN)
-        button_container.pack()
-        
-        ok_btn = tk.Button(button_container, text="OK", 
-                          bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                          command=self.apply_filter, width=Dimensions.DIALOG_BUTTON_WIDTH,
-                          font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
-        ok_btn.pack(side=tk.LEFT, padx=10)
-        
-        cancel_btn = tk.Button(button_container, text="Cancel", 
-                              bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
-                              command=self.cancel, width=Dimensions.DIALOG_BUTTON_WIDTH,
-                              font=Fonts.DIALOG_BUTTON, relief=tk.RAISED, bd=1)
-        cancel_btn.pack(side=tk.LEFT, padx=10)
-        
-        ok_btn.focus_set()
-    
-    def apply_filter(self):
-        """Apply the selected filter"""
-        self.apply_callback(self.column_key, list(self.current_selection))
-        self.close_window()
-    
-    def cancel(self):
-        """Cancel without applying changes"""
-        self.close_window()
-
 
 # Factory functions
-def create_window(parent, title="Window", resize_handles=None):
+def create_window(parent, title="Window", resize_handles=None, movable=True, location_persistence="none", close_on=None):
     """
     Create a simple custom window
     
     Args:
         parent: Parent window (required)
-        title: Window title
+        title: Window title, or None to hide titlebar completely
         resize_handles: List of ["left", "right", "top", "bottom"] or None
+        movable: Whether the window can be moved by dragging (default: True)
+        location_persistence: Position persistence mode - "none", "session", or "permanent" (default: "none")
+        close_on: List of close methods - ["x_button", "click_outside"] (default: ["x_button"])
         
     Returns:
         SimpleWindow instance
     """
-    return SimpleWindow(parent, title=title, resize_handles=resize_handles)
+    return SimpleWindow(parent, title=title, resize_handles=resize_handles, movable=movable, location_persistence=location_persistence, close_on=close_on)
 
 
 def create_inventory_window(parent, data, window_config=None):
@@ -1074,6 +935,40 @@ def create_data_view_window(parent, data, title="Data View", columns=None, **kwa
     return InventoryViewWindow(parent, data, window_config)
 
 
+# Utility functions for managing window positions
+def clear_session_positions():
+    """Clear all session window positions"""
+    global _session_window_positions
+    _session_window_positions.clear()
+
+
+def clear_permanent_positions():
+    """Clear all permanently saved window positions"""
+    try:
+        if os.path.exists(_permanent_positions_file):
+            os.remove(_permanent_positions_file)
+        return True
+    except Exception as e:
+        return False
+
+
+def get_saved_positions():
+    """Get all saved window positions for debugging/management"""
+    positions = {
+        "session": _session_window_positions.copy(),
+        "permanent": {}
+    }
+    
+    try:
+        if os.path.exists(_permanent_positions_file):
+            with open(_permanent_positions_file, 'r') as f:
+                positions["permanent"] = json.load(f)
+    except Exception as e:
+        pass
+    
+    return positions
+
+
 # Example usage
 if __name__ == "__main__":
     # Create root window
@@ -1088,6 +983,13 @@ if __name__ == "__main__":
                     text="This window can be resized\nfrom the left and right edges",
                     bg="#e8f5e8", fg="#2d5a2d")
     label.pack(pady=20)
+    
+    # Create a non-movable window as an example
+    # fixed_window = create_window(root, "Fixed Window", movable=False)
+    
+    # Create windows with different persistence modes
+    # session_window = create_window(root, "Session Window", location_persistence="session")
+    # permanent_window = create_window(root, "Permanent Window", location_persistence="permanent")
     
     # Start the app
     root.mainloop()

@@ -18,7 +18,7 @@ from folder_inventory import FolderInventoryDialog, FolderInventoryWindow
 from window_manager import WindowManager
 from windows_menu import WindowsMenu
 from pinned_windows import PinnedWindowsSection
-
+from simple_window_factory import SimpleWindow
 
 class SuiteViewTaskbar:
     """Main taskbar application window"""
@@ -60,6 +60,21 @@ class SuiteViewTaskbar:
         
         # Apply Windows API modifications
         self.setup_windows_integration()
+        
+        # Create a test window
+        self.test_window = SimpleWindow(self.root,  resize_handles=["top"], movable=True, location_persistence="none", close_on=["click_outside","x_button"])
+        
+        # Make the test window visible by setting size and position
+        self.test_window.geometry("400x300+600+600")  # width x height + x_offset + y_offset
+        self.test_window.attributes('-topmost', True)  # Keep it on top initially
+        
+        # Add some content to the test window so it's not empty
+        test_label = tk.Label(self.test_window.get_content_frame(), 
+                             text="This is a test window\nYou can resize it from the left, right, and bottom edges\nYou can also drag it around",
+                             bg=self.test_window.content_bg, fg=Colors.DARK_GREEN,
+                             font=("Arial", 10), justify=tk.CENTER)
+        test_label.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
         
     def setup_window(self):
         """Configure the main window properties"""

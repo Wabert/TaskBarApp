@@ -4,7 +4,7 @@ Updated email attachments menu with support for both received and sent emails
 """
 
 import tkinter as tk
-from simple_window_factory import SimpleWindow, create_inventory_window
+from simple_window_factory import InventoryViewWindow
 from email_manager import EmailManager
 from ui_components import CustomDialog, WarningDialog
 from config import Colors, Fonts, Dimensions
@@ -79,70 +79,88 @@ class EmailAttachmentsMenu:
         metadata = result.get('metadata', {})
         from_cache = result.get('from_cache', False)
         
-        if not attachments:
-            self._show_no_emails_message(email_type)
-            return
-        
-        # Prepare additional info
-        additional_info = {
-            'Period': f"Last {metadata.get('weeks_back', 2)} weeks",
-            'Total Emails': metadata.get('total_emails_with_attachments', 'Unknown'),
-            'Total Attachments': len(attachments),
-            'Source': 'Cached' if from_cache else 'Fresh Scan',
-            'Type': 'Sent' if email_type == 'sent' else 'Received'
-        }
-        
-        if from_cache and 'cached_at' in result:
-            cached_time = result['cached_at'].strftime('%Y-%m-%d %H:%M')
-            additional_info['Cached At'] = cached_time
-        
-        if 'scan_duration' in metadata and not from_cache:
-            additional_info['Scan Time'] = f"{metadata['scan_duration']:.1f}s"
-        
-        # Configure columns based on email type
-        if email_type == 'sent':
-            columns = [
-                {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
-                {'key': 'To', 'header': 'To', 'width': 180, 'type': 'text'},
-                {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
-                {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
-                {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
-                {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
-            ]
-            title = 'Sent Email Attachments'
-        else:
-            columns = [
-                {'key': 'Date', 'header': 'Date', 'width': 120, 'type': 'date'},
-                {'key': 'From', 'header': 'From', 'width': 180, 'type': 'text'},
-                {'key': 'Subject', 'header': 'Subject', 'width': 300, 'type': 'text'},
-                {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250, 'type': 'text'},
-                {'key': 'Extension', 'header': 'Type', 'width': 60, 'type': 'text'},
-                {'key': 'SizeFormatted', 'header': 'Size', 'width': 80, 'type': 'text'}
-            ]
-            title = 'Received Email Attachments'
-        
-        # Configure the inventory view window
+        # Prepare window configuration
         window_config = {
-            'title': title,
-            'columns': columns,
-            'on_item_click': self._handle_item_click,
-            'on_item_double_click': self._open_email,
-            'show_stats': True,
-            'allow_export': True,
+            'title': f"Email Attachments - {email_type.capitalize()}",
             'window_width': 1200,
             'window_height': 600,
-            'additional_info': additional_info
+            'columns': [
+                {'key': 'Subject', 'header': 'Subject', 'width': 300},
+                {'key': 'AttachmentName', 'header': 'Attachment', 'width': 250},
+                {'key': 'Extension', 'header': 'Type', 'width': 80},
+                {'key': 'ReceivedTime', 'header': 'Date', 'width': 150}
+            ],
+            'additional_info': self._get_additional_info(metadata, from_cache, email_type)
         }
         
-        # Create custom inventory window with refresh button
+        # Format the attachment data for display
+        display_data = []
+        for att in attachments:
+            display_data.append({
+                'Subject': att.get('Subject', ''),
+                'AttachmentName': att.get('AttachmentName', ''),
+                'Extension': att.get('Extension', 'Unknown'),
+                'ReceivedTime': att.get('ReceivedTime', '')[:10],  # Just date part
+                'EntryID': att.get('EntryID', ''),
+                'AttachmentIndex': att.get('AttachmentIndex', 0)
+            })
+        
+        # Create new inventory window using EmailInventoryWindow class
+        if self.inventory_window:
+            self.inventory_window.destroy()
+        
         self.inventory_window = EmailInventoryWindow(
-            self.parent, 
-            attachments, 
+            self.parent,
+            display_data,
             window_config,
-            lambda: self.refresh_emails(email_type),
-            lambda: self.full_refresh_emails(email_type),
-            email_type
+            quick_refresh_callback=lambda: self._quick_refresh(email_type),
+            full_refresh_callback=lambda: self.show_email_attachments(force_refresh=True, email_type=email_type),
+            email_type=email_type
         )
+
+    def _quick_refresh(self, email_type: str):
+        """Quick refresh using cached data"""
+        result = self.email_manager.get_emails_with_attachments(
+            use_cache=True,
+            force_refresh=False,
+            email_type=email_type
+        )
+        if self.inventory_window and hasattr(self.inventory_window, 'update_with_new_data'):
+            # Format the data
+            display_data = []
+            for att in result['data']:
+                display_data.append({
+                    'Subject': att.get('Subject', ''),
+                    'AttachmentName': att.get('AttachmentName', ''),
+                    'Extension': att.get('Extension', 'Unknown'),
+                    'ReceivedTime': att.get('ReceivedTime', '')[:10],
+                    'EntryID': att.get('EntryID', ''),
+                    'AttachmentIndex': att.get('AttachmentIndex', 0)
+                })
+            self.inventory_window.update_with_new_data(display_data)
+            
+            # Update additional info
+            metadata = result.get('metadata', {})
+            from_cache = result.get('from_cache', False)
+            if hasattr(self.inventory_window, 'refresh_status_label'):
+                status_text = self._get_status_text(metadata, from_cache, email_type)
+                self.inventory_window.refresh_status_label.config(text=status_text)
+
+    def _get_additional_info(self, metadata: dict, from_cache: bool, email_type: str) -> dict:
+        """Get additional info for the window header"""
+        info = {}
+        
+        if metadata:
+            if 'total_attachment_lines' in metadata:
+                info['Attachments'] = f"{metadata['total_attachment_lines']:,}"
+            if 'total_emails_with_attachments' in metadata:
+                info['Emails'] = f"{metadata['total_emails_with_attachments']:,}"
+            if 'weeks_back' in metadata:
+                info['Period'] = f"{metadata['weeks_back']} weeks"
+        
+        info['Source'] = 'Cached' if from_cache else 'Fresh Scan'
+        
+        return info
     
     def _handle_item_click(self, item: dict, column_key: str = None):
         """Handle clicks on specific columns"""
@@ -227,178 +245,86 @@ class EmailAttachmentsMenu:
         self.loading_dialog = LoadingDialog(self.parent, f"Scanning {email_type_text} emails...")
 
 
-class EmailInventoryWindow(SimpleWindow):
-    """Extended inventory window with refresh capabilities using SimpleWindow"""
+class EmailInventoryWindow(InventoryViewWindow):
+    """Email attachments window using the new InventoryViewWindow"""
     
     def __init__(self, parent, data, config, quick_refresh_callback, full_refresh_callback, email_type):
         self.quick_refresh_callback = quick_refresh_callback
         self.full_refresh_callback = full_refresh_callback
         self.email_type = email_type
-        self.original_data = data
-        self.filtered_data = data
-        self.config = config
         
-        # Initialize SimpleWindow
-        super().__init__(parent, config.get('title', 'Email Attachments'))
+        # Add double-click handler to open attachments
+        config['on_item_double_click'] = self._open_attachment
         
-        # Set window size
-        window_width = config.get('window_width', 1200)
-        window_height = config.get('window_height', 600)
-        self.geometry(f"{window_width}x{window_height}")
+        # Initialize parent InventoryViewWindow
+        super().__init__(parent, data, config)
         
-        # Create the inventory view
-        self._create_inventory_view()
-        
-        # Show the window
-        self.lift()
-        self.focus_force()
+        # Add custom refresh buttons to footer
+        self._add_refresh_buttons()
     
-    def _create_inventory_view(self):
-        """Create the embedded inventory view"""
-        # Create inventory view in the content frame
-        self.inventory_view = create_inventory_view(
-            self.content_frame,
-            self.original_data,
-            self.config
-        )
+    def _add_refresh_buttons(self):
+        """Add email-specific refresh buttons to the footer"""
+        # Find the footer frame (it's the dark green frame at bottom)
+        for child in self.content_frame.winfo_children():
+            if isinstance(child, tk.Frame) and child.cget('bg') == Colors.DARK_GREEN:
+                footer_frame = child
+                break
+        else:
+            return
         
-        # Pack the inventory view (it returns a frame)
-        self.inventory_view.pack(fill=tk.BOTH, expand=True)
+        # Find the button frame (right side of footer)
+        for child in footer_frame.winfo_children():
+            if isinstance(child, tk.Frame) and child.pack_info().get('side') == 'right':
+                button_frame = child
+                break
+        else:
+            return
         
-        # Add custom footer with refresh buttons
-        self._create_footer()
+        # Add separator
+        separator = tk.Frame(button_frame, bg=Colors.WHITE, width=2)
+        separator.pack(side=tk.LEFT, fill=tk.Y, padx=5)
         
-        # Store references for updates
-        self.treeview = None
-        self.filter_status_label = None
-        self.refresh_status_label = None
-        
-        # Find the treeview widget for updates
-        self._find_treeview_widget()
-    
-    def _find_treeview_widget(self):
-        """Find the treeview widget in the inventory view"""
-        def find_treeview(widget):
-            if hasattr(widget, 'winfo_class') and widget.winfo_class() == 'Treeview':
-                return widget
-            for child in widget.winfo_children():
-                result = find_treeview(child)
-                if result:
-                    return result
-            return None
-        
-        self.treeview = find_treeview(self.inventory_view)
-    
-    def _create_footer(self):
-        """Create footer with refresh buttons"""
-        footer_frame = tk.Frame(self.content_frame, bg=Colors.DARK_GREEN, height=50)
-        footer_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=2, pady=2)
-        footer_frame.pack_propagate(False)
-        
-        # Left side - filter status and refresh status
-        left_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
-        left_frame.pack(side=tk.LEFT, fill=tk.Y)
-        
-        self.filter_status_label = tk.Label(left_frame, text="No filters applied", 
-                                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                                           font=Fonts.MENU_ITEM)
-        self.filter_status_label.pack(side=tk.LEFT, padx=10, pady=5)
-        
-        # Refresh status label
-        self.refresh_status_label = tk.Label(left_frame, text="", 
-                                           bg=Colors.DARK_GREEN, fg=Colors.LIGHT_GREEN,
-                                           font=Fonts.MENU_ITEM)
-        self.refresh_status_label.pack(side=tk.LEFT, padx=10, pady=5)
-        
-        # Right side - action buttons
-        button_frame = tk.Frame(footer_frame, bg=Colors.DARK_GREEN)
-        button_frame.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Quick Refresh button
-        quick_refresh_btn = tk.Button(button_frame, text="↻ Quick Refresh", 
-                                     bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+        # Quick refresh button (uses cache)
+        quick_refresh_btn = tk.Button(button_frame, text="Quick Refresh", 
+                                     bg=Colors.MEDIUM_GREEN, fg=Colors.WHITE,
                                      relief=tk.RAISED, bd=1, cursor='hand2',
                                      font=Fonts.MENU_ITEM, padx=10,
                                      command=self.quick_refresh_callback)
         quick_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
-        # Full Refresh button
-        full_refresh_btn = tk.Button(button_frame, text="⟳ Full Refresh", 
-                                    bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
+        # Full refresh button (fresh scan)
+        full_refresh_btn = tk.Button(button_frame, text="Full Refresh", 
+                                    bg=Colors.DARK_GREEN, fg=Colors.WHITE,
                                     relief=tk.RAISED, bd=1, cursor='hand2',
                                     font=Fonts.MENU_ITEM, padx=10,
                                     command=self.full_refresh_callback)
         full_refresh_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
-        # Clear Filters button
-        clear_btn = tk.Button(button_frame, text="Clear All Filters", 
-                             bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                             relief=tk.RAISED, bd=1, cursor='hand2',
-                             font=Fonts.MENU_ITEM, padx=10,
-                             command=self.clear_all_filters)
-        clear_btn.pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Export to Excel
-        if self.config.get('allow_export', False):
-            export_btn = tk.Button(button_frame, text="Export to Excel", 
-                                  bg=Colors.MEDIUM_GREEN, fg=Colors.BLACK,
-                                  relief=tk.RAISED, bd=1, cursor='hand2',
-                                  font=Fonts.MENU_ITEM, padx=10,
-                                  command=self.export_to_excel)
-            export_btn.pack(side=tk.LEFT, padx=5, pady=5)
-        
-        # Close button
-        close_btn = tk.Button(button_frame, text="Close", 
-                             bg=Colors.INACTIVE_GRAY, fg=Colors.WHITE,
-                             relief=tk.RAISED, bd=1, cursor='hand2',
-                             font=Fonts.MENU_ITEM, padx=10,
-                             command=self.close_window)
-        close_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        # Add refresh status label
+        self.refresh_status_label = tk.Label(footer_frame, text="", 
+                                           bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                                           font=Fonts.MENU_ITEM)
+        self.refresh_status_label.pack(side=tk.LEFT, padx=10)
     
-    def show_refreshing(self):
-        """Show refreshing status"""
-        if self.refresh_status_label:
-            self.refresh_status_label.config(text="Refreshing...")
+    def _open_attachment(self, item):
+        """Open the selected attachment"""
+        if 'EntryID' in item and 'AttachmentIndex' in item:
+            try:
+                # Use the email manager to open attachment
+                from email_manager import EmailManager
+                email_manager = EmailManager()
+                email_manager.open_attachment(item['EntryID'], item['AttachmentIndex'])
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open attachment: {str(e)}")
     
-    def show_refresh_complete(self, message: str):
-        """Show refresh complete status"""
-        if self.refresh_status_label:
-            self.refresh_status_label.config(text=message)
-            # Clear message after 3 seconds
-            self.after(3000, lambda: self.refresh_status_label.config(text=""))
-    
-    def populate_grid(self):
-        """Populate the grid with current data"""
-        if self.treeview:
-            # Clear existing items
-            for item in self.treeview.get_children():
-                self.treeview.delete(item)
-            
-            # Add new items
-            for item in self.filtered_data:
-                values = []
-                for col in self.config.get('columns', []):
-                    values.append(str(item.get(col['key'], '')))
-                self.treeview.insert('', 'end', values=values)
-    
-    def update_stats(self):
-        """Update statistics display"""
-        # This would update any stats display - for now just pass
-        pass
-    
-    def clear_all_filters(self):
-        """Clear all applied filters"""
+    def update_with_new_data(self, data):
+        """Update the window with new data (for refresh)"""
+        self.original_data = data.copy() if data else []
         self.filtered_data = self.original_data.copy()
-        self.populate_grid()
-        if self.filter_status_label:
-            self.filter_status_label.config(text="No filters applied")
-    
-    def export_to_excel(self):
-        """Export current data to Excel"""
-        # Import here to avoid circular imports
-        from utils import export_to_excel
-        if self.filtered_data:
-            export_to_excel(self.filtered_data, f"{self.email_type}_email_attachments")
+        self.active_filters = {}  # Clear filters on refresh
+        self.update_display()
+        self.update_filter_status()
+        self.update_column_headers()
 
 
 class LoadingDialog(CustomDialog):

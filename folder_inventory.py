@@ -91,21 +91,23 @@ class FolderInventoryDialog(SimpleWindow):
         depth_options = tk.Frame(depth_frame, bg=Colors.LIGHT_GREEN)
         depth_options.pack(fill='x', pady=(5, 0))
         
-        tk.Radiobutton(depth_options, text="All levels", variable=self.depth_var, value=0,
+        tk.Radiobutton(depth_options, text="1 level", variable=self.depth_var, value=0,
                       bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
                       font=Fonts.DIALOG_LABEL,
                       selectcolor=Colors.LIGHT_GREEN).pack(side='left')
         
-        tk.Radiobutton(depth_options, text="1 level", variable=self.depth_var, value=1,
+        tk.Radiobutton(depth_options, text="2 level", variable=self.depth_var, value=1,
                       bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
                       font=Fonts.DIALOG_LABEL,
                       selectcolor=Colors.LIGHT_GREEN).pack(side='left', padx=(20, 0))
         
-        tk.Radiobutton(depth_options, text="2 levels", variable=self.depth_var, value=2,
+        tk.Radiobutton(depth_options, text="All levels", variable=self.depth_var, value=2,
                       bg=Colors.LIGHT_GREEN, fg=Colors.BLACK,
                       font=Fonts.DIALOG_LABEL,
                       selectcolor=Colors.LIGHT_GREEN).pack(side='left', padx=(20, 0))
-        
+
+       
+
         # Content type option
         content_frame = tk.Frame(content, bg=Colors.LIGHT_GREEN)
         content_frame.pack(fill='x', padx=10, pady=(20, 0))

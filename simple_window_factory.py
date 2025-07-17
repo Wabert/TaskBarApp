@@ -19,30 +19,6 @@ _session_window_positions = {}
 # Permanent storage file path
 _permanent_positions_file = "window_positions.json"
 
-# # Import config components (with fallback if not available)
-# try:
-#     from config import Colors, Fonts, Dimensions
-# except ImportError:
-#     # Fallback colors/fonts if config not available
-#     class Colors:
-#         DARK_GREEN = "#2d5a2d"
-#         LIGHT_GREEN = "#e8f5e8"
-#         MEDIUM_GREEN = "#4a7c4a"
-#         HOVER_GREEN = "#3d6a3d"
-#         BLACK = "#000000"
-#         WHITE = "#ffffff"
-#         INACTIVE_GRAY = "#666666"
-    
-#     class Fonts:
-#         DIALOG_TITLE = ("Arial", 12, "bold")
-#         DIALOG_LABEL = ("Arial", 10)
-#         DIALOG_BUTTON = ("Arial", 10)
-#         MENU_HEADER = ("Arial", 10, "bold")
-#         MENU_ITEM = ("Arial", 9)
-    
-#     class Dimensions:
-#         DIALOG_BUTTON_WIDTH = 10
-
 class SimpleWindow(tk.Toplevel):
     def __init__(self, parent, title=None, resize_handles=None, movable=True, location_persistence="none", close_on=None):
         """
@@ -51,11 +27,10 @@ class SimpleWindow(tk.Toplevel):
         Args:
             parent: Parent window (required)
             title: Window title text, or None to hide titlebar completely
-            resize_handles: List of sides that can be resized 
-                          ["left", "right", "top", "bottom"] or None for no resizing
+            resize_handles: List of sides that can be resized ["left", "right", "top", "bottom"] or None for no resizing
             movable: Whether the window can be moved by dragging (default: True)
             location_persistence: Position persistence mode - "none", "session", or "permanent" (default: "none")
-            close_on: List of close methods - ["x_button", "click_outside"] (default: ["x_button"])
+            close_on: List of close methods - ["x_button", "click_outside", "toggle"] (default: ["x_button"])
         """
         # Initialize Toplevel
         super().__init__(parent)
@@ -69,7 +44,13 @@ class SimpleWindow(tk.Toplevel):
         self.movable = movable
         self.location_persistence = location_persistence
         self.close_on = close_on or ['x_button']
-        self.window_id = f"{title or 'NoTitle'}_{id(self)}"  # Unique identifier for this window instance
+        
+        # For session persistence, use a consistent ID based on title
+        # For unique instances, still use memory address
+        if location_persistence == "session" and title:
+            self.window_id = f"session_{title}"
+        else:
+            self.window_id = f"{title or 'NoTitle'}_{id(self)}"
         
         # Colors - matching the mockup
         self.border_color = Colors.DARK_GREEN
@@ -90,12 +71,20 @@ class SimpleWindow(tk.Toplevel):
         self._resizing = False
         self._resize_side = None
         
+        # Toggle functionality
+        self._toggle_controls = []  # List of controls that can toggle this window
+        self._original_commands = {}  # Store original commands to restore later
+        
         # Build the window
         self._create_window()
         
         # Load saved position if persistence is enabled
         if self.movable and self.location_persistence != "none":
             self._load_position()
+        
+        # Set default size if no saved data exists
+        if self.location_persistence != "none":
+            self.after(1, self._set_default_size_if_needed)
         
     def _create_window(self):
         """Build the window structure"""
@@ -136,7 +125,7 @@ class SimpleWindow(tk.Toplevel):
                 self.close_button.pack(side="right", padx=8)
         
         # Content area
-        self.content_frame = tk.Frame(self.inner_frame, bg=self.content_bg)
+        self.content_frame = tk.Frame(self.inner_frame, bg=Colors.WHITE)
         self.content_frame.pack(fill="both", expand=True)
         
         # Bind window dragging (if movable)
@@ -158,6 +147,10 @@ class SimpleWindow(tk.Toplevel):
         # Set up click outside close if requested
         if 'click_outside' in self.close_on:
             self._setup_click_outside_close()
+        
+        # Set up toggle functionality if requested
+        if 'toggle' in self.close_on:
+            self._setup_toggle_close()
         
     def _setup_resize_bindings(self):
         """Set up mouse bindings for resizing"""
@@ -249,6 +242,10 @@ class SimpleWindow(tk.Toplevel):
         self._resizing = False
         self._resize_side = None
         
+        # Save position and size if persistence is enabled
+        if self.location_persistence != "none":
+            self._save_position()
+        
     def _start_drag(self, event):
         """Start dragging the window"""
         self._drag_start_x = event.x_root
@@ -268,6 +265,11 @@ class SimpleWindow(tk.Toplevel):
         
     def close_window(self):
         """Close the window"""
+        # Clean up toggle controls
+        if hasattr(self, '_toggle_controls'):
+            for control in self._toggle_controls.copy():
+                self.unregister_toggle_control(control)
+        
         self.destroy()
         
     def get_content_frame(self):
@@ -275,51 +277,60 @@ class SimpleWindow(tk.Toplevel):
         return self.content_frame
     
     def _save_position(self):
-        """Save the current window position based on persistence mode"""
+        """Save the current window position and size based on persistence mode"""
         if self.location_persistence == "none":
             return
         
         try:
             x = self.winfo_x()
             y = self.winfo_y()
-            position = {"x": x, "y": y}
+            width = self.winfo_width()
+            height = self.winfo_height()
+            position_data = {"x": x, "y": y, "width": width, "height": height}
             
             if self.location_persistence == "session":
-                _session_window_positions[self.window_id] = position
+                _session_window_positions[self.window_id] = position_data
             elif self.location_persistence == "permanent":
-                self._save_permanent_position(position)
+                self._save_permanent_position(position_data)
         except Exception as e:
             # Silently handle any errors in position saving
             pass
     
     def _load_position(self):
-        """Load the saved window position based on persistence mode"""
+        """Load the saved window position and size based on persistence mode"""
         if self.location_persistence == "none":
             return
         
         try:
-            position = None
+            position_data = None
             
             if self.location_persistence == "session":
-                position = _session_window_positions.get(self.window_id)
+                position_data = _session_window_positions.get(self.window_id)
             elif self.location_persistence == "permanent":
-                position = self._load_permanent_position()
+                position_data = self._load_permanent_position()
             
-            if position and "x" in position and "y" in position:
+            if position_data and "x" in position_data and "y" in position_data:
                 # Validate position is within screen bounds
                 screen_width = self.winfo_screenwidth()
                 screen_height = self.winfo_screenheight()
                 
-                x = max(0, min(position["x"], screen_width - 100))  # Ensure window is visible
-                y = max(0, min(position["y"], screen_height - 100))
+                x = max(0, min(position_data["x"], screen_width - 100))  # Ensure window is visible
+                y = max(0, min(position_data["y"], screen_height - 100))
                 
-                self.geometry(f"+{x}+{y}")
+                # Get saved dimensions if available
+                if "width" in position_data and "height" in position_data:
+                    width = max(100, position_data["width"])  # Minimum width
+                    height = max(100, position_data["height"])  # Minimum height
+                    self.geometry(f"{width}x{height}+{x}+{y}")
+                else:
+                    # Only position was saved (backward compatibility)
+                    self.geometry(f"+{x}+{y}")
         except Exception as e:
             # Silently handle any errors in position loading
             pass
     
-    def _save_permanent_position(self, position):
-        """Save position to permanent storage"""
+    def _save_permanent_position(self, position_data):
+        """Save position and size to permanent storage"""
         try:
             # Load existing positions
             positions = {}
@@ -327,8 +338,8 @@ class SimpleWindow(tk.Toplevel):
                 with open(_permanent_positions_file, 'r') as f:
                     positions = json.load(f)
             
-            # Update position for this window
-            positions[self.title_text] = position
+            # Update position and size for this window
+            positions[self.title_text] = position_data
             
             # Save back to file
             with open(_permanent_positions_file, 'w') as f:
@@ -338,7 +349,7 @@ class SimpleWindow(tk.Toplevel):
             pass
     
     def _load_permanent_position(self):
-        """Load position from permanent storage"""
+        """Load position and size from permanent storage"""
         try:
             if os.path.exists(_permanent_positions_file):
                 with open(_permanent_positions_file, 'r') as f:
@@ -348,6 +359,23 @@ class SimpleWindow(tk.Toplevel):
             # Silently handle any errors in permanent storage
             pass
         return None
+    
+    def _set_default_size_if_needed(self):
+        """Set default size and position if no saved data was applied"""
+        try:
+            # Check if window has a reasonable size (indicating saved data was applied)
+            current_width = self.winfo_width()
+            current_height = self.winfo_height()
+            
+            # If window is very small (default tkinter size), set our defaults
+            if current_width <= 200 and current_height <= 200:
+                self.geometry("400x300+100+100")
+        except Exception as e:
+            # If there's any error, set default size anyway
+            try:
+                self.geometry("400x300+100+100")
+            except:
+                pass
 
     def _setup_click_outside_close(self):
         """Set up click outside to close functionality"""
@@ -384,6 +412,69 @@ class SimpleWindow(tk.Toplevel):
         except:
             # If there's any error, don't close
             pass
+    
+    def _setup_toggle_close(self):
+        """Set up toggle functionality - this will be called when toggle controls are registered"""
+        pass  # Implementation happens in register_toggle_control
+    
+    def register_toggle_control(self, control):
+        """
+        Register a control (button, label, etc.) that can toggle this window open/closed
+        
+        Args:
+            control: The tkinter widget that should toggle this window
+        """
+        if control not in self._toggle_controls:
+            self._toggle_controls.append(control)
+            
+            # Store the original command if it exists
+            if hasattr(control, 'cget') and control.cget('command'):
+                self._original_commands[control] = control.cget('command')
+            
+            # Set up the toggle command
+            if hasattr(control, 'configure'):
+                control.configure(command=self._toggle_window)
+            elif hasattr(control, 'bind'):
+                # For labels or other widgets without command, use click binding
+                control.bind("<Button-1>", lambda e: self._toggle_window())
+    
+    def _toggle_window(self):
+        """Toggle the window open/closed"""
+        try:
+            if self.winfo_exists() and self.winfo_viewable():
+                # Window is visible, close it
+                self.close_window()
+            else:
+                # Window is not visible, show it
+                self.lift()
+                self.focus_force()
+        except:
+            # If there's an error checking state, try to show the window
+            try:
+                self.lift()
+                self.focus_force()
+            except:
+                pass
+    
+    def unregister_toggle_control(self, control):
+        """
+        Remove a control from toggle functionality and restore its original command
+        
+        Args:
+            control: The tkinter widget to remove from toggle functionality
+        """
+        if control in self._toggle_controls:
+            self._toggle_controls.remove(control)
+            
+            # Restore original command if it existed
+            if control in self._original_commands:
+                if hasattr(control, 'configure'):
+                    control.configure(command=self._original_commands[control])
+                del self._original_commands[control]
+            else:
+                # No original command, set to None
+                if hasattr(control, 'configure'):
+                    control.configure(command=None)
 
 class InventoryViewWindow(SimpleWindow):
     """
@@ -872,7 +963,7 @@ def create_window(parent, title="Window", resize_handles=None, movable=True, loc
         resize_handles: List of ["left", "right", "top", "bottom"] or None
         movable: Whether the window can be moved by dragging (default: True)
         location_persistence: Position persistence mode - "none", "session", or "permanent" (default: "none")
-        close_on: List of close methods - ["x_button", "click_outside"] (default: ["x_button"])
+        close_on: List of close methods - ["x_button", "click_outside", "toggle"] (default: ["x_button"])
         
     Returns:
         SimpleWindow instance

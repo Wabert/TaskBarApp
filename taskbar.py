@@ -61,20 +61,9 @@ class SuiteViewTaskbar:
         # Apply Windows API modifications
         self.setup_windows_integration()
         
-        # Create a test window
-        self.test_window = SimpleWindow(self.root,  resize_handles=["top"], movable=True, location_persistence="none", close_on=["click_outside","x_button"])
-        
-        # Make the test window visible by setting size and position
-        self.test_window.geometry("400x300+600+600")  # width x height + x_offset + y_offset
-        self.test_window.attributes('-topmost', True)  # Keep it on top initially
-        
-        # Add some content to the test window so it's not empty
-        test_label = tk.Label(self.test_window.get_content_frame(), 
-                             text="This is a test window\nYou can resize it from the left, right, and bottom edges\nYou can also drag it around",
-                             bg=self.test_window.content_bg, fg=Colors.DARK_GREEN,
-                             font=("Arial", 10), justify=tk.CENTER)
-        test_label.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
-
+        # Initialize test window as None (will be created when Test button is clicked)
+        self.test_window = None
+               
         
     def setup_window(self):
         """Configure the main window properties"""
@@ -143,11 +132,6 @@ class SuiteViewTaskbar:
         separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
         
-        # Add Inventory feature
-        #inventory_btn = add_folder_inventory_to_taskbar(self)
-        #inventory_btn.pack(side=tk.LEFT, padx=5)
-        #inventory_btn.bind("<Button-3>", self.show_links_menu)
-        
         # Add separator before Snip feature
         separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
@@ -164,13 +148,26 @@ class SuiteViewTaskbar:
         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
 
-        # Add Snip feature
+        # Snip button
         self.snipping_manager = add_snip_feature_to_taskbar(self)
-        
+
+        # Add separator 
+        separator4 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+        separator4.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+
+        #Test window button
+        self.test_window_btn = tk.Button(self.main_frame, text="Test", 
+                                bg=Colors.DARK_GREEN, fg=Colors.WHITE,
+                                relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
+                                cursor='hand2', activebackground=Colors.HOVER_GREEN, 
+                                bd=0, padx=15, command=self.show_test_window)
+        self.test_window_btn.pack(side=tk.LEFT, padx=5)  
+
         # Add separator before pinned windows section
         separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
         separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
         
+
         # Create and store pinned windows section
         print(f"Creating pinned section...")
         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
@@ -206,7 +203,6 @@ class SuiteViewTaskbar:
                         cursor='hand2', activebackground=Colors.HOVER_GREEN, 
                         bd=0, padx=15, command=self.show_email_options_menu)
         self.emails_btn.pack(side=tk.LEFT, padx=5)
-
 
     def bind_events(self):
         """Bind event handlers"""
@@ -521,6 +517,38 @@ class SuiteViewTaskbar:
             except:
                 pass
 
+    def show_test_window(self):
+        """Show the test window - create it if it doesn't exist, or toggle it if it does"""
+        # Check if window exists and is valid
+        if self.test_window is None or not self.test_window.winfo_exists():
+            # Create a new test window with session persistence and toggle functionality
+            self.test_window = SimpleWindow(
+                self.root,
+                title="Test Window", 
+                resize_handles=["left", "right", "bottom", "top"], 
+                movable=True, 
+                location_persistence="session",
+                close_on=["x_button", "toggle"]
+            )
+            
+            # Register the Test button as a toggle control
+            self.test_window.register_toggle_control(self.test_window_btn)
+            
+            # Add some content to the test window so it's not empty
+            test_label = tk.Label(
+                self.test_window.get_content_frame(), 
+                text="This is a test window\nYou can resize it from any edge\nYou can also drag it around\n\nWindow position and size will be remembered\nwhen you close and reopen it\n\nClick the Test button again to close this window",
+                bg=Colors.DARK_GREEN, 
+                fg=Colors.WHITE,
+                font=("Arial", 10), 
+                justify=tk.CENTER
+            )
+            test_label.pack(expand=True, padx=20, pady=20)
+        
+        # Show and focus the window (this will be handled by toggle functionality)
+        self.test_window.lift()
+        self.test_window.focus_force()
+    
     
     def show_inventory_dialog(self):
         """Show the folder inventory dialog"""

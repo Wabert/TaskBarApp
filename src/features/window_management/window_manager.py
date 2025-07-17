@@ -11,12 +11,14 @@ import win32con
 import win32process
 import psutil
 import re
-from config import AppColors
+from ...core.config import AppColors
+from ...core.logger import get_logger
 
 class ManagedWindow:
     """Represents a managed window with its state and color coding"""
     
     def __init__(self, hwnd: int, title: str, process_name: str):
+        self.logger = get_logger(__name__)
         self.hwnd = hwnd
         self.title = title
         self.process_name = process_name
@@ -27,7 +29,7 @@ class ManagedWindow:
         self.original_ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
         
         # Add color support
-        from config import AppColors
+        from ...core.config import AppColors
         self.colors = self._get_window_colors()
     
     def _extract_app_name(self) -> str:
@@ -104,7 +106,7 @@ class ManagedWindow:
     
     def _get_window_colors(self):
         """Get appropriate colors for this window"""
-        from config import AppColors
+        from ...core.config import AppColors
         
         # First check if it's a file type that should override the app colors
         file_colors = AppColors.get_colors_for_file_type(self.title)
@@ -135,7 +137,7 @@ class ManagedWindow:
             self.is_hidden = True
             return True
         except Exception as e:
-            print(f"Error hiding window {self.display_name}: {e}")
+            self.logger.error(f"Error hiding window {self.display_name}: {e}")
             return False
     
     def show(self) -> bool:
@@ -150,7 +152,7 @@ class ManagedWindow:
             self.is_hidden = False
             return True
         except Exception as e:
-            print(f"Error showing window {self.display_name}: {e}")
+            self.logger.error(f"Error showing window {self.display_name}: {e}")
             return False
     
     def bring_to_front(self) -> bool:
@@ -161,7 +163,7 @@ class ManagedWindow:
             
             # Check if window is minimized (iconic)
             if win32gui.IsIconic(self.hwnd):
-                print(f"Window {self.display_name} is minimized, restoring...")
+                self.logger.debug(f"Window {self.display_name} is minimized, restoring...")
                 # Restore the window from minimized state
                 win32gui.ShowWindow(self.hwnd, win32con.SW_RESTORE)
             elif not win32gui.IsWindowVisible(self.hwnd):
@@ -183,7 +185,7 @@ class ManagedWindow:
             
             return True
         except Exception as e:
-            print(f"Error bringing window to front {self.display_name}: {e}")
+            self.logger.error(f"Error bringing window to front {self.display_name}: {e}")
             return False
     
     def is_valid(self) -> bool:
@@ -194,7 +196,9 @@ class WindowManager:
     """Manages window detection, filtering, and state"""
     
     def __init__(self):
+        self.logger = get_logger(__name__)
         self.managed_windows: dict[int, ManagedWindow] = {}
+        self.logger.debug("WindowManager initialized")
         self.excluded_processes = {
             'searchui.exe', 'shellexperiencehost.exe',
             'applicationframehost.exe', 'systemsettings.exe', 'textinputhost.exe',
@@ -230,7 +234,7 @@ class WindowManager:
                         
                         windows.append(window)
                 except Exception as e:
-                    print(f"Error processing window {hwnd}: {e}")
+                    self.logger.error(f"Error processing window {hwnd}: {e}")
             return True
         
         win32gui.EnumWindows(enum_callback, None)

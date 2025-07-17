@@ -5,8 +5,8 @@ Updated to use SimpleWindow from simple_window_factory
 """
 
 import tkinter as tk
-from simple_window_factory import SimpleWindow
-from config import Colors, Fonts
+from ...ui.window_base import SimpleWindow
+from ...core.config import Colors, Fonts
 from email_menu import EmailAttachmentsMenu
 
 class EmailOptionsMenu(SimpleWindow):

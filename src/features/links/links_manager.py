@@ -7,8 +7,8 @@ Handles loading, saving, and CRUD operations for links
 import json
 import os
 from pathlib import Path
-from config import Paths, DEFAULT_CATEGORIES
-from utils import FileUtils  # Import FileUtils for path normalization
+from ...core.config import Paths, DEFAULT_CATEGORIES
+from ...utils.utils import FileUtils  # Import FileUtils for path normalization
 
 class LinksManager:
     """Manages saved links with categories"""

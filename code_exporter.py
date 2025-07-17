@@ -96,7 +96,7 @@ Project Structure:
     • Main Application Files: main.py, taskbar.py
     • UI Components: ui_components.py, quick_links.py
     • Data Management: links_manager.py, config.py
-    • Utilities: utils.py, browse_choice_dialog.py, restore_deskop.py
+    • Utilities: utils.py, browse_choice_dialog.py
     • Configuration: requirements.txt, README.md
 
 {'='*80}
@@ -161,7 +161,6 @@ ERROR: Could not read file - {str(e)}
             'config.py': 'Application configuration and constants',
             'utils.py': 'Utility functions and helper classes',
             'browse_choice_dialog.py': 'File/folder selection dialog',
-            'restore_deskop.py': 'Desktop restoration utilities',
             'window_manager.py': 'Window management and visibility controls',
                         'windows_menu.py': 'Windows menu UI and interaction handling',
             'inventory_view_examples.py': 'Example implementations for inventory views',

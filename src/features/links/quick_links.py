@@ -6,9 +6,9 @@ Contains the links menu, dialogs, and management interface
 
 import tkinter as tk
 from tkinter import ttk, filedialog
-from config import Colors, Fonts, Dimensions
-from utils import UIUtils, FileUtils
-from ui_components import CustomDialog, ConfirmationDialog, FormField, CategoryHeader, WarningDialog, ErrorDialog
+from ...core.config import Colors, Fonts, Dimensions
+from ...utils.utils import UIUtils, FileUtils
+from ...ui.ui_components import CustomDialog, ConfirmationDialog, FormField, CategoryHeader, WarningDialog, ErrorDialog
 from links_manager import LinksManager
 
 class QuickLinksMenu(tk.Toplevel):

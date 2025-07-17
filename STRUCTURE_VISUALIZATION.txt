@@ -1,0 +1,98 @@
+TaskbarApp - New Organized Structure
+=====================================
+
+TaskbarApp/
+│
+├── main.py                    # Entry point
+├── requirements.txt           # Dependencies
+├── README.md                 # Documentation
+├── code_exporter.py          # Utility script
+│
+├── logs/                     # Log files
+│   └── taskbar_*.log
+│
+├── docs/                     # Documentation files
+│   ├── Fix windows feature prompt.txt
+│   ├── Form examples.xlsx
+│   ├── SuiteView_Complete_Source_Code 20250704.txt
+│   ├── Window Types.txt
+│   └── Windows feature prompt.txt
+│
+├── src/                      # All source code
+│   ├── __init__.py
+│   │
+│   ├── core/                 # Core application modules
+│   │   ├── __init__.py
+│   │   ├── taskbar.py        # Main taskbar window class
+│   │   ├── config.py         # Configuration, colors, constants
+│   │   └── logger.py         # Logging configuration
+│   │
+│   ├── ui/                   # UI components
+│   │   ├── __init__.py
+│   │   ├── dialogs.py        # DialogBase, ConfirmationDialog, etc.
+│   │   ├── widgets.py        # ButtonFactory, FormField, ToolTip, etc.
+│   │   ├── filter_view.py    # FilterView component
+│   │   ├── ui_components.py  # Compatibility layer
+│   │   └── window_base.py    # Base window classes (SimpleWindow, etc.)
+│   │
+│   ├── features/             # Feature modules
+│   │   ├── __init__.py
+│   │   │
+│   │   ├── window_management/
+│   │   │   ├── __init__.py
+│   │   │   ├── window_manager.py    # Window detection and management
+│   │   │   ├── windows_menu.py      # Windows menu UI
+│   │   │   └── pinned_windows.py    # Pinned windows section
+│   │   │
+│   │   ├── links/
+│   │   │   ├── __init__.py
+│   │   │   ├── links_manager.py     # Links data management
+│   │   │   └── quick_links.py       # Quick links menu
+│   │   │
+│   │   ├── email/
+│   │   │   ├── __init__.py
+│   │   │   ├── email_manager.py     # Email functionality
+│   │   │   ├── email_menu.py        # Email menu UI
+│   │   │   └── email_options_menu.py # Email options
+│   │   │
+│   │   ├── inventory/
+│   │   │   ├── __init__.py
+│   │   │   └── folder_inventory.py  # Folder inventory feature
+│   │   │
+│   │   └── snip/
+│   │       ├── __init__.py
+│   │       └── snip_feature.py      # Screenshot/snipping feature
+│   │
+│   └── utils/                # Utility modules
+│       ├── __init__.py
+│       ├── utils.py          # General utilities (Windows, UI, Path, Screen)
+│       ├── explorer_utils.py # File explorer utilities
+│       └── browse_choice_dialog.py  # File/folder selection dialog
+│
+├── tests/                    # Unit tests (to be added)
+│   └── __init__.py
+│
+└── venv/                     # Virtual environment
+
+Benefits of this structure:
+===========================
+1. **Clear Organization**: Code is organized by functionality
+2. **Easy Navigation**: Related files are grouped together
+3. **Import Clarity**: Imports clearly show dependencies
+4. **Scalability**: Easy to add new features or modules
+5. **Testing**: Dedicated test directory mirrors src structure
+6. **Maintainability**: Each module has a clear purpose
+
+Import Examples:
+===============
+# From main.py:
+from src.core import SuiteViewTaskbar, setup_logging
+
+# Within src/core/taskbar.py:
+from .config import Colors, Fonts
+from ..ui import ButtonFactory
+from ..features.window_management import WindowManager
+
+# Within src/features/window_management/window_manager.py:
+from ...core.config import AppColors
+from ...core.logger import get_logger

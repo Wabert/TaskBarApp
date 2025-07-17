@@ -6,8 +6,8 @@ Replaces messagebox with properly styled, topmost dialog
 
 import tkinter as tk
 from tkinter import filedialog
-from config import Colors, Fonts, Dimensions
-from ui_components import CustomDialog
+from ..core.config import Colors, Fonts, Dimensions
+from ..ui.ui_components import CustomDialog
 
 class BrowseChoiceDialog(CustomDialog):
     """Custom dialog for choosing between File or Folder browsing"""

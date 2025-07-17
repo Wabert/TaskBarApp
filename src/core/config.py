@@ -184,3 +184,17 @@ class AppColors:
             return cls.APP_COLORS['msaccess']
         
         return None
+
+
+class LoggingConfig:
+    """Logging configuration settings"""
+    # Log levels
+    DEFAULT_CONSOLE_LEVEL = 'INFO'  # What shows in console
+    DEFAULT_FILE_LEVEL = 'DEBUG'    # What saves to file
+    
+    # Log retention
+    LOG_FILE_RETENTION_DAYS = 7     # Keep logs for 7 days
+    
+    # Log format options
+    SHOW_THREAD_INFO = False        # Include thread info in logs
+    SHOW_PROCESS_INFO = False       # Include process info in logs

@@ -6,9 +6,9 @@ Modified to blend seamlessly with taskbar
 """
 
 import tkinter as tk
-from config import Colors, Fonts, Settings
+from ...core.config import Colors, Fonts, Settings
 from window_manager import ManagedWindow, WindowManager
-from ui_components import ConfirmationDialog
+from ...ui.ui_components import ConfirmationDialog
 import win32gui
 import win32con
 

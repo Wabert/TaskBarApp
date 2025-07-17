@@ -4,10 +4,10 @@ Updated email attachments menu with support for both received and sent emails
 """
 
 import tkinter as tk
-from simple_window_factory import InventoryViewWindow
+from ...ui.window_base import InventoryViewWindow
 from email_manager import EmailManager
-from ui_components import CustomDialog, WarningDialog
-from config import Colors, Fonts, Dimensions
+from ...ui.ui_components import CustomDialog, WarningDialog
+from ...core.config import Colors, Fonts, Dimensions
 import threading
 
 class EmailAttachmentsMenu:

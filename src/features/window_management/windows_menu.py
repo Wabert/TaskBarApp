@@ -6,9 +6,9 @@ Now excludes pinned windows from the list
 """
 
 import tkinter as tk
-from config import Colors, Fonts, Dimensions
+from ...core.config import Colors, Fonts, Dimensions
 from window_manager import WindowManager, ManagedWindow
-from utils import WindowsUtils
+from ...utils.utils import WindowsUtils
 from typing import Callable, Optional
 
 class WindowsMenu(tk.Toplevel):

@@ -8,25 +8,26 @@ from tkinter import ttk
 import sys
 from ctypes import wintypes
 
-from config import Colors, Fonts, Dimensions, Settings
-from utils import WindowsUtils, UIUtils
-from links_manager import LinksManager
-from quick_links import QuickLinksMenu
-from snip_feature import add_snip_feature_to_taskbar
-from folder_inventory import FolderInventoryDialog, FolderInventoryWindow
-
-from window_manager import WindowManager
-from windows_menu import WindowsMenu
-from pinned_windows import PinnedWindowsSection
-from simple_window_factory import SimpleWindow
+from .config import Colors, Fonts, Dimensions, Settings
+from .logger import get_logger
+from ..utils import WindowsUtils, UIUtils
+from ..ui import ButtonFactory, SimpleWindow
+from ..features.links import LinksManager, QuickLinksMenu
+from ..features.snip import add_snip_feature_to_taskbar
+from ..features.inventory import FolderInventoryDialog, FolderInventoryWindow
+from ..features.window_management import WindowManager, WindowsMenu, PinnedWindowsSection
 
 class SuiteViewTaskbar:
     """Main taskbar application window"""
     
     def __init__(self):
+        self.logger = get_logger(__name__)
+        self.logger.info("Initializing SuiteViewTaskbar")
+        
         self.root = tk.Tk()
         self.links_manager = LinksManager()
         self.window_manager = WindowManager()
+        self.logger.debug("Core components initialized")
 
         # Initialize these BEFORE creating UI
         self.links_menu = None
@@ -90,8 +91,7 @@ class SuiteViewTaskbar:
         self.create_logo_section()
         
         # Separator
-        separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
         
         # Main buttons
         self.create_main_buttons()
@@ -110,6 +110,12 @@ class SuiteViewTaskbar:
         logo_label.pack()
         logo_label.bind("<Button-3>", self.show_links_menu)
     
+    def add_separator(self):
+        """Add a separator to the main frame"""
+        separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
+        separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        return separator
+    
     def create_main_buttons(self):
         """Create the main taskbar buttons"""
         # Existing buttons
@@ -120,62 +126,44 @@ class SuiteViewTaskbar:
         ]
         
         for text, command in buttons_data:
-            btn = tk.Button(self.main_frame, text=text, bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                        relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, cursor='hand2',
-                        activebackground=Colors.HOVER_GREEN, bd=0, padx=15)
+            btn = ButtonFactory.create_taskbar_button(self.main_frame, text, command)
             btn.pack(side=tk.LEFT, padx=5)
             btn.bind("<Button-3>", self.show_links_menu)
-            if command:
-                btn.configure(command=command)
         
         # Add separator before new features
-        separator = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
         
         # Add separator before Snip feature
-        separator2 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator2.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
 
         # Inventory button
-        inventory_btn = tk.Button(self.main_frame, text="Inventory", 
-                                bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                                relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
-                                cursor='hand2', activebackground=Colors.HOVER_GREEN, 
-                                bd=0, padx=15, command=self.show_inventory_dialog)
+        inventory_btn = ButtonFactory.create_taskbar_button(self.main_frame, "Inventory", self.show_inventory_dialog)
         inventory_btn.pack(side=tk.LEFT, padx=5)
 
         # Add separator before Snip feature
-        separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
 
         # Snip button
         self.snipping_manager = add_snip_feature_to_taskbar(self)
 
         # Add separator 
-        separator4 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator4.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
 
         #Test window button
-        self.test_window_btn = tk.Button(self.main_frame, text="Test", 
-                                bg=Colors.DARK_GREEN, fg=Colors.WHITE,
-                                relief=tk.FLAT, font=Fonts.TASKBAR_BUTTON, 
-                                cursor='hand2', activebackground=Colors.HOVER_GREEN, 
-                                bd=0, padx=15, command=self.show_test_window)
+        self.test_window_btn = ButtonFactory.create_taskbar_button(self.main_frame, "Test", self.show_test_window)
         self.test_window_btn.pack(side=tk.LEFT, padx=5)  
 
         # Add separator before pinned windows section
-        separator3 = UIUtils.create_separator(self.main_frame, Colors.DARK_GREEN, width=2)
-        separator3.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self.add_separator()
         
 
         # Create and store pinned windows section
-        print(f"Creating pinned section...")
+        self.logger.debug("Creating pinned section...")
         self.pinned_section = PinnedWindowsSection(self.main_frame, self.window_manager, self.on_windows_pinned)
         self.pinned_section.pack(side=tk.LEFT, fill=tk.Y)  # Remove padx, let it grow as needed
         
         # Debug to confirm it's created and assigned
-        #print(f"Pinned section created and assigned: {self.pinned_section}")
-        #print(f"self.pinned_section is not None: {self.pinned_section is not None}")
+        self.logger.debug(f"Pinned section created: {self.pinned_section}")
     
     def create_right_side_elements(self):
         """Create the right side elements of the taskbar"""
@@ -247,9 +235,7 @@ class SuiteViewTaskbar:
         self.links_menu.geometry(f"+{final_x}+{final_y}")
         
         # Debug output
-        print(f"Estimated height: {self.links_menu.menu_height}")
-        print(f"Positioned menu at: {final_x}, {final_y}")
-        print(f"Menu bottom should be at: {final_y + self.links_menu.menu_height}")
+        self.logger.debug(f"Links menu positioning - Height: {self.links_menu.menu_height}, Position: ({final_x}, {final_y})")
        
     def show_windows_menu(self, event=None):
         """Show the windows management menu - toggle if already open"""
@@ -281,7 +267,7 @@ class SuiteViewTaskbar:
             
             success = WindowsUtils.set_work_area(work_area)
             if not success:
-                print("Could not adjust work area. May require admin privileges.")
+                self.logger.warning("Could not adjust work area. May require admin privileges.")
     
     def close_app(self, event=None):
         """Close the application"""
@@ -342,7 +328,7 @@ class SuiteViewTaskbar:
                 if self.windows_menu.winfo_exists():
                     # Store current geometry BEFORE closing
                     self.windows_menu_geometry = self.windows_menu.get_current_geometry()
-                    print(f"Storing geometry: {self.windows_menu_geometry}")  # Debug
+                    self.logger.debug(f"Storing windows menu geometry: {self.windows_menu_geometry}")
                     self.windows_menu.close_window()
                     self.windows_menu = None
                     return
@@ -350,89 +336,49 @@ class SuiteViewTaskbar:
                 self.windows_menu = None
         
         # Create new windows menu
-        print(f"Class: {type(self).__name__}")  # Debug
+        self.logger.debug(f"Creating window menu, class: {type(self).__name__}")
         self.windows_menu = WindowsMenu(self, self.window_manager, 
                                     self.on_windows_pinned,
                                     self.windows_menu_geometry)
     
     def on_windows_pinned(self):
         """Callback when windows are pinned/unpinned"""
-        #print(f"\n=== ON_WINDOWS_PINNED CALLED ===")
-        #print(f"Pinned section: {self.pinned_section}")
+        self.logger.debug("on_windows_pinned callback triggered")
         
         if self.pinned_section:
-            print(f"Refreshing pinned section...")
+            self.logger.debug("Refreshing pinned section...")
             self.pinned_section.refresh()
         else:
-            print(f"ERROR: pinned_section is None!")
+            self.logger.error("pinned_section is None!")
         
         # Always refresh the Windows Manager if it's open to update the list
         if self.windows_menu and hasattr(self.windows_menu, 'winfo_exists'):
             try:
                 if self.windows_menu.winfo_exists():
-                    print(f"Refreshing Windows Manager...")
+                    self.logger.debug("Refreshing Windows Manager...")
                     self.windows_menu.refresh_window_list()
                 else:
-                    print(f"Windows Manager exists but window is destroyed")
+                    self.logger.warning("Windows Manager exists but window is destroyed")
             except Exception as e:
-                print(f"Error refreshing Windows Manager: {e}")
+                self.logger.error(f"Error refreshing Windows Manager: {e}")
                 self.windows_menu = None
         else:
-            print(f"Windows Manager is not open")
+            self.logger.debug("Windows Manager is not open")
             
-        #print(f"=== END ON_WINDOWS_PINNED ===\n")
 
 
     def start_window_monitoring(self):
         """Start monitoring for closed windows"""
         self.check_window_states()
-        
-    def check_window_states(self):
-        """Periodically check if pinned windows still exist"""
-        try:
-            if hasattr(self, 'pinned_section') and self.pinned_section:
-                # Get current pinned windows
-                pinned_windows = self.window_manager.get_pinned_windows()
-                windows_to_unpin = []
-                
-                for window in pinned_windows:
-                    # Check if window still exists
-                    if not window.is_valid():
-                        print(f"Window {window.display_name} no longer exists, unpinning...")
-                        windows_to_unpin.append(window)
-                
-                # Unpin any closed windows
-                if windows_to_unpin:
-                    for window in windows_to_unpin:
-                        self.window_manager.unpin_window(window)
-                    
-                    # Refresh the pinned section
-                    self.pinned_section.refresh()
-                    
-                    # Also refresh Windows Manager if it's open
-                    if hasattr(self, 'windows_menu') and self.windows_menu:
-                        try:
-                            if self.windows_menu.winfo_exists():
-                                self.windows_menu.refresh_window_list()
-                        except:
-                            pass
-        
-        except Exception as e:
-            print(f"Error checking window states: {e}")
-        
-        # Schedule next check (every 2 seconds)
-        self.root.after(2000, self.check_window_states)
 
     def verify_setup(self):
         """Verify all components are properly initialized"""
-        print(f"\n=== VERIFYING TASKBAR SETUP ===")
-        print(f"Window manager: {self.window_manager}")
-        print(f"Pinned section: {self.pinned_section}")
-        print(f"Pinned section type: {type(self.pinned_section)}")
+        self.logger.debug("Verifying taskbar setup")
+        self.logger.debug(f"Window manager: {self.window_manager}")
+        self.logger.debug(f"Pinned section: {self.pinned_section}")
         if self.pinned_section:
-            print(f"Pinned section parent: {self.pinned_section.master}")
-            print(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
-        print(f"=== END VERIFICATION ===\n")
+            self.logger.debug(f"Pinned section parent: {self.pinned_section.master}")
+            self.logger.debug(f"Pinned section visible: {self.pinned_section.winfo_exists()}")
     
     def check_window_states(self):
         """Periodically check for closed windows, new windows, and title changes"""
@@ -448,7 +394,7 @@ class SuiteViewTaskbar:
                 
                 for window in pinned_windows:
                     if not window.is_valid():
-                        print(f"Window {window.display_name} no longer exists, unpinning...")
+                        self.logger.info(f"Window {window.display_name} no longer exists, unpinning...")
                         windows_to_unpin.append(window)
                 
                 if windows_to_unpin:
@@ -464,7 +410,7 @@ class SuiteViewTaskbar:
             # Check for new windows
             new_hwnds = current_hwnds - self._previous_hwnds
             if new_hwnds:
-                print(f"Detected {len(new_hwnds)} new window(s)")
+                self.logger.info(f"Detected {len(new_hwnds)} new window(s)")
                 self._refresh_windows_menu()
             
             # Check for title changes in existing windows
@@ -476,7 +422,7 @@ class SuiteViewTaskbar:
                 # Store or compare title
                 if hwnd in self._window_titles:
                     if self._window_titles[hwnd] != current_title:
-                        #print(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
+                        self.logger.debug(f"Title changed for {window.app_name}: '{self._window_titles[hwnd]}' -> '{current_title}'")
                         title_changed = True
                         self._window_titles[hwnd] = current_title
                         
@@ -502,7 +448,7 @@ class SuiteViewTaskbar:
             self._previous_hwnds = current_hwnds
         
         except Exception as e:
-            print(f"Error checking window states: {e}")
+            self.logger.error(f"Error checking window states: {e}")
         
         # Schedule next check (every 1 second for responsive updates)
         self.root.after(1000, self.check_window_states)
@@ -512,7 +458,7 @@ class SuiteViewTaskbar:
         if hasattr(self, 'windows_menu') and self.windows_menu:
             try:
                 if self.windows_menu.winfo_exists():
-                    print("Refreshing Windows Manager...")
+                    self.logger.debug("Refreshing Windows Manager...")
                     self.windows_menu.refresh_window_list()
             except:
                 pass

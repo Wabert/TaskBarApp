@@ -1,8 +1,8 @@
-# simple_window_factory.py
+# window_base.py
 """
-Window Factory - Creates custom windows with green styling and advanced functionality
-Includes simple windows, inventory view windows, and dialog components
-Using inheritance approach for cleaner API
+Base window classes for SuiteView Taskbar Application
+Provides custom window implementations with consistent styling and behavior
+Includes SimpleWindow base class and specialized windows like InventoryViewWindow
 """
 
 import tkinter as tk
@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 import json
 import os
-from config import Colors, Fonts, Dimensions
+from ..core.config import Colors, Fonts, Dimensions
 
 # Session storage for window positions
 _session_window_positions = {}

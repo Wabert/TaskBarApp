@@ -11,8 +11,8 @@ from datetime import datetime
 from PIL import ImageGrab
 import win32com.client
 import pythoncom
-from config import Colors, Fonts
-from ui_components import ErrorDialog, WarningDialog
+from ...core.config import Colors, Fonts
+from ...ui.ui_components import ErrorDialog, WarningDialog
 import tkinter as tk
 
 class SnippingManager:

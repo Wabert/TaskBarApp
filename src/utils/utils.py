@@ -9,7 +9,7 @@ from ctypes import wintypes
 import os
 import webbrowser
 from pathlib import Path
-from config import WindowsAPI
+from ..core.config import WindowsAPI
 
 class WindowsUtils:
     """Windows-specific utility functions"""
@@ -140,7 +140,7 @@ class FileUtils:
         if parent:
             try:
                 # Import here to avoid circular imports
-                from ui_components import ErrorDialog
+                from ..ui.ui_components import ErrorDialog
                 ErrorDialog.show(parent, title, message)
             except ImportError:
                 # Fallback to standard messagebox if ui_components not available

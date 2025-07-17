@@ -12,9 +12,9 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import threading
-from simple_window_factory import SimpleWindow, InventoryViewWindow
-from config import Colors, Fonts
-from explorer_utils import ExplorerDetector
+from ...ui.window_base import SimpleWindow, InventoryViewWindow
+from ...core.config import Colors, Fonts
+from ...utils.explorer_utils import ExplorerDetector
 
 class FolderInventoryDialog(SimpleWindow):
     """Dialog for configuring folder inventory scan using SimpleWindow"""
@@ -637,7 +637,7 @@ class FolderInventoryWindow(SimpleWindow):
         current_selection = self.active_filters.get(column_key, set())
         
         # Show filter dialog
-        from simple_window_factory import FilterMenuDialog
+        from ...ui.window_base import FilterMenuDialog
         
         column_headers = {
             'name': 'Name',
